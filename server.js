@@ -338,7 +338,7 @@ app.get('/api/auth/phone/config', (req, res) => {
 });
 
 // Send Verification Code (Numeric 6-digit OTP)
-app.post('/api/auth/phone/send-code', (req, res) => {
+app.post('/api/auth/phone/send-code', async (req, res) => {
   try {
     const { phone, country_code } = req.body || {};
     if (!phone) {
@@ -377,7 +377,7 @@ app.post('/api/auth/phone/send-code', (req, res) => {
     `).run(id, cleanPhone, code, expiresAt);
 
     const isWhatsApp = process.env.AUTH_WHATSAPP_ENABLED === 'true';
-    const provider = isWhatsApp ? 'whatsapp' : (process.env.SMS_PROVIDER || 'sms');
+    const provider = isWhatsApp ? 'whatsapp' : (process.env.TWILIO_ACCOUNT_SID ? 'twilio_sms' : (process.env.SMS_PROVIDER || 'sms'));
 
     console.log(`\n======================================================`);
     console.log(`[PHONE AUTH CODE DISPATCH]`);
@@ -386,6 +386,37 @@ app.post('/api/auth/phone/send-code', (req, res) => {
     console.log(`Expires: ${expiresAt} (10 minutes)`);
     console.log(`Provider: ${provider}`);
     console.log(`======================================================\n`);
+
+    // Real SMS dispatch if Twilio credentials are configured in .env
+    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
+      try {
+        const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`;
+        const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
+        const twilioParams = new URLSearchParams({
+          To: cleanPhone,
+          From: process.env.TWILIO_PHONE_NUMBER,
+          Body: `Your ÖZARA verification code is: ${code}`
+        });
+
+        const twilioResp = await fetch(twilioUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: twilioParams.toString()
+        });
+
+        const twilioData = await twilioResp.json();
+        if (!twilioResp.ok) {
+          console.warn('[TWILIO SMS WARNING]', twilioData);
+        } else {
+          console.log('[TWILIO SMS DISPATCH SUCCESS]', twilioData.sid);
+        }
+      } catch (smsErr) {
+        console.error('[TWILIO SMS DISPATCH ERROR]', smsErr);
+      }
+    }
 
     return res.json({
       success: true,
