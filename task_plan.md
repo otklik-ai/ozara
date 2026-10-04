@@ -1,0 +1,233 @@
+# Task Plan: ÖZARA Implementation Plan
+
+## Phase 1: B - Blueprint (Vision & Logic)
+- [x] 1.1 Discovery Questions answered by user
+  - [x] North Star: ÖZARA private invitation-only community platform for verified member matchmaking, events, and curated investments without founder bottlenecks.
+  - [x] Integrations: Modular architecture, auth & invite creation, DB, storage, in-app notifications, mockable transactional email.
+  - [x] Source of Truth: Application database with canonical taxonomies, answer states (`unanswered`, `answered`, `deliberately_skipped`), visibility controls, Q23 locked private, Q18 completion trigger.
+  - [x] Delivery Payload: Responsive web application (member interface + admin workspace) + source code + migrations + sample seed data.
+  - [x] Behavioral Rules: Privacy enforcement, Question 23 locked to Alexandra & Julia, 2-person export approval, explainable recommendations, content moderation guardrails, call scheduling with timezone awareness.
+- [x] 1.2 Data Schema defined in `gemini.md` & `claude.md`
+- [x] 1.3 Resource research recorded in `findings.md`
+- [x] 1.4 Blueprint approved by user
+
+---
+
+## Phase 2: L - Link (Connectivity)
+- [x] 2.1 Environment and runtime configuration (`.env`, Python 3.9, Node v26.7.0, SQLite 3.43)
+- [x] 2.2 Build deterministic handshake scripts in `tools/`
+  - [x] `tools/check_environment.py`: Verifies runtime dependencies, directories, and configuration.
+  - [x] `tools/test_database_connection.py`: Verifies database connectivity, WAL mode, and foreign keys.
+  - [x] `tools/test_email_handshake.py`: Verifies transactional notification stub / delivery engine.
+- [x] 2.3 Verify all connections return successful statuses before proceeding to Layer 1 SOPs.
+
+---
+
+## Phase 3: A - Architect (The 3-Layer Build)
+- [x] 3.1 Layer 1: Technical SOPs in `architecture/`
+  - [x] `architecture/01_privacy_and_security.md`: Q23 lockout, 2-person export protocol, audit logging SOP.
+  - [x] `architecture/02_questionnaire_and_profile.md`: State management (`answered`/`skipped`), Q18 completion rule, travel expiration.
+  - [x] `architecture/03_explainable_matching.md`: Multi-attribute matching algorithm and explanation generator.
+  - [x] `architecture/04_events_and_targeted_invites.md`: Filtering criteria, preview count, and deduplication logic.
+  - [x] `architecture/05_investments_and_guardrails.md`: Real estate listing workflows and prohibited financial advice boundaries.
+- [x] 3.2 Layer 2: API routes and deterministic business logic (`server.js`)
+- [x] 3.3 Layer 3: Atomic deterministic tools in `tools/`:
+  - [x] `tools/db_init_and_migrate.py`: Initializes SQLite schema, tables, and indices.
+  - [x] `tools/db_seed_data.py`: Seeds realistic community personas (Founders, Elena, Marcus, Tariq, Sophie, David), 30 questions, travel, listings, and events.
+  - [x] `tools/verify_privacy_and_security.py`: Verifies Q23 exclusion from member views, founder audit logging, and 2-person export rule.
+  - [x] `tools/verify_recommendations_and_travel.py`: Verifies explainable matching, travel expiration exclusion, and Q18 completion rule.
+  - [x] `tools/verify_content_guardrails.py`: Tests regex against prohibited fundraising terms and valuation claims.
+- [x] 3.4 Self-annealing: Analyzed and resolved Sophie Dubois profile completion discrepancy and Express 5 route wildcard compatibility.
+
+---
+
+## Phase 4: S - Stylize (Refinement & UI)
+- [x] 4.1 Visual Design System
+  - AXEVIL-inspired aesthetic: Pure deep black background (`#000000`), dark graphite card surfaces (`#0f1013`), crisp white Inter typography, white pill action buttons, metric stat cards, horizontal highlight ticker, and vector ÖZARA wordmark logo.
+- [x] 4.2 Core Screens & Interactions
+  - Responsive layout (Desktop + Mobile navigation)
+  - Navigation order: 1. Events (Landing page), 2. Networking, 3. Investments, 4. Admin Console
+  - Persona Switcher Bar (Alexandra [Founder], Julia [Founder], Elena [Member], Marcus [Member], Sophie [Incomplete Profile Member], David [Member])
+  - Clickable member names & user avatar pill to open slide-over Profile & 30-Question Questionnaire drawer
+  - Incomplete profile alert banner highlighting Question 18
+  - Networking directory with search, filter tabs, and "Why this match?" explainable recommendation cards
+  - Direct call scheduling modal with timezone selector and manual meeting link entry
+  - "Ask the team for an introduction" fallback flow
+  - Events calendar and targeted invitation manager with live recipient preview and deduplication
+  - Real estate investment showcase with "Request Information" and "Request Call" modals and regulatory disclaimers
+  - Slide-over intake & questionnaire drawer (Q1 to Q30) with inline visibility controls, autosave, Q18 mandatory badge, and Q23 golden permanent lock shield
+  - Admin workspace: Intro request queue, 2-person export authorization, invitation token issuer, and immutable audit log viewer
+- [x] 4.3 Content guardrail alerts (real-time feedback prohibiting valuations / guaranteed returns)
+
+---
+
+## Phase 5: T - Trigger (Deployment & Verification)
+- [x] 5.1 Cloud/Local launch readiness and end-to-end verification
+  - [x] Live HTTP server running on port 3000
+  - [x] `tools/test_full_platform_api.py` passed 100% across all 7 comprehensive test suites
+- [x] 5.2 Automated Trigger: `tools/cron_travel_and_pulse.py` for travel plan expiration and quarterly refresh pulses
+- [x] 5.3 Maintenance Log finalization in `gemini.md` and `claude.md`
+- [x] 5.4 Real Events Calendar 2026 / 2027 Integration:
+  - [x] Seeded all 8 poster destinations (Miami, Phuket, Silicon Valley, Georgia, Barcelona, Central Asia, NY+Boston, Europe Grand Tour)
+  - [x] Built poster-faithful UI in `public/app.js`, `public/index.html`, and `public/styles.css` with 2026/2027 grouping, callout boxes (Phuket New Year & route, Barcelona 7-Year Jubilee, NY+Boston 7 Universities), top/bottom photo strips, and confirmation footer
+  - [x] Verified full platform test suite passing 100%
+- [x] 5.5 Complete English Localization:
+  - [x] Translated 100% of UI and data content to English (Events, Ticker, Callouts, Headers, Buttons, Footers)
+  - [x] Verified 0 Cyrillic characters remain in codebase and re-seeded database
+- [x] 5.6 Gmail-Style Circular Profile Avatar Button:
+  - [x] Removed `My Profile & Q30` white pill button
+  - [x] Implemented circular account avatar with gradient cyan-to-violet ring, inner dark gap, and hover glow
+  - [x] Clicking avatar directly opens the slide-over profile drawer with autosave and 30 questions
+- [x] 5.7 Elena Ermolov Persona & Real Avatar:
+  - [x] Updated name to Elena Ermolov and integrated real picture (`/avatars/elena_ermolov.jpg`)
+  - [x] Updated database seed, test assertions, and verified 100% test pass
+- [x] 5.8 Admin & Founder Team Configuration:
+  - [x] Configured 3 administrators: Elena Ermolov (`ermolov.elena@gmail.com`), Alexandra Hill (`agniyahill@gmail.com`), Julia Shchukina (`iuliiashchukinainvest@gmail.com`)
+  - [x] Enabled full governance, Two-Person export rule, Question 23 review, and Founder Console for all 3 admins
+  - [x] Verified full test suite passes 100%
+- [x] 5.9 Julia Shchukina Real Avatar:
+  - [x] Saved picture to `public/avatars/julia_shchukina.jpg` and updated seed database
+  - [x] Verified avatar serving and 100% test suite pass
+- [x] 5.10 Alexandra Hill Real Avatar:
+  - [x] Saved picture to `public/avatars/alexandra_hill.jpg` and updated seed database
+  - [x] Verified avatar serving and 100% test suite pass
+- [x] 5.11 Team (Leadership) Page & Admin Console Removal:
+  - [x] Replaced 'Admin Console' in main navigation bar with 'Team' tab (`data-tab="team"`).
+  - [x] Created AXEVIL-style Leadership view with `1.0 Leadership` tag, `Industry leading experts, at your side` title, and subtitle.
+  - [x] Built 3-card leadership grid displaying Elena Ermolov, Alexandra Hill, and Julia Shchukina with real portraits, floating `• Co-founder & Managing Partner` pills, comprehensive LinkedIn background descriptions, domain tags, and interactive 'View Full Profile' buttons.
+  - [x] Preserved all backend `/api/admin/*` endpoints and verified full platform test suite passing 100%.
+
+---
+
+## Phase 6: M - Mobile (Dedicated React Native App)
+- [x] 6.1 Initialize React Native / Expo monorepo structure in `mobile/`:
+  - Configured TypeScript, Safe Area Context, vector icons, gesture handler, and navigation.
+  - Defined luxury dark design tokens in `src/constants/ozara-theme.ts` (pure black `#000000`, graphite `#0d0f12`, subtle borders, Inter font, pill badges).
+- [x] 6.2 Mobile API Service Layer:
+  - Connected to ÖZARA Express API (`http://localhost:3000` / local network IP).
+  - Provided typed API client in `src/services/api.ts` for personas, recommendations, profile/questionnaire autosave, events, listings, and calls.
+- [x] 6.3 Native Navigation & Header:
+  - Bottom Tab Navigator (`OzaraTabs.tsx`):
+    1. 🎟️ **Events**: 2026/2027 calendar feed with RSVP and destination posters.
+    2. 👥 **Networking**: Explainable member cards, search, and direct call scheduling.
+    3. 🏛️ **Investments**: Off-market property listings and inquiry forms.
+    4. 💎 **Team**: 3 AXEVIL-style leadership cards (Elena, Alexandra, Julia).
+  - Native Header (`OzaraHeader.tsx`) with circular Gmail-style account avatar pill with gradient ring and active persona switcher.
+- [x] 6.4 Core Screens Implementation:
+  - **EventsScreen**: Real 2026/2027 calendar feed, registration states, callouts.
+  - **NetworkingScreen**: AI match score cards, "Why this match?" explainability pills, search by industry/expertise, direct call booking modal.
+  - **InvestmentsScreen**: Luxury real estate listing cards, brochure download, inquiry modal with disclaimer.
+  - **TeamScreen**: AXEVIL 3-card leadership view with high-contrast portraits, role badges, and detailed bios.
+- [x] 6.5 Profile & 30-Question Questionnaire Screen / Modal:
+  - Question 18 mandatory completion badge.
+  - Question 23 permanent lock & confidentiality shield.
+  - Inline visibility toggles (Shared vs Private) and debounced autosave (`ProfileDrawerModal.tsx`).
+- [x] 6.6 Verification & Build:
+  - Full TypeScript typecheck verified clean (`npx tsc --noEmit`).
+  - Production Metro web export verified (`npx expo export --platform web`).
+  - Production iOS Hermes bytecode bundle verified (`npx expo export --platform ios`).
+  - 100% pass across all 7 backend API test suites.
+- [x] 6.7 Leadership Photo Framing & Co-Founder Refinement:
+  - Removed Elena Ermolov from the Team cards (keeping the two co-founders: Alexandra Hill and Julia Shchukina).
+  - Fixed portrait sizing across mobile and wide screens by replacing fixed height with proportional portrait aspect ratio (`aspectRatio: 0.88`, `maxHeight: 480`) and setting `objectPosition: 'center 15%'` so faces and eyes are framed and never cut off.
+  - Implemented responsive 2-column grid layout for wide screens and centered vertical cards for mobile.
+  - Synchronized both mobile app (`mobile/src/screens/TeamScreen.tsx`) and web client (`public/index.html`, `public/styles.css`).
+- [x] 6.8 Logo Umlaut Single-Set Fix & Julia Bio Cleanup:
+  - Removed redundant secondary floating dots row in mobile header logo (`OzaraHeader.tsx`), keeping only the natural character dots on `Ö` in `ÖZARA`.
+  - Removed `(Сила Связей / ÖZARA)` from Julia Shchukina's profile description across both mobile (`TeamScreen.tsx`) and web (`index.html`), leaving clean reference to *"Power of Connections"*.
+  - Verified 0 Cyrillic characters remain in codebase and full test suite passes 100%.
+- [x] 6.9 Header Logo Subtitle Centering:
+  - Updated `brandContainer` in `OzaraHeader.tsx` to `alignItems: 'center'` and centered `brandSub` directly beneath `ÖZARA` with balanced letter spacing.
+- [x] 6.10 Full-Screen Lime-Green Intro & Dark Welcome Page with Carousel:
+  - Implemented `LimeIntroScreen.tsx` with full-screen electric lime-green background (`#CCFF00`) and high-contrast centered pure black `ÖZARA` logo.
+  - Implemented smooth transition animation: 450ms entrance fade/scale, 1.2s brief hold, and 650ms smooth exit cross-fade into dark welcome page.
+  - Implemented `introAlreadyShownInSession` invariant: plays once per app launch session, never repeating when users return from signup or sign in.
+  - Built `WelcomeScreen.tsx` with animated auto-advancing carousel, custom pagination indicators, and dynamic image loading from `DesignGuidline/intro_pics` (via `/api/intro-pics` and static asset hosting) with luxury fallbacks.
+  - Displayed fixed headline: "Get connected. Go further." and description: "Find your people. Join the conversation. Put your capital to work."
+  - Implemented `SignUpScreen.tsx` application form with return-to-welcome navigation preserving the one-time intro invariant.
+- [x] 6.11 Two-Row Infinite Image Marquee & Snappy Lime Screen:
+  - Reduced lime intro screen hold time to ~450ms (total transition ~1.05s) for a fast, punchy, and modern entrance.
+  - Linked and verified all 14 images from `/Users/bikram6am/Sila/tools/DesignGuidlines/intro_pics/` served via `/api/intro-pics` and static hosting.
+  - Replaced swipeable carousel with an automated **Two-Row Infinite Image Marquee**:
+    - Row 1 continuously scrolls left; Row 2 continuously scrolls right in opposite directions.
+    - Seamless, continuous looping with zero stutter using duplicated card arrays and linear easing (no swiping required).
+    - GPU-accelerated CSS keyframes on Web and native UI-thread animation on iOS/Android.
+    - Subtle edge vignette masks for smooth fade-in / fade-out at viewport borders.
+  - Maintained fixed headline: "Get connected. Go further." and description: "Find your people. Join the conversation. Put your capital to work."
+- [x] 6.12 Violet Opening Screen & Midnight Navy Gallery Palette:
+  - Transitioned the opening screen background to vibrant electric violet (`#7C3AED`) with centered crisp white `ÖZARA` logo (`#FFFFFF`) and `PRIVATE CLUB` subtitle.
+  - Implemented smooth transition into **Midnight Navy** (`#0B1020`) for the welcome screen and infinite marquee gallery.
+  - Updated card surfaces, backgrounds, and edge vignette masks to harmonize seamlessly with `#0B1020`.
+  - Tied the aesthetic together by styling the **Sign Up** button in matching `#7C3AED` violet with white text and glowing shadow.
+  - Aligned `SignUpScreen.tsx` with midnight navy canvas and violet accents.
+- [x] 6.14 Access Conditions Bottom-Sheet Popup & Standalone Legal Page:
+  - **Bottom-Sheet Modal (`AccessConditionsModal.tsx`)**:
+    - Triggered immediately when a new user taps "Sign up" on the welcome screen.
+    - Dims welcome screen behind it and pauses the two-row infinite marquee animation while open.
+    - Designed with midnight navy background (`#0B1020`), crisp white text, rounded top corners (`24`), and electric violet accents (`#7C3AED`). Fully scrollable on smaller viewports.
+    - Displays title "Before you join" and three clear body paragraphs explaining invite-only community membership, separation of community access from investment opportunities, and investment risk warnings.
+    - Includes unchecked custom checkbox: "I have read and agree to the Access Conditions."
+    - "Access Conditions" is an underlined clickable link opening the full standalone screen while preserving checkbox and modal state upon return.
+    - "Agree and continue" primary button is disabled until checkbox is checked. Once confirmed, proceeds to invitation registration (`SignUpScreen`).
+    - Top-right close button dismisses modal and unpauses marquee animation.
+  - **Access Conditions Page (`AccessConditionsScreen.tsx`)**:
+    - Complete legal documentation including: Title, Last updated (October 3, 2026), About ÖZARA, Community access, Information on the platform, Access to investment opportunities, Investment risks, Your decision, Location restrictions, and Acknowledgment.
+    - Flagged visible draft placeholders: `[LEGAL COMPANY NAME]`, `[JURISDICTION]`, `[ADDRESS]`, `[CONTACT EMAIL]` with prominent development notice.
+    - Strict boundary observed: 0 Axevil registration details, regulatory claims, or international legal notices.
+    - Triple accessibility: Reachable from the popup link, the welcome-page footer link, and the Settings / Profile Drawer modal.
+  - **Backend & Server-Side Enforcement**:
+    - Database migrations in `tools/db_init_and_migrate.py`: added `accepted_access_conditions_version`, `accepted_access_conditions_at` to `users`, and `eligibility_requirements` to `real_estate_listings`.
+    - Server-side gating in `server.js`: `POST /api/listings/:id/inquire` and `/api/listings/inquire` reject with HTTP 403 `CONDITIONS_NOT_ACCEPTED` if user has not accepted current version (`2026-10-v1`).
+    - Added `POST /api/profile/:id/accept-conditions` and `POST /api/register` with automated acceptance version recording.
+    - Added configurable opportunity eligibility requirements to listing schema and UI cards.
+  - **Popup Visibility & All-Picture Marquee Refinements**:
+    - Initialized `showConditionsModal` to `true` on welcome screen arrival so the Access Conditions bottom sheet immediately appears over the dimmed background (matching the native AXEVIL presentation in the user's reference), with smooth dismissal to browse the welcome screen and re-triggerable via the **Sign up** button.
+    - Kept images continuously scrolling in the background while the popup is displayed (`isPaused={false}`).
+    - Changed the bottom sheet button text to **"Continue"**.
+    - Configured "Continue" click action to dismiss the popup and keep the user on the **same screen with moving images**, saving the confirmed agreement state.
+    - Populated all pictures from `tools/DesignGuidlines/intro_pics/` into both the top row and second row, scrolling smoothly and continuously in opposite directions.
+    - Formatted the copy strictly in-line with pipe separators: `"Find your people | Join the conversation | Put your capital to work"`.
+    - Implemented modal as a high-priority overlay (`zIndex: 99999`) for 100% reliable rendering across web and mobile.
+    - Updated opening purple screen (`LimeIntroScreen.tsx`) centered logo (`ÖZARA` and `PRIVATE CLUB` subtitle) to high-contrast **black** (`#000000`).
+    - Extended purple opening screen hold duration by +2 seconds (total hold ~2.5s with a 450ms smooth exit transition).
+    - Added high-voltage **Electric Orange** (`#FF5E00` / `#FF7A29`) typography accents to *"Go further."*, the pipe dividers (`|`), and *"Put your capital to work"*, delivering vibrant contrast against the midnight navy palette.
+    - Replaced the circular halo with an ultra-slow, faint ethereal reveal: removed circle completely, added an organic constellation of delicate 2px micro-dots that softly materialize around the central mark, and slowed the black logo entrance to 1800ms with optical letter-spacing dissolve (`faintLogoDissolve`).
+    - Implemented **Particle Typography Animation** (`LimeIntroScreen.tsx`):
+      - Built a high-performance HTML5 `<canvas>` simulation engine (retina-scaled with `window.devicePixelRatio`).
+      - Offscreen rasterizes the black mark "ÖZARA" at 54px with explicit individual glyph kerning (`letterSpacing: 12px`), sampling ~750 high-precision target coordinates.
+      - Disperses particles as fine micro-dots (radius 0.9px–2.2px) in an organic radial cloud (distance 70px–330px).
+      - Animates particles gently coalescing and swirling into the letterforms of **ÖZARA** over 2600ms via quartic deceleration curve and organic sinusoidal curves.
+      - Particles begin faint (`alpha: 0.08`) and progressively crystallize into solid jet-black (`#000000`).
+      - "PRIVATE CLUB" subtitle gracefully fades in underneath at 75% assembly.
+      - Unified Fixed-Center Typography Engine (Zero Jump & In-Place Assembly):
+        - Established a single, strictly fixed bounding box (`CANVAS_WIDTH = 460`, `CANVAS_HEIGHT = 150`) and fixed center anchor `(CENTER_X = 230, CENTER_Y = 75)` for the entire lifecycle.
+        - Eliminated independent DOM-to-canvas coordinate discrepancies by driving both reference target sampling and final onscreen vector text through a single deterministic drawing pipeline (`drawComposition`).
+        - Pre-allocated the final composition bounding box (both `ÖZARA` at `TITLE_Y = CENTER_Y - 11` and `PRIVATE CLUB` at `SUB_Y = CENTER_Y + 22`) from frame 0, preventing any flexbox recalculation, dimension shifts, or layout reflows.
+        - Particles assemble strictly in place directly onto their final glyph target pixels with zero horizontal or vertical jump, melting seamlessly into the crisp solid black mark.
+        - Guaranteed transition to Welcome Screen via deterministic lifecycle timers and top-level failsafe.
+- [x] 6.15 Invitation Gate, 1:1 Email-Token Table, Admin Approval Flow & Pre-Populated Registration:
+  - [x] Database Schema Migration: Update `invitation_tokens` table in SQLite (`db_init_and_migrate.py`) to enforce strict 1:1 unique email-to-token constraint (`email TEXT UNIQUE NOT NULL`, `token TEXT UNIQUE NOT NULL`), status tracking (`pending_admin_approval`, `approved`, `claimed`), applicant metadata (`full_name`, `role_or_headline`, `notes`), and admin audit trail (`approved_by`, `approved_at`).
+  - [x] Backend Endpoints (`server.js`):
+    - `POST /api/invitations/verify`: Validates token, looks up corresponding 1:1 email, returns verified identity.
+    - `POST /api/invitations/request-access`: Submits prospective access request, dispatches notification to Elena Ermolov (`ermolov.elena@gmail.com`).
+    - `POST /api/admin/invitations/approve`: Authorizes request, generates algorithmic single-use token, dispatches notification email to applicant.
+    - `GET /api/invitations/status`: Checks real-time approval status by applicant email.
+    - `GET /api/admin/access-requests`: Lists pending access requests for founder review.
+    - `POST /api/register`: Validates invitation token, claims it, and registers user with pre-populated, verified email.
+  - [x] Mobile API Service Layer (`services/api.ts`): Typed endpoints for verifying token, requesting access, polling status, and admin approval.
+  - [x] Redesigned Mobile Gate & Registration (`screens/SignUpScreen.tsx`):
+    - Step 1 (Invitation Gate): Prompts "Did you receive an invitation?", token insertion field, and "Verify Token & Continue" button.
+    - Token Lookup & Auto-Population: Entering token looks up 1:1 email and transitions to registration form with email pre-populated and locked (`✓ Verified Invitation Email`).
+    - Request Access Flow: "Don't have an invite code? Request Access" form (Full Name, Business Email, Role/Headline, Note). Submitting notifies admins (`ermolov.elena@gmail.com`).
+    - Real-Time "Got the Token!" Screen: Screen displays waiting status with live check and demo "Elena Ermolov: Approve Request" trigger. When approved, transitions to "You've been invited! Token: <TOKEN>", with "Continue to Membership Profile →".
+  - [x] Founder / Leadership Panel Integration: Elena Ermolov can view and approve pending access requests from the Profile & Governance drawer.
+  - [x] Comprehensive Test Suite Verification (`test_full_platform_api.py`): 100% pass across all 8 comprehensive test suites including request submission, approval, 1:1 token recognition, and single-use claim enforcement.
+- [x] 6.16 Non-Blocking Access Request & Persistent Onboarding State:
+  - [x] Removed blocking circling spinner: Submitting an access request immediately redirects back to the token insertion page (`check_token`) with a green confirmation banner displaying the submitted email and admin notification to Elena Ermolov (`ermolov.elena@gmail.com`).
+  - [x] Persistent session and onboarding state (`mobile/src/services/storage.ts`): Stores `appView`, `signup_step`, `conditions_agreed`, `pending_email`, and `current_user_id`.
+  - [x] Resuming where left off: Reopening the app or refreshing restores the user directly to their active step without repeating intro animations or legal modals.
+- [x] 6.17 Email-Delivered Token Entry Invariant & Manual Token Verification:
+  - [x] Removed automatic on-screen token reveal/bypass (`got_token` screen).
+  - [x] Token delivered strictly via email to applicant upon admin approval.
+  - [x] Kept applicant on `check_token` page: banner updates to "Invitation Approved!" prompting user to check their email for their code and insert it into the field.
+  - [x] User inserts code from email -> verifies token -> unlocks registration form with 1:1 verified email pre-populated and locked.

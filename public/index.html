@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ÖZARA — Private Community & High-Trust Exchange</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Top Minimalist Navbar (AXEVIL Style) -->
+  <header class="navbar">
+    <div class="nav-left">
+      <!-- ÖZARA Exact Wordmark Logo -->
+      <a href="/" class="brand-logo-link" title="ÖZARA">
+        <svg class="ozara-logo-svg" viewBox="0 0 280 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Ö -->
+          <circle cx="34" cy="11" r="3.8" fill="#FFFFFF"/>
+          <circle cx="48" cy="11" r="3.8" fill="#FFFFFF"/>
+          <path d="M41 19C27.5 19 18 28.5 18 42C18 55.5 27.5 65 41 65C54.5 65 64 55.5 64 42C64 28.5 54.5 19 41 19ZM41 59.5C30.5 59.5 23.5 51.5 23.5 42C23.5 32.5 30.5 24.5 41 24.5C51.5 24.5 58.5 32.5 58.5 42C58.5 51.5 51.5 59.5 41 59.5Z" fill="#FFFFFF"/>
+          <!-- Z -->
+          <path d="M78 22H112V27.5L86.5 58.5H113V64H78V58.5L103.5 27.5H78V22Z" fill="#FFFFFF"/>
+          <!-- A -->
+          <path d="M141 22L162 64H155.5L150 53H132L126.5 64H120L141 22ZM141 33.5L134.5 47.5H147.5L141 33.5Z" fill="#FFFFFF"/>
+          <!-- R -->
+          <path d="M174 22H193C201.5 22 207 26.5 207 34C207 40.5 202.5 44.5 195.5 45.5L208.5 64H201.5L189.5 46.5H180V64H174V22ZM180 27.5V41.5H192C197.5 41.5 201 39 201 34.5C201 30 197.5 27.5 192 27.5H180Z" fill="#FFFFFF"/>
+          <!-- A -->
+          <path d="M232 22L253 64H246.5L241 53H223L217.5 64H211L232 22ZM232 33.5L225.5 47.5H238.5L232 33.5Z" fill="#FFFFFF"/>
+        </svg>
+      </a>
+
+      <!-- Main Navigation Tabs: Events, Networking, Investments, Team -->
+      <nav class="nav-links">
+        <button class="nav-btn active" data-tab="events">Events</button>
+        <button class="nav-btn" data-tab="networking">Networking</button>
+        <button class="nav-btn" data-tab="investments">Investments</button>
+        <button class="nav-btn" data-tab="team">Team</button>
+      </nav>
+    </div>
+
+    <!-- Right Controls: Persona Switcher & Clickable Profile Avatar Pill -->
+    <div class="nav-right">
+      <div class="persona-control">
+        <span class="persona-label">Persona:</span>
+        <select id="personaSelect" class="persona-dropdown"></select>
+      </div>
+
+      <!-- Gmail-Style Circular Profile Avatar Button -->
+      <div id="currentUserBadge" class="gmail-avatar-wrapper" title="Click to view & edit your profile" onclick="openProfileDrawer(currentUserId)">
+        <div class="gmail-avatar-ring">
+          <div class="gmail-avatar-inner">
+            <img id="userAvatarImg" src="" alt="Avatar" class="gmail-avatar-img">
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Incomplete Profile Warning Banner (Question 18 Mandate) -->
+  <div id="incompleteProfileBanner" class="alert-banner warning-banner" style="display: none;">
+    <div class="banner-content">
+      <span class="banner-icon">⚠️</span>
+      <div>
+        <strong>Your profile is currently incomplete:</strong>
+        <span>Question 18 ("What core priority or strategic milestone are you tackling over the next 12 months?") is required to complete your verified membership profile.</span>
+      </div>
+    </div>
+    <button class="btn btn-sm btn-white-pill" onclick="openProfileDrawer(currentUserId, 18)">Complete Question 18</button>
+  </div>
+
+  <!-- Notification Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Main View Containers -->
+  <main class="main-wrapper">
+
+    <!-- HERO SECTION (AXEVIL Style: Bold headline, description, 3 stat cards, ticker) -->
+    <section class="hero-section">
+      <div class="hero-top-grid">
+        <div class="hero-headline-col">
+          <h1 class="hero-title">Exclusive Access to Verified Leaders</h1>
+        </div>
+        <div class="hero-desc-col">
+          <p class="hero-subtext">
+            Connect with vetted venture founders, institutional partners, and operators before key inflection points. Leaders in AI, fintech, cross-border logistics and beyond — driving the future.
+          </p>
+          <div class="hero-stats-row">
+            <div class="stat-card">
+              <div class="stat-icon">💼</div>
+              <div class="stat-number">142</div>
+              <div class="stat-label">Verified Members</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">🗄️</div>
+              <div class="stat-number">18</div>
+              <div class="stat-label">Sectors & Industries</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon">🎯</div>
+              <div class="stat-number">4</div>
+              <div class="stat-label">Global Chapters</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ticker Row (AXEVIL Style with Real 2026/2027 Events) -->
+      <div class="hero-ticker-strip">
+        <div class="ticker-pill">
+          <span class="ticker-symbol">MIA</span>
+          <span class="ticker-name">Miami</span>
+          <span class="ticker-metric positive">Nov 13–15 • Registration Open</span>
+        </div>
+        <div class="ticker-pill">
+          <span class="ticker-symbol">HKT</span>
+          <span class="ticker-name">Phuket, Thailand</span>
+          <span class="ticker-metric positive">Jan 2–9 • New Year Retreat</span>
+        </div>
+        <div class="ticker-pill">
+          <span class="ticker-symbol">SV</span>
+          <span class="ticker-name">Silicon Valley</span>
+          <span class="ticker-metric">Feb 19–22</span>
+        </div>
+        <div class="ticker-pill">
+          <span class="ticker-symbol">GEO</span>
+          <span class="ticker-name">Georgia</span>
+          <span class="ticker-metric">Mar 26–30</span>
+        </div>
+        <div class="ticker-pill">
+          <span class="ticker-symbol">BCN</span>
+          <span class="ticker-name">Barcelona (7th Year Jubilee)</span>
+          <span class="ticker-metric positive">Apr 23–26</span>
+        </div>
+        <div class="ticker-pill">
+          <span class="ticker-symbol">BOS</span>
+          <span class="ticker-name">New York + Boston</span>
+          <span class="ticker-metric">June • 7 Universities</span>
+        </div>
+        <div class="ticker-pill">
+          <span class="ticker-symbol">EUR</span>
+          <span class="ticker-name">Grand Tour (London, Paris, Monaco)</span>
+          <span class="ticker-metric">Autumn 2027</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1. EVENTS VIEW (DEFAULT FIRST PAGE: CALENDAR OF EVENTS 2026 / 2027) -->
+    <section id="view-events" class="view-panel active">
+      <div class="view-header">
+        <div>
+          <span style="font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-dim); font-weight: 700;">Investment Club ÖZARA</span>
+          <h2 class="section-heading" style="margin-top: 0.25rem;">Calendar of Events 2026 / 2027</h2>
+          <p class="view-desc">Exclusive executive expeditions, private retreats, and the annual community jubilee.</p>
+        </div>
+        <div class="view-actions admin-only-block" style="display: none;">
+          <button class="btn btn-white-pill" onclick="openTargetedInviteModal()">
+            Targeted Invitation Engine
+          </button>
+        </div>
+      </div>
+
+      <!-- Calendar Photo Strip (Matching Poster) -->
+      <div class="calendar-photo-strip">
+        <div class="calendar-photo-item" title="MIT Collective & University Tours">
+          <img src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=400" alt="University Tour">
+        </div>
+        <div class="calendar-photo-item" title="Founder Rooftop Reception">
+          <img src="https://images.unsplash.com/photo-1511578314322-379afb476865?w=400" alt="Rooftop Reception">
+        </div>
+        <div class="calendar-photo-item" title="Private Yacht Club Salon">
+          <img src="https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?w=400" alt="Yacht Club Salon">
+        </div>
+        <div class="calendar-photo-item" title="The Vessel & Tech Immersion">
+          <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400" alt="Tech Architecture">
+        </div>
+        <div class="calendar-photo-item" title="Evening Gala & Networking">
+          <img src="https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=400" alt="Evening Gala">
+        </div>
+      </div>
+
+      <div id="eventsList" class="events-list">
+        <div class="loading-state">Loading private gatherings...</div>
+      </div>
+
+      <!-- Calendar Bottom Photo Strip (Matching Poster) -->
+      <div class="calendar-photo-strip" style="margin-top: 2.75rem; margin-bottom: 1.5rem;">
+        <div class="calendar-photo-item" title="Members Lounge & Private Rooftop">
+          <img src="https://images.unsplash.com/photo-1533105079780-92b9be482077?w=400" alt="Private Rooftop">
+        </div>
+        <div class="calendar-photo-item" title="The Vessel, Hudson Yards New York">
+          <img src="https://images.unsplash.com/photo-1546436836-07a91091f160?w=400" alt="The Vessel NYC">
+        </div>
+        <div class="calendar-photo-item" title="Private Art Gallery Reception">
+          <img src="https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=400" alt="Art Gallery">
+        </div>
+        <div class="calendar-photo-item" title="Evening Reception & Cocktail">
+          <img src="https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400" alt="Evening Reception">
+        </div>
+        <div class="calendar-photo-item" title="Founders Private Toast">
+          <img src="https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?w=400" alt="Private Toast">
+        </div>
+      </div>
+
+      <!-- Calendar Poster Footer Note -->
+      <div class="calendar-poster-footer">
+        <span class="poster-footer-left">Dates updated upon confirmation</span>
+        <span class="poster-footer-right">ÖZARA • PRIVATE NETWORK</span>
+      </div>
+    </section>
+
+    <!-- 2. NETWORKING VIEW (SECOND PAGE) -->
+    <section id="view-networking" class="view-panel">
+      <div class="view-header">
+        <div>
+          <h2 class="section-heading">Member Exchange & Matchmaking</h2>
+          <p class="view-desc">Curated connections based on verified expertise, active strategic needs, and chapter locations.</p>
+        </div>
+        <div class="view-actions">
+          <button class="btn btn-secondary-pill" onclick="openAskIntroModal()">
+            ✦ Ask Team for an Introduction
+          </button>
+        </div>
+      </div>
+
+      <!-- Search & Filters -->
+      <div class="filter-strip">
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="memberSearchInput" placeholder="Search by name, expertise, industry (e.g. 'FinTech', 'LLM', 'Dubai')...">
+        </div>
+        <div class="filter-tabs">
+          <button class="filter-tab active" data-sub="recommendations">Explainable Recommendations</button>
+          <button class="filter-tab" data-sub="directory">All Verified Members</button>
+        </div>
+      </div>
+
+      <!-- Recommendation / Member Cards Grid -->
+      <div id="networkingGrid" class="cards-grid">
+        <div class="loading-state">Analyzing network synergies and high-value intersections...</div>
+      </div>
+    </section>
+
+    <!-- 3. INVESTMENTS VIEW (THIRD PAGE) -->
+    <section id="view-investments" class="view-panel">
+      <div class="view-header">
+        <div>
+          <h2 class="section-heading">Curated Real Estate Showcase</h2>
+          <p class="view-desc">Direct off-market opportunities and prime yield residential/commercial assets vetted by community leadership.</p>
+        </div>
+      </div>
+
+      <!-- Regulatory Disclaimer Banner -->
+      <div class="legal-disclaimer-box">
+        <span class="legal-icon">⚖️</span>
+        <p><strong>Regulatory Compliance Notice:</strong> ÖZARA is a private community directory and informational showcase. The opportunities below do not constitute investment advice, a financial promotion, or an offer of securities. No transaction commissions or funds transfers are processed by the platform.</p>
+      </div>
+
+      <div id="listingsGrid" class="listings-grid">
+        <div class="loading-state">Fetching verified property portfolios...</div>
+      </div>
+    </section>
+
+    <!-- 4. TEAM / LEADERSHIP VIEW (AXEVIL Style) -->
+    <section id="view-team" class="view-panel">
+      <div class="leadership-header-block">
+        <div class="leadership-tag">
+          <span class="leadership-tag-dot"></span>
+          <span>1.0 Leadership</span>
+        </div>
+        <h2 class="leadership-title">Industry leading experts,<br>at your side</h2>
+        <p class="leadership-subtext">
+          Investment leaders, operators, and cross-border syndicators. Distributed across Boston, Dubai, and Silicon Valley.
+        </p>
+      </div>
+
+      <div class="leadership-grid">
+        <!-- 1. Alexandra Hill -->
+        <div class="leader-card" onclick="openProfileDrawer('usr_alexandra')">
+          <div class="leader-photo-wrap">
+            <div class="leader-role-pill">
+              <span class="pill-dot"></span>
+              <span>Co-founder &amp; Managing Partner</span>
+            </div>
+            <img src="/avatars/alexandra_hill.jpg" alt="Alexandra Hill" class="leader-photo">
+          </div>
+          <div class="leader-info">
+            <h3 class="leader-name">Alexandra Hill</h3>
+            <p class="leader-bio">
+              15+ years in wealth management and AI transformation. Founder of AI × Visibility, Advisory Board Member at Frontier Path Ventures, Mentor at HBS FIELD X, and MIT Sloan Fellow. Ranked #23 on AdvisorHub Advisors to Watch.
+            </p>
+            <div class="leader-meta-tags">
+              <span class="leader-tag">Boston, USA</span>
+              <span class="leader-tag">MIT Sloan</span>
+              <span class="leader-tag">AI × Wealth Advisory</span>
+            </div>
+            <div class="leader-actions">
+              <button class="btn btn-sm btn-white-pill" onclick="event.stopPropagation(); openProfileDrawer('usr_alexandra')">
+                View Full Profile
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Alexandra Hill -->
+        <div class="leader-card" onclick="openProfileDrawer('usr_alexandra')">
+          <div class="leader-photo-wrap">
+            <div class="leader-role-pill">
+              <span class="pill-dot"></span>
+              <span>Co-founder &amp; Managing Partner</span>
+            </div>
+            <img src="/avatars/alexandra_hill.jpg" alt="Alexandra Hill" class="leader-photo">
+          </div>
+          <div class="leader-info">
+            <h3 class="leader-name">Alexandra Hill</h3>
+            <p class="leader-bio">
+              15+ years in wealth management and AI transformation. Founder of AI × Visibility, Advisory Board Member at Frontier Path Ventures, Mentor at HBS FIELD X, and MIT Sloan Fellow. Ranked #23 on AdvisorHub Advisors to Watch.
+            </p>
+            <div class="leader-meta-tags">
+              <span class="leader-tag">Boston, USA</span>
+              <span class="leader-tag">MIT Sloan</span>
+              <span class="leader-tag">AI × Wealth Advisory</span>
+            </div>
+            <div class="leader-actions">
+              <button class="btn btn-sm btn-white-pill" onclick="event.stopPropagation(); openProfileDrawer('usr_alexandra')">
+                View Full Profile
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Julia Shchukina -->
+        <div class="leader-card" onclick="openProfileDrawer('usr_julia')">
+          <div class="leader-photo-wrap">
+            <div class="leader-role-pill">
+              <span class="pill-dot"></span>
+              <span>Co-founder &amp; Managing Partner</span>
+            </div>
+            <img src="/avatars/julia_shchukina.jpg" alt="Julia Shchukina" class="leader-photo">
+          </div>
+          <div class="leader-info">
+            <h3 class="leader-name">Julia Shchukina</h3>
+            <p class="leader-bio">
+              Founder of international real estate investment company EDELUXE (operating in 50+ countries) and original founder of investor club "Power of Connections". Real estate investor across 70+ countries and philanthropic founder.
+            </p>
+            <div class="leader-meta-tags">
+              <span class="leader-tag">Dubai &amp; Global</span>
+              <span class="leader-tag">EDELUXE</span>
+              <span class="leader-tag">Real Estate &amp; Syndicates</span>
+            </div>
+            <div class="leader-actions">
+              <button class="btn btn-sm btn-white-pill" onclick="event.stopPropagation(); openProfileDrawer('usr_julia')">
+                View Full Profile
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- SLIDE-OVER DRAWER: PROFILE & 30-QUESTION QUESTIONNAIRE -->
+  <div id="profileDrawer" class="drawer-backdrop" onclick="handleDrawerBackdropClick(event)">
+    <div class="drawer-panel">
+      <!-- Drawer Header -->
+      <div class="drawer-header">
+        <div class="drawer-header-left">
+          <img id="drawerAvatar" src="" alt="Avatar" class="avatar-lg">
+          <div class="drawer-meta">
+            <div class="drawer-name-row">
+              <h2 id="drawerFullName" class="drawer-title"></h2>
+              <span id="drawerCompletionBadge" class="badge"></span>
+            </div>
+            <p id="drawerHeadline" class="drawer-headline"></p>
+            <div class="meta-row" style="margin-top: 0.35rem;">
+              <span class="meta-tag" id="drawerChapter"></span>
+              <span class="meta-tag" id="drawerCity"></span>
+              <span class="meta-tag" id="drawerPref"></span>
+            </div>
+          </div>
+        </div>
+        <div class="drawer-header-actions">
+          <div id="drawerActionBtns"></div>
+          <button class="drawer-close-btn" onclick="closeProfileDrawer()" title="Close Profile">✕</button>
+        </div>
+      </div>
+
+      <!-- Drawer Sub-Navigation Tabs -->
+      <div class="drawer-tabs-strip">
+        <button class="drawer-tab-btn active" data-dtab="questions" onclick="switchDrawerTab('questions')">30 Questions</button>
+        <button class="drawer-tab-btn" data-dtab="taxonomies" onclick="switchDrawerTab('taxonomies')">Taxonomies & Notes</button>
+        <button class="drawer-tab-btn" data-dtab="travel" onclick="switchDrawerTab('travel')">Travel Itinerary</button>
+      </div>
+
+      <!-- Drawer Body Content -->
+      <div class="drawer-body">
+        <!-- Tab 1: 30 Questions -->
+        <div id="drawer-tab-questions" class="drawer-tab-pane active">
+          <div class="content-guidance-pill" style="margin-bottom: 1.25rem;">
+            <span>🛡️ Content Rule: Refrain from specific fundraising terms, valuations, guaranteed return promises, or minimum check sizes.</span>
+          </div>
+          <div id="drawerQuestionsContainer" class="questions-stack">
+            <!-- Dynamically populated Q1 - Q30 -->
+          </div>
+        </div>
+
+        <!-- Tab 2: Taxonomies -->
+        <div id="drawer-tab-taxonomies" class="drawer-tab-pane">
+          <h3 class="section-title" style="font-size: 1.15rem; margin-bottom: 0.75rem;">Verified Capabilities & Taxonomies</h3>
+          <div id="drawerTaxonomiesContainer" class="taxonomies-block"></div>
+        </div>
+
+        <!-- Tab 3: Travel Plans -->
+        <div id="drawer-tab-travel" class="drawer-tab-pane">
+          <h3 class="section-title" style="font-size: 1.15rem; margin-bottom: 0.75rem;">Voluntary Travel Plans</h3>
+          <div id="drawerTravelContainer" class="travel-stack"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALS -->
+
+  <!-- Modal 1: Call Scheduling -->
+  <div id="callScheduleModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Schedule High-Trust Conversation</h3>
+        <button class="modal-close" onclick="closeModal('callScheduleModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-subtitle">Propose candidate time slots to <strong id="callRecipientName"></strong>. The recipient can accept one slot or propose adjustments.</p>
+        <div class="form-group">
+          <label>Recipient Timezone:</label>
+          <select id="callTimezone" class="form-control">
+            <option value="Asia/Dubai" selected>Asia/Dubai (GST, UTC+4)</option>
+            <option value="Europe/London">Europe/London (GMT/BST, UTC+0/+1)</option>
+            <option value="Asia/Singapore">Asia/Singapore (SGT, UTC+8)</option>
+            <option value="Europe/Nicosia">Europe/Nicosia (EET, UTC+2)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Proposed Time Option 1:</label>
+          <input type="datetime-local" id="callTime1" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Proposed Time Option 2 (Optional):</label>
+          <input type="datetime-local" id="callTime2" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Manual Video Link (Zoom / Google Meet / Telegram):</label>
+          <input type="url" id="callVideoLink" class="form-control" placeholder="https://meet.google.com/xyz-abc or @telegram">
+        </div>
+        <div class="form-group">
+          <label>Personal Introduction Note:</label>
+          <textarea id="callMessage" class="form-control" rows="3" placeholder="Explain the context and mutual value of the conversation..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary-pill" onclick="closeModal('callScheduleModal')">Cancel</button>
+        <button class="btn btn-white-pill" onclick="submitCallProposal()">Dispatch Proposal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Ask Team for Introduction -->
+  <div id="askIntroModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Ask Team for an Introduction</h3>
+        <button class="modal-close" onclick="closeModal('askIntroModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-subtitle">When self-service discovery does not meet your specific need, Alexandra and Julia will personally review our private network and facilitate a warm introduction.</p>
+        <div class="form-group">
+          <label>Target Member (Optional):</label>
+          <select id="introTargetMember" class="form-control">
+            <option value="">General Request / Open Introduction</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Detailed Strategic Context & Introduction Objective:</label>
+          <textarea id="introContextNeed" class="form-control" rows="4" placeholder="Describe the specific expertise, market insight, or cross-border introduction you require..."></textarea>
+          <div id="introValidationWarning" class="field-warning" style="display: none;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary-pill" onclick="closeModal('askIntroModal')">Cancel</button>
+        <button class="btn btn-white-pill" onclick="submitIntroRequest()">Submit to Admin Queue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Targeted Invitation Preview & Broadcast (Admin) -->
+  <div id="targetedInviteModal" class="modal-backdrop">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3>Targeted Gathering Invitations</h3>
+        <button class="modal-close" onclick="closeModal('targetedInviteModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-subtitle">Target specific community segments based on chapter affiliation, active travel in city, and verified operational industries.</p>
+        <div class="filter-controls-grid">
+          <div class="form-group">
+            <label>Select Event:</label>
+            <select id="targetInviteEventSelect" class="form-control"></select>
+          </div>
+          <div class="form-group">
+            <label>Target Chapters:</label>
+            <div class="checkbox-group" id="targetChaptersCheckboxes">
+              <label><input type="checkbox" value="ch_dubai" checked> Dubai</label>
+              <label><input type="checkbox" value="ch_new_york"> New York</label>
+              <label><input type="checkbox" value="ch_london"> London</label>
+              <label><input type="checkbox" value="ch_astana"> Astana</label>
+              <label><input type="checkbox" value="ch_singapore"> Singapore</label>
+              <label><input type="checkbox" value="ch_limassol"> Limassol</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Include Traveling Members in City:</label>
+            <input type="text" id="targetTravelCity" class="form-control" value="Dubai" placeholder="e.g. Dubai">
+          </div>
+        </div>
+        <div class="preview-results-box">
+          <div class="preview-head">
+            <h4>Live Deduplicated Recipient Preview</h4>
+            <span class="badge badge-white" id="targetRecipientCount">0 Members Found</span>
+          </div>
+          <div id="targetRecipientsList" class="target-recipients-flow"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary-pill" onclick="updateTargetInvitePreview()">Refresh Preview</button>
+        <button class="btn btn-white-pill" onclick="sendTargetedInvitations()">Send Targeted Invitations</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Real Estate Inquiry -->
+  <div id="reInquiryModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="reInquiryTitle">Inquire: Asset Details</h3>
+        <button class="modal-close" onclick="closeModal('reInquiryModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-subtitle" id="reInquirySubtitle">Request detailed specification document or coordinate a private briefing with the asset lead.</p>
+        <div class="form-group">
+          <label>Inquiry Type:</label>
+          <div class="radio-group">
+            <label><input type="radio" name="inquiryType" value="request_info" checked> Request Specification & Brochure</label>
+            <label><input type="radio" name="inquiryType" value="request_call"> Request Confidential Briefing Call</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Notes / Specific Inquiries:</label>
+          <textarea id="reInquiryNotes" class="form-control" rows="3" placeholder="Specific questions regarding zoning, yield structure, or inspection dates..."></textarea>
+          <div id="reValidationWarning" class="field-warning" style="display: none;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary-pill" onclick="closeModal('reInquiryModal')">Cancel</button>
+        <button class="btn btn-white-pill" onclick="submitListingInquiry()">Submit Inquiry</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
