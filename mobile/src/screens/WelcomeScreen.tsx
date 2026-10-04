@@ -42,6 +42,8 @@ const INVEST_HERO = require('../../assets/images/onboarding_invest.jpg');
 interface WelcomeScreenProps {
   onGoToSignUp: () => void;
   onEnterClub: () => void;
+  onGoToPhoneAuth?: () => void;
+  initialSlideIndex?: number;
 }
 
 // -------------------------------------------------------------
@@ -233,6 +235,8 @@ const ONBOARDING_SLIDES: SlideData[] = [
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onGoToSignUp,
   onEnterClub,
+  onGoToPhoneAuth,
+  initialSlideIndex = 0,
 }) => {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -241,14 +245,25 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   // Bounded container width for optimal mobile app display on desktop web
   const containerWidth = Math.min(windowWidth, 430);
 
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [currentIndex, setCurrentIndex] = useState<number>(initialSlideIndex || 0);
   const [images, setImages] = useState<string[]>(() =>
     DEFAULT_INTRO_PICS.map((pic) => resolveImageUrl(pic))
   );
-  const [showConditionsModal, setShowConditionsModal] = useState<boolean>(!conditionsAgreed);
+  const [showConditionsModal, setShowConditionsModal] = useState<boolean>(false);
   const [showContactModal, setShowContactModal] = useState<boolean>(false);
 
   const scrollRef = useRef<ScrollView>(null);
+
+  // Sync initial slide index if passed (e.g. returning to Invest screen from Phone Auth)
+  useEffect(() => {
+    if (initialSlideIndex && initialSlideIndex > 0) {
+      setCurrentIndex(initialSlideIndex);
+      const timer = setTimeout(() => {
+        scrollRef.current?.scrollTo({ x: initialSlideIndex * containerWidth, animated: false });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [initialSlideIndex, containerWidth]);
 
   // Fetch updated intro pics in background
   const fetchIntroPics = async () => {
@@ -306,8 +321,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     if (currentIndex < 2) {
       goToSlide(currentIndex + 1);
     } else {
-      // Screen 3: "Get started" opens Access Conditions popup or proceeds to signup
-      if (conditionsAgreed) {
+      // Screen 3: "Get started" opens Phone Authentication
+      if (onGoToPhoneAuth) {
+        onGoToPhoneAuth();
+      } else if (conditionsAgreed) {
         onGoToSignUp();
       } else {
         setShowConditionsModal(true);
@@ -458,7 +475,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           {/* Member Sign In Link */}
           <TouchableOpacity
             style={styles.secondaryBtn}
-            onPress={onEnterClub}
+            onPress={onGoToPhoneAuth || onEnterClub}
             activeOpacity={0.75}>
             <Text style={styles.secondaryBtnText}>
               Already a member? <Text style={styles.secondaryBtnBold}>Sign In</Text>

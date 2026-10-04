@@ -75,7 +75,28 @@ db.exec(`
     status TEXT DEFAULT 'new'
   );
   CREATE INDEX IF NOT EXISTS idx_contact_messages_email ON contact_messages(email);
+
+  -- Phone Verifications (Two-Factor / SMS Verification)
+  CREATE TABLE IF NOT EXISTS phone_verifications (
+    id TEXT PRIMARY KEY,
+    phone TEXT NOT NULL,
+    code TEXT NOT NULL,
+    attempts INTEGER DEFAULT 0,
+    is_verified BOOLEAN DEFAULT 0,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_phone_verifications_phone ON phone_verifications(phone);
 `);
+
+try {
+  const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+  if (!userCols.includes('phone')) {
+    db.exec("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT NULL; CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);");
+  }
+} catch (e) {
+  console.warn('Error verifying phone column on users:', e.message);
+}
 
 app.use(cors());
 app.use(express.json());
@@ -300,6 +321,168 @@ app.post('/api/contact', async (req, res) => {
   } catch (error) {
     console.error('[CONTACT API ERROR]', error);
     return res.status(500).json({ error: "Failed to submit message. Please try again later." });
+  }
+});
+
+// ==============================================================
+// Phone Authentication & Verification Endpoints
+// ==============================================================
+const phoneRateLimits = new Map();
+
+// Phone Auth Configuration
+app.get('/api/auth/phone/config', (req, res) => {
+  res.json({
+    whatsapp_verification_enabled: Boolean(process.env.AUTH_WHATSAPP_ENABLED === 'true'),
+    provider: process.env.AUTH_WHATSAPP_ENABLED === 'true' ? 'whatsapp' : (process.env.SMS_PROVIDER || 'local_sms')
+  });
+});
+
+// Send Verification Code (Numeric 6-digit OTP)
+app.post('/api/auth/phone/send-code', (req, res) => {
+  try {
+    const { phone, country_code } = req.body || {};
+    if (!phone) {
+      return res.status(400).json({ error: "Please enter a valid phone number." });
+    }
+
+    // Normalize phone: keep digits and leading +
+    let cleanPhone = String(phone).replace(/[^\d+]/g, '');
+    if (!cleanPhone.startsWith('+')) {
+      cleanPhone = '+' + cleanPhone;
+    }
+
+    // Check min/max digits length
+    const digitsOnly = cleanPhone.replace(/\D/g, '');
+    if (digitsOnly.length < 7 || digitsOnly.length > 16) {
+      return res.status(400).json({ error: "Please enter a complete and valid phone number." });
+    }
+
+    // Rate limiting: max 3 requests per 5 minutes
+    const now = Date.now();
+    const timestamps = (phoneRateLimits.get(cleanPhone) || []).filter(t => now - t < 5 * 60 * 1000);
+    if (timestamps.length >= 3) {
+      return res.status(429).json({ error: "Too many verification requests. Please wait a few minutes before trying again." });
+    }
+    timestamps.push(now);
+    phoneRateLimits.set(cleanPhone, timestamps);
+
+    // Generate 6-digit OTP verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const id = 'pv_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    db.prepare(`
+      INSERT INTO phone_verifications (id, phone, code, attempts, is_verified, expires_at)
+      VALUES (?, ?, ?, 0, 0, ?)
+    `).run(id, cleanPhone, code, expiresAt);
+
+    const isWhatsApp = process.env.AUTH_WHATSAPP_ENABLED === 'true';
+    const provider = isWhatsApp ? 'whatsapp' : (process.env.SMS_PROVIDER || 'sms');
+
+    console.log(`\n======================================================`);
+    console.log(`[PHONE AUTH CODE DISPATCH]`);
+    console.log(`To Phone: ${cleanPhone}`);
+    console.log(`Verification Code: ${code}`);
+    console.log(`Expires: ${expiresAt} (10 minutes)`);
+    console.log(`Provider: ${provider}`);
+    console.log(`======================================================\n`);
+
+    return res.json({
+      success: true,
+      message: isWhatsApp ? "Verification code sent via WhatsApp." : "Verification code sent via SMS.",
+      provider,
+      expires_in_seconds: 600,
+      demoCode: process.env.NODE_ENV !== 'production' ? code : undefined
+    });
+  } catch (err) {
+    console.error('[SEND PHONE CODE ERROR]', err);
+    return res.status(500).json({ error: "Delivery error: Unable to dispatch verification code. Please try again." });
+  }
+});
+
+// Verify Code (OTP Check -> Existing Member Login OR Candidate Gate)
+app.post('/api/auth/phone/verify-code', (req, res) => {
+  try {
+    const { phone, code } = req.body || {};
+    if (!phone || !code) {
+      return res.status(400).json({ error: "invalid", message: "Phone number and verification code are required." });
+    }
+
+    let cleanPhone = String(phone).replace(/[^\d+]/g, '');
+    if (!cleanPhone.startsWith('+')) cleanPhone = '+' + cleanPhone;
+    const cleanCode = String(code).trim();
+
+    // Query latest verification attempt for this phone
+    const record = db.prepare(`
+      SELECT * FROM phone_verifications
+      WHERE phone = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).get(cleanPhone);
+
+    if (!record) {
+      return res.status(400).json({
+        error: "expired",
+        message: "Verification code has expired. Please request a new code."
+      });
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(record.expires_at);
+
+    if (now > expiresAt) {
+      return res.status(400).json({
+        error: "expired",
+        message: "Verification code has expired. Please request a new code."
+      });
+    }
+
+    if (record.code !== cleanCode) {
+      const attempts = (record.attempts || 0) + 1;
+      db.prepare("UPDATE phone_verifications SET attempts = ? WHERE id = ?").run(attempts, record.id);
+      if (attempts >= 5) {
+        return res.status(400).json({
+          error: "expired",
+          message: "Too many incorrect attempts. Please request a new code."
+        });
+      }
+      return res.status(400).json({
+        error: "invalid",
+        message: "Invalid verification code. Please check and try again."
+      });
+    }
+
+    // Mark as verified
+    db.prepare("UPDATE phone_verifications SET is_verified = 1 WHERE id = ?").run(record.id);
+
+    // Look up if an approved member in users table already has this phone
+    const existingUser = db.prepare(`
+      SELECT id, email, full_name, headline, avatar_url, role, chapter_id, city, country, is_complete, is_admitted
+      FROM users
+      WHERE phone = ? AND is_admitted = 1
+    `).get(cleanPhone);
+
+    if (existingUser) {
+      console.log(`[PHONE AUTH SUCCESS] Existing approved member logged in: ${existingUser.full_name} (${cleanPhone})`);
+      return res.json({
+        success: true,
+        verified: true,
+        is_existing_member: true,
+        user: existingUser,
+        phone: cleanPhone
+      });
+    } else {
+      console.log(`[PHONE AUTH SUCCESS] Phone ownership verified: ${cleanPhone}. Preserving candidate session for Invitation Gate.`);
+      return res.json({
+        success: true,
+        verified: true,
+        is_existing_member: false,
+        phone: cleanPhone
+      });
+    }
+  } catch (err) {
+    console.error('[VERIFY PHONE CODE ERROR]', err);
+    return res.status(500).json({ error: "server_error", message: "Failed to verify code. Please try again." });
   }
 });
 

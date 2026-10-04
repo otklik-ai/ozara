@@ -362,4 +362,34 @@ export const ApiService = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  getPhoneAuthConfig: () =>
+    request<{
+      whatsapp_verification_enabled: boolean;
+      provider: string;
+    }>('/api/auth/phone/config'),
+
+  sendPhoneVerificationCode: (payload: { phone: string; country_code?: string }) =>
+    request<{
+      success: boolean;
+      message: string;
+      provider: string;
+      expires_in_seconds: number;
+      demoCode?: string;
+    }>('/api/auth/phone/send-code', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  verifyPhoneCode: (payload: { phone: string; code: string }) =>
+    request<{
+      success: boolean;
+      verified: boolean;
+      is_existing_member: boolean;
+      user?: Persona;
+      phone: string;
+    }>('/api/auth/phone/verify-code', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 };

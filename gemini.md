@@ -457,6 +457,67 @@
 }
 ```
 
+---
+
+### 3.8 Phone Authentication & Verification Schema
+
+#### Input / Output: Send Phone Verification Code
+```json
+{
+  "phone": "+971501234567",
+  "country_code": "AE",
+  "method": "sms"
+}
+```
+*Output:*
+```json
+{
+  "success": true,
+  "message": "Verification code dispatched.",
+  "provider": "sms",
+  "expires_in_seconds": 600
+}
+```
+
+#### Input / Output: Verify Phone OTP Code
+```json
+{
+  "phone": "+971501234567",
+  "code": "482910"
+}
+```
+*Output: Existing Approved Member:*
+```json
+{
+  "success": true,
+  "verified": true,
+  "is_existing_member": true,
+  "user": {
+    "id": "usr_98124",
+    "full_name": "Elena Ermolov",
+    "email": "ermolov.elena@gmail.com",
+    "role": "FOUNDER"
+  }
+}
+```
+*Output: New Candidate (Proceeds to Invitation Gate & Access Conditions):*
+```json
+{
+  "success": true,
+  "verified": true,
+  "is_existing_member": false,
+  "phone": "+971501234567"
+}
+```
+
+#### Output: Phone Auth Configuration
+```json
+{
+  "whatsapp_verification_enabled": false,
+  "provider": "local_sms"
+}
+```
+
 ## 4. Maintenance Log
 - **2026-10-01**: Constitution initialized.
 - **2026-10-02**: Defined complete JSON Data Schemas and privacy invariants for Sila Svyazei based on Discovery answers.
@@ -469,4 +530,5 @@
 - **2026-10-03**: Expanded Primary Chapters: Added New York (`ch_new_york`) and Astana (`ch_astana`) to canonical primary chapters across `sila.db`, seed configurations, mobile onboarding chapter selectors, country hierarchy defaults, and targeted gathering audience filters.
 - **2026-10-04**: Brand Unification & Deployment Sync: Transitioned all platform naming from Sila / Sila Svyazei to ÖZARA (`ozara`). Migrated primary database configuration to `ozara.db` with backward-compatible fallback. Prepared repository for overwrite push to `https://github.com/otklik-ai/ozara`.
 - **2026-10-04**: Onboarding Contact Panel & Admin Routing: Implemented luxury dark navy contact modal accessible via Intro button across all 3 onboarding screens (Events, Network, Invest). Form fields (Name, Email, Message) submit to server-side configured inboxes for Alexandra (`agniyahill@gmail.com`) and Julia (`iuliiashchukinainvest@gmail.com`). Included honeypot spam protection, rate limiting, and content guardrails. Confirmed exact receipt message: "Thank you. Your message has been received.", optional WhatsApp linking, and seamless return to active onboarding slide without replay of launch animation.
+- **2026-10-04**: Phone Authentication & Gate Routing: Added phone verification flow from Invest onboarding screen ("Get started") matching Axevil navy/violet luxury aesthetic. Deployed `/api/auth/phone/send-code`, `/api/auth/phone/verify-code`, and `/api/auth/phone/config`. Enforced phone verification invariant: verifies ownership of the phone number without bypassing community membership gates. Approved members route directly to club tabs; unlinked candidates continue to Access Conditions and Invitation Gate, with contact panel and support routing.
 

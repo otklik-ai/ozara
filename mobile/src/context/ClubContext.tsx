@@ -7,7 +7,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { ApiService, Persona } from '../services/api';
 import { OzaraStorage, OZARA_STORAGE_KEYS } from '../services/storage';
 
-export type AppView = 'welcome' | 'signup' | 'tabs' | 'conditions';
+export type AppView = 'welcome' | 'phone_auth' | 'signup' | 'tabs' | 'conditions';
 
 interface ClubContextType {
   personas: Persona[];
@@ -28,6 +28,8 @@ interface ClubContextType {
   setConditionsAgreedState: (agreed: boolean) => void;
   pendingAccessEmail: string;
   setPendingAccessEmail: (email: string) => void;
+  verifiedPhone: string;
+  setVerifiedPhone: (phone: string) => void;
   resetOnboarding: () => void;
 }
 
@@ -49,9 +51,11 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return OzaraStorage.getItem(OZARA_STORAGE_KEYS.PENDING_EMAIL) || '';
   });
 
+  const [verifiedPhone, setVerifiedPhone] = useState<string>('');
+
   const [appView, setAppViewState] = useState<AppView>(() => {
     const saved = OzaraStorage.getItem(OZARA_STORAGE_KEYS.APP_VIEW) as AppView | null;
-    if (saved && ['welcome', 'signup', 'tabs', 'conditions'].includes(saved)) {
+    if (saved && ['welcome', 'phone_auth', 'signup', 'tabs', 'conditions'].includes(saved)) {
       return saved;
     }
     return 'welcome';
@@ -161,6 +165,8 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setConditionsAgreedState,
         pendingAccessEmail,
         setPendingAccessEmail,
+        verifiedPhone,
+        setVerifiedPhone,
         resetOnboarding,
       }}>
       {children}

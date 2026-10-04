@@ -9,6 +9,7 @@ import { View, StyleSheet } from 'react-native';
 import { useClub } from '../context/ClubContext';
 import { LimeIntroScreen } from './LimeIntroScreen';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
+import { PhoneAuthScreen } from '../screens/PhoneAuthScreen';
 import { SignUpScreen } from '../screens/SignUpScreen';
 import { OzaraTabs } from './OzaraTabs';
 import { AccessConditionsScreen } from '../screens/AccessConditionsScreen';
@@ -19,6 +20,7 @@ let introAlreadyShownInSession = false;
 
 export const AppNavigator: React.FC = () => {
   const { appView, setAppView, closeConditions } = useClub();
+  const [welcomeInitialSlide, setWelcomeInitialSlide] = useState<number>(0);
   
   // Always show the opening purple screen with appearing logo on initial app load / refresh
   const [showIntro, setShowIntro] = useState(!introAlreadyShownInSession);
@@ -33,8 +35,21 @@ export const AppNavigator: React.FC = () => {
       {/* Active App Screen */}
       {appView === 'welcome' && (
         <WelcomeScreen
+          initialSlideIndex={welcomeInitialSlide}
           onGoToSignUp={() => setAppView('signup')}
           onEnterClub={() => setAppView('tabs')}
+          onGoToPhoneAuth={() => setAppView('phone_auth')}
+        />
+      )}
+
+      {appView === 'phone_auth' && (
+        <PhoneAuthScreen
+          onBack={() => {
+            setWelcomeInitialSlide(2); // Return directly to Invest screen (Screen 3)
+            setAppView('welcome');
+          }}
+          onEnterClub={() => setAppView('tabs')}
+          onGoToSignUp={() => setAppView('signup')}
         />
       )}
 

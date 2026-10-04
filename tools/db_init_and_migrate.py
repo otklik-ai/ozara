@@ -245,6 +245,18 @@ def migrate(db_path: Path):
     CREATE UNIQUE INDEX IF NOT EXISTS idx_invitation_email ON invitation_tokens(email);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_invitation_token ON invitation_tokens(token);
     CREATE INDEX IF NOT EXISTS idx_contact_messages_email ON contact_messages(email);
+
+    -- Phone Verifications (Two-Factor / SMS Verification)
+    CREATE TABLE IF NOT EXISTS phone_verifications (
+        id TEXT PRIMARY KEY,
+        phone TEXT NOT NULL,
+        code TEXT NOT NULL,
+        attempts INTEGER DEFAULT 0,
+        is_verified BOOLEAN DEFAULT 0,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_phone_verifications_phone ON phone_verifications(phone);
     """);
 
     # Safe dynamic column migrations for existing databases
@@ -254,6 +266,9 @@ def migrate(db_path: Path):
         cursor.execute("ALTER TABLE users ADD COLUMN accepted_access_conditions_version TEXT DEFAULT NULL")
     if "accepted_access_conditions_at" not in user_cols:
         cursor.execute("ALTER TABLE users ADD COLUMN accepted_access_conditions_at TIMESTAMP DEFAULT NULL")
+    if "phone" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT NULL")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone)")
 
     cursor.execute("PRAGMA table_info(real_estate_listings)")
     listing_cols = [r[1] for r in cursor.fetchall()]
