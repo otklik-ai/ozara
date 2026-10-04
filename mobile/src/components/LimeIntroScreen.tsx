@@ -1,8 +1,12 @@
 /**
  * ÖZARA Mobile: Particle Typography Intro Screen
- * Features a single, fixed-coordinate typography canvas engine where particles
- * assemble directly in place into the exact final text, eliminating all position
- * recalculations, layout reflows, and jumping.
+ * 
+ * Zero-Jump Architecture:
+ * 1. Awaits 100% complete font loading (document.fonts.ready & document.fonts.load) before measuring.
+ * 2. Pre-calculates exact immutable glyph positions with alphabetic baseline for rock-solid stability of 'Ö' and dots.
+ * 3. Uses device-pixel-ratio (DPR) aligned offscreen sampling so particle targets match Retina vector rasterization to the exact subpixel.
+ * 4. Particles settle into stationary position at 1800ms, then crossfade seamlessly with the static crisp logo without moving a single pixel.
+ * 5. Remains completely still before screen smoothly dissolves into the Welcome Carousel.
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -15,6 +19,7 @@ import {
   StatusBar,
   TouchableWithoutFeedback,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { OzaraTheme } from '../constants/ozara-theme';
 
@@ -33,20 +38,25 @@ interface Particle {
   angle: number;
 }
 
-// 1. One strictly fixed bounding box and center point for the entire animation lifecycle
-const CANVAS_WIDTH = 460;
-const CANVAS_HEIGHT = 150;
-const CENTER_X = CANVAS_WIDTH / 2; // 230
-const CENTER_Y = CANVAS_HEIGHT / 2; // 75
-
-// Fixed baseline centers for both lines of the composition
-const TITLE_Y = CENTER_Y - 11;
-const SUB_Y = CENTER_Y + 22;
+interface GlyphLayout {
+  char: string;
+  x: number;
+  y: number;
+}
 
 export const LimeIntroScreen: React.FC<LimeIntroScreenProps> = ({ onComplete }) => {
   const canvasRef = useRef<any>(null);
+  const { width: windowWidth } = useWindowDimensions();
 
-  // Animated screen opacity for entrance/exit
+  // Bounded stage width: fits both narrow mobile (375px) and wide desktop viewports
+  const stageWidth = Math.min(Math.max(windowWidth - 24, 320), 380);
+  const stageHeight = 160;
+  const centerX = stageWidth / 2;
+
+  // Fixed vertical baselines (alphabetic baseline for rock-solid Ö stability)
+  const titleBaselineY = 76;
+  const subBaselineY = 108;
+
   const screenOpacity = useRef(new Animated.Value(1)).current;
   const isCompletedRef = useRef(false);
 
@@ -57,224 +67,310 @@ export const LimeIntroScreen: React.FC<LimeIntroScreenProps> = ({ onComplete }) 
     }
   };
 
-  // Top-level failsafe timer: guarantees screen ALWAYS advances to Welcome
+  // Top-level failsafe timer: ensures screen always advances
   useEffect(() => {
     const failsafe = setTimeout(() => {
       handleFinish();
-    }, 5500);
+    }, 6000);
     return () => clearTimeout(failsafe);
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !canvasRef.current) {
-      // Native runtime fallback
-      Animated.sequence([
-        Animated.delay(2600),
-        Animated.timing(screenOpacity, {
-          toValue: 0,
-          duration: 450,
-          easing: Easing.inOut(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]).start(() => handleFinish());
-      return;
-    }
-
-    const canvas = canvasRef.current as HTMLCanvasElement;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = CANVAS_WIDTH * dpr;
-    canvas.height = CANVAS_HEIGHT * dpr;
-    ctx.scale(dpr, dpr);
-
-    // Shared deterministic text drawing function: used for both offscreen sampling AND onscreen final render
-    const drawComposition = (c: CanvasRenderingContext2D, alpha: number, includeSub = true) => {
-      c.save();
-      c.globalAlpha = alpha;
-      c.fillStyle = '#000000';
-      c.textAlign = 'center';
-      c.textBaseline = 'middle';
-
-      // 1. Brand Wordmark: ÖZARA (fixed at TITLE_Y)
-      c.font = '900 48px Inter, -apple-system, sans-serif';
-      const titleChars = ['Ö', 'Z', 'A', 'R', 'A'];
-      const titleSpacing = 8;
-      const titleWidths = titleChars.map(ch => c.measureText(ch).width);
-      const titleTotalWidth = titleWidths.reduce((sum, w) => sum + w, 0) + titleSpacing * (titleChars.length - 1);
-      
-      let titlePenX = CENTER_X - titleTotalWidth / 2;
-      titleChars.forEach((ch, idx) => {
-        c.fillText(ch, titlePenX + titleWidths[idx] / 2, TITLE_Y);
-        titlePenX += titleWidths[idx] + titleSpacing;
-      });
-
-      // 2. Subtitle: PRIVATE CLUB (fixed at SUB_Y)
-      if (includeSub) {
-        c.font = '800 10.5px Inter, -apple-system, sans-serif';
-        const subChars = 'PRIVATE CLUB'.split('');
-        const subSpacing = 4.5;
-        const subWidths = subChars.map(ch => c.measureText(ch).width);
-        const subTotalWidth = subWidths.reduce((sum, w) => sum + w, 0) + subSpacing * (subChars.length - 1);
-
-        let subPenX = CENTER_X - subTotalWidth / 2;
-        subChars.forEach((ch, idx) => {
-          c.fillText(ch, subPenX + subWidths[idx] / 2, SUB_Y);
-          subPenX += subWidths[idx] + subSpacing;
-        });
-      }
-
-      c.restore();
-    };
-
-    // 2. Offscreen canvas to sample the exact target coordinates of the letters
-    const offscreen = document.createElement('canvas');
-    offscreen.width = CANVAS_WIDTH;
-    offscreen.height = CANVAS_HEIGHT;
-    const offCtx = offscreen.getContext('2d');
-    if (!offCtx) return;
-
-    // Draw reference glyphs at the exact fixed coordinates
-    drawComposition(offCtx, 1.0, false);
-
-    const imgData = offCtx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    const data = imgData.data;
-    const targets: { x: number; y: number }[] = [];
-
-    // Dense grid sampling: step of 3px yields ~550 clean micro-particles
-    const step = 3;
-    for (let y = 0; y < CANVAS_HEIGHT; y += step) {
-      for (let x = 0; x < CANVAS_WIDTH; x += step) {
-        const index = (Math.floor(y) * CANVAS_WIDTH + Math.floor(x)) * 4;
-        if (data[index + 3] > 120) {
-          targets.push({ x, y });
-        }
-      }
-    }
-
-    // 3. Dispersed micro-particles centered radially around (CENTER_X, TITLE_Y)
-    const particles: Particle[] = targets.map(t => {
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 60 + Math.random() * 200;
-      return {
-        targetX: t.x,
-        targetY: t.y,
-        originX: t.x + Math.cos(angle) * dist,
-        originY: t.y + Math.sin(angle) * dist,
-        size: 0.9 + Math.random() * 1.2,
-        stagger: Math.random() * 0.2,
-        curveOffset: (Math.random() - 0.5) * 35,
-        angle,
-      };
-    });
-
-    // 4. Animation loop: Particles assemble strictly IN PLACE to their exact targets
+    let isCancelled = false;
     let animId: number;
-    let startTime: number | null = null;
-    const assemblyDuration = 1800; // 1.8s smooth assembly
-    const crossFadeDuration = 350;  // 350ms seamless melt into solid text
-    let transitionScheduled = false;
 
-    const renderLoop = (time: number) => {
-      if (!startTime) startTime = time;
-      const elapsed = time - startTime;
+    const runEngine = async () => {
+      if (Platform.OS !== 'web' || !canvasRef.current) {
+        // Native runtime sequence fallback
+        Animated.sequence([
+          Animated.delay(2600),
+          Animated.timing(screenOpacity, {
+            toValue: 0,
+            duration: 500,
+            easing: Easing.inOut(Easing.cubic),
+            useNativeDriver: true,
+          }),
+        ]).start(() => handleFinish());
+        return;
+      }
 
-      ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-      if (elapsed < assemblyDuration) {
-        // Phase 1: Particles actively converging towards stationary targets
-        const progress = Math.min(1, elapsed / assemblyDuration);
-
-        for (let i = 0; i < particles.length; i++) {
-          const p = particles[i];
-          const pProgress = Math.max(0, Math.min(1, (progress - p.stagger) / (1 - p.stagger)));
-          
-          // Cubic deceleration: velocity smoothly approaches 0 at target
-          const ease = 1 - Math.pow(1 - pProgress, 3);
-          const curve = Math.sin(pProgress * Math.PI) * p.curveOffset * (1 - pProgress);
-
-          const currentX = p.originX + (p.targetX - p.originX) * ease + Math.cos(p.angle + Math.PI / 2) * curve;
-          const currentY = p.originY + (p.targetY - p.originY) * ease + Math.sin(p.angle + Math.PI / 2) * curve;
-          const currentAlpha = 0.12 + 0.88 * ease;
-
-          ctx.fillStyle = `rgba(0, 0, 0, ${currentAlpha})`;
-          ctx.beginPath();
-          ctx.arc(currentX, currentY, p.size, 0, Math.PI * 2);
-          ctx.fill();
+      // 1. Ensure Google Font Inter is 100% downloaded and parsed before doing ANY measurement
+      if (typeof document !== 'undefined') {
+        let link = document.getElementById('ozara-google-fonts') as HTMLLinkElement;
+        if (!link) {
+          link = document.createElement('link');
+          link.id = 'ozara-google-fonts';
+          link.rel = 'stylesheet';
+          link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@800;900&display=swap';
+          document.head.appendChild(link);
         }
 
-        // Subtitle starts gently materializing beneath as letters form
-        if (progress > 0.7) {
-          const subAlpha = Math.min(1, (progress - 0.7) / 0.3) * 0.7;
-          ctx.save();
-          ctx.globalAlpha = subAlpha;
-          ctx.fillStyle = '#000000';
-          ctx.font = '800 10.5px Inter, -apple-system, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          const subChars = 'PRIVATE CLUB'.split('');
-          const subSpacing = 4.5;
-          const subWidths = subChars.map(ch => ctx.measureText(ch).width);
-          const subTotalWidth = subWidths.reduce((sum, w) => sum + w, 0) + subSpacing * (subChars.length - 1);
-          let subPenX = CENTER_X - subTotalWidth / 2;
-          subChars.forEach((ch, idx) => {
-            ctx.fillText(ch, subPenX + subWidths[idx] / 2, SUB_Y);
-            subPenX += subWidths[idx] + subSpacing;
+        // Wait for stylesheet to be loaded and parsed
+        if (link && !(link as any).sheet) {
+          await new Promise<void>((resolve) => {
+            const onFinish = () => resolve();
+            link.addEventListener('load', onFinish, { once: true });
+            link.addEventListener('error', onFinish, { once: true });
+            setTimeout(resolve, 1500); // Failsafe timeout
           });
-          ctx.restore();
         }
 
-        animId = requestAnimationFrame(renderLoop);
-      } else if (elapsed < assemblyDuration + crossFadeDuration) {
-        // Phase 2: Particles are now 100% stationary at their targets.
-        // Melt seamlessly into the crisp solid text with 0px shift.
-        const fadeProgress = (elapsed - assemblyDuration) / crossFadeDuration;
-        const particleAlpha = 1 - fadeProgress;
-        const textAlpha = fadeProgress;
-
-        // Render stationary dots fading out
-        if (particleAlpha > 0.02) {
-          ctx.fillStyle = `rgba(0, 0, 0, ${particleAlpha})`;
-          for (let i = 0; i < particles.length; i++) {
-            const p = particles[i];
-            ctx.beginPath();
-            ctx.arc(p.targetX, p.targetY, p.size, 0, Math.PI * 2);
-            ctx.fill();
+        if (document.fonts) {
+          try {
+            await Promise.all([
+              document.fonts.load('900 48px Inter'),
+              document.fonts.load('800 11px Inter'),
+            ]);
+            await document.fonts.ready;
+          } catch (err) {
+            console.warn('[LimeIntroScreen] Font loading fallback:', err);
           }
         }
+      }
 
-        // Render solid brand text fading in at the EXACT SAME target coordinates
-        drawComposition(ctx, textAlpha, true);
+      if (isCancelled || !canvasRef.current) return;
 
-        animId = requestAnimationFrame(renderLoop);
-      } else {
-        // Phase 3: Final pristine state.
-        // ONLY the solid normal logo is drawn at (CENTER_X, CENTER_Y).
-        // Zero dots, zero shade, zero jump.
-        drawComposition(ctx, 1.0, true);
+      const canvas = canvasRef.current as HTMLCanvasElement;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-        if (!transitionScheduled) {
-          transitionScheduled = true;
-          // Hold for 2.2 seconds before transitioning into Welcome Screen
-          setTimeout(() => {
+      const dpr = (typeof window !== 'undefined' && window.devicePixelRatio)
+        ? Math.min(window.devicePixelRatio, 3)
+        : 1;
+
+      // Set physical canvas pixel dimensions
+      canvas.width = Math.round(stageWidth * dpr);
+      canvas.height = Math.round(stageHeight * dpr);
+      ctx.scale(dpr, dpr);
+
+      // 2. Offscreen sampling canvas configured with the EXACT SAME physical DPR
+      const offscreen = document.createElement('canvas');
+      offscreen.width = Math.round(stageWidth * dpr);
+      offscreen.height = Math.round(stageHeight * dpr);
+      const offCtx = offscreen.getContext('2d', { willReadFrequently: true });
+      if (!offCtx) return;
+      offCtx.scale(dpr, dpr);
+
+      const TITLE_FONT = '900 48px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      const SUB_FONT = '800 10.5px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+      // 3. Pre-calculate layout ONCE from actual loaded font metrics
+      offCtx.font = TITLE_FONT;
+      offCtx.textBaseline = 'alphabetic';
+      offCtx.textAlign = 'center';
+
+      const titleChars = ['Ö', 'Z', 'A', 'R', 'A'];
+      const titleSpacing = 8;
+      const titleWidths = titleChars.map(ch => offCtx.measureText(ch).width);
+      const titleTotalWidth = titleWidths.reduce((sum, w) => sum + w, 0) + titleSpacing * (titleChars.length - 1);
+
+      let titlePenX = centerX - titleTotalWidth / 2;
+      const titleGlyphs: GlyphLayout[] = titleChars.map((char, idx) => {
+        const glyphX = titlePenX + titleWidths[idx] / 2;
+        titlePenX += titleWidths[idx] + titleSpacing;
+        return { char, x: glyphX, y: titleBaselineY };
+      });
+
+      // Subtitle
+      offCtx.font = SUB_FONT;
+      offCtx.textBaseline = 'alphabetic';
+      offCtx.textAlign = 'center';
+
+      const subChars = 'PRIVATE CLUB'.split('');
+      const subSpacing = 4.5;
+      const subWidths = subChars.map(ch => offCtx.measureText(ch).width);
+      const subTotalWidth = subWidths.reduce((sum, w) => sum + w, 0) + subSpacing * (subChars.length - 1);
+
+      let subPenX = centerX - subTotalWidth / 2;
+      const subGlyphs: GlyphLayout[] = subChars.map((char, idx) => {
+        const glyphX = subPenX + subWidths[idx] / 2;
+        subPenX += subWidths[idx] + subSpacing;
+        return { char, x: glyphX, y: subBaselineY };
+      });
+
+      // 4. Draw reference logo onto offscreen canvas for particle sampling
+      offCtx.fillStyle = '#000000';
+      offCtx.font = TITLE_FONT;
+      offCtx.textBaseline = 'alphabetic';
+      offCtx.textAlign = 'center';
+      titleGlyphs.forEach(g => {
+        offCtx.fillText(g.char, g.x, g.y);
+      });
+
+      const fullW = Math.round(stageWidth * dpr);
+      const fullH = Math.round(stageHeight * dpr);
+      const imgData = offCtx.getImageData(0, 0, fullW, fullH);
+      const data = imgData.data;
+
+      const targets: { x: number; y: number }[] = [];
+      const sampleStep = Math.max(2, Math.round(1.6 * dpr));
+
+      for (let py = 0; py < fullH; py += sampleStep) {
+        for (let px = 0; px < fullW; px += sampleStep) {
+          const idx = (py * fullW + px) * 4;
+          if (data[idx + 3] > 120) {
+            // Convert physical DPR pixel back to logical stage coordinates
+            targets.push({
+              x: px / dpr,
+              y: py / dpr,
+            });
+          }
+        }
+      }
+
+      // 5. Generate radial particles targeting the exact glyph coordinates
+      const particles: Particle[] = targets.map(t => {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 45 + Math.random() * 135;
+        return {
+          targetX: t.x,
+          targetY: t.y,
+          originX: t.x + Math.cos(angle) * dist,
+          originY: t.y + Math.sin(angle) * dist,
+          size: 0.8 + Math.random() * 0.9,
+          stagger: Math.random() * 0.22,
+          curveOffset: (Math.random() - 0.5) * 28,
+          angle,
+        };
+      });
+
+      // 6. Shared static render helpers (drawn from the exact immutable glyph layout)
+      const drawStaticTitle = (c: CanvasRenderingContext2D, alpha: number) => {
+        if (alpha <= 0.001) return;
+        c.save();
+        c.globalAlpha = Math.min(1, Math.max(0, alpha));
+        c.fillStyle = '#000000';
+        c.font = TITLE_FONT;
+        c.textBaseline = 'alphabetic';
+        c.textAlign = 'center';
+        for (let i = 0; i < titleGlyphs.length; i++) {
+          const g = titleGlyphs[i];
+          c.fillText(g.char, g.x, g.y);
+        }
+        c.restore();
+      };
+
+      const drawStaticSubtitle = (c: CanvasRenderingContext2D, alpha: number) => {
+        if (alpha <= 0.001) return;
+        c.save();
+        c.globalAlpha = Math.min(1, Math.max(0, alpha));
+        c.fillStyle = '#000000';
+        c.font = SUB_FONT;
+        c.textBaseline = 'alphabetic';
+        c.textAlign = 'center';
+        for (let i = 0; i < subGlyphs.length; i++) {
+          const g = subGlyphs[i];
+          c.fillText(g.char, g.x, g.y);
+        }
+        c.restore();
+      };
+
+      // 7. Animation timeline:
+      // - 0ms - 1800ms: Assembly (particles converge, subtitle fades in from 1000ms to 1800ms)
+      // - 1800ms - 2400ms: Perfectly stationary crossfade (particles 100% still, crossfade into solid logo)
+      // - 2400ms - 4200ms: Crisp static hold (completely still, zero particles, zero recalculations)
+      // - 4200ms - 4750ms: Smooth screen dissolve into Welcome Carousel
+      let startTime: number | null = null;
+      const assemblyDuration = 1800;
+      const crossFadeDuration = 600;
+      const holdDuration = 1800;
+      let transitionScheduled = false;
+
+      const renderLoop = (time: number) => {
+        if (isCancelled) return;
+        if (!startTime) startTime = time;
+        const elapsed = time - startTime;
+
+        ctx.clearRect(0, 0, stageWidth, stageHeight);
+
+        if (elapsed < assemblyDuration) {
+          // Phase 1: Particles actively converging
+          const progress = Math.min(1, elapsed / assemblyDuration);
+
+          for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
+            const pProgress = Math.max(0, Math.min(1, (progress - p.stagger) / (1 - p.stagger)));
+            // Quartic ease-out: velocity reaches precisely zero at target
+            const ease = 1 - Math.pow(1 - pProgress, 4);
+            const curve = Math.sin(pProgress * Math.PI) * p.curveOffset * (1 - pProgress);
+
+            const currentX = p.originX + (p.targetX - p.originX) * ease + Math.cos(p.angle + Math.PI / 2) * curve;
+            const currentY = p.originY + (p.targetY - p.originY) * ease + Math.sin(p.angle + Math.PI / 2) * curve;
+            const currentAlpha = 0.15 + 0.85 * ease;
+
+            ctx.fillStyle = `rgba(0, 0, 0, ${currentAlpha})`;
+            ctx.beginPath();
+            ctx.arc(currentX, currentY, p.size, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Subtitle fades in smoothly from 1000ms to 1800ms
+          if (elapsed > 1000) {
+            const subAlpha = Math.min(1, (elapsed - 1000) / 800);
+            drawStaticSubtitle(ctx, subAlpha);
+          }
+
+          animId = requestAnimationFrame(renderLoop);
+        } else if (elapsed < assemblyDuration + crossFadeDuration) {
+          // Phase 2: Particles are 100% stationary at target coordinates!
+          // Seamless crossfade into the solid crisp logo with ZERO movement.
+          const fadeLinear = (elapsed - assemblyDuration) / crossFadeDuration;
+          const fadeEase = 0.5 - 0.5 * Math.cos(fadeLinear * Math.PI);
+          const particleAlpha = 1 - fadeEase;
+          const staticAlpha = fadeEase;
+
+          // Render stationary particles fading out
+          if (particleAlpha > 0.02) {
+            ctx.fillStyle = `rgba(0, 0, 0, ${particleAlpha})`;
+            for (let i = 0; i < particles.length; i++) {
+              const p = particles[i];
+              ctx.beginPath();
+              ctx.arc(p.targetX, p.targetY, p.size, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+
+          // Render solid crisp title fading in at the exact same coordinates
+          drawStaticTitle(ctx, staticAlpha);
+
+          // Subtitle remains fully opaque
+          drawStaticSubtitle(ctx, 1.0);
+
+          animId = requestAnimationFrame(renderLoop);
+        } else if (elapsed < assemblyDuration + crossFadeDuration + holdDuration) {
+          // Phase 3: Final pristine state.
+          // Zero particles, completely still.
+          drawStaticTitle(ctx, 1.0);
+          drawStaticSubtitle(ctx, 1.0);
+
+          animId = requestAnimationFrame(renderLoop);
+        } else {
+          // Phase 4: Dissolve intro screen into Welcome Screen
+          drawStaticTitle(ctx, 1.0);
+          drawStaticSubtitle(ctx, 1.0);
+
+          if (!transitionScheduled) {
+            transitionScheduled = true;
             Animated.timing(screenOpacity, {
               toValue: 0,
-              duration: 450,
+              duration: 550,
               easing: Easing.inOut(Easing.cubic),
               useNativeDriver: true,
             }).start(() => handleFinish());
-          }, 2200);
+          }
         }
-      }
+      };
+
+      animId = requestAnimationFrame(renderLoop);
     };
 
-    animId = requestAnimationFrame(renderLoop);
+    runEngine();
 
     return () => {
-      cancelAnimationFrame(animId);
+      isCancelled = true;
+      if (animId) cancelAnimationFrame(animId);
     };
-  }, []);
+  }, [stageWidth, stageHeight, centerX]);
 
   return (
     <TouchableWithoutFeedback onPress={handleFinish}>
@@ -282,13 +378,13 @@ export const LimeIntroScreen: React.FC<LimeIntroScreenProps> = ({ onComplete }) 
         <StatusBar barStyle="dark-content" backgroundColor={OzaraTheme.colors.accentViolet} />
 
         {/* Strictly anchored fixed-size composition stage */}
-        <View style={styles.fixedStage}>
+        <View style={[styles.fixedStage, { width: stageWidth, height: stageHeight }]}>
           {Platform.OS === 'web' ? (
             <canvas
               ref={canvasRef}
               style={{
-                width: CANVAS_WIDTH,
-                height: CANVAS_HEIGHT,
+                width: stageWidth,
+                height: stageHeight,
                 display: 'block',
               }}
             />
@@ -313,13 +409,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 9999,
   },
-  // Fixed bounding box centered on screen throughout the entire animation
   fixedStage: {
-    width: CANVAS_WIDTH,
-    height: CANVAS_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    overflow: 'hidden',
   },
   nativeFallback: {
     alignItems: 'center',

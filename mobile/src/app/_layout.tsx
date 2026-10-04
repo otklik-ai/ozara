@@ -11,6 +11,15 @@ export default function RootLayout() {
   useEffect(() => {
     // Hide native splash screen immediately so custom lime intro takes over
     SplashScreen.hideAsync().catch(() => {});
+
+    // Preload Inter font immediately at root startup
+    if (typeof document !== 'undefined' && !document.getElementById('ozara-google-fonts')) {
+      const link = document.createElement('link');
+      link.id = 'ozara-google-fonts';
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@800;900&display=swap';
+      document.head.appendChild(link);
+    }
   }, []);
 
   return (
