@@ -5,13 +5,22 @@
 
 import { Platform } from 'react-native';
 
-// iOS Simulator and Web connect via localhost.
-// Physical devices can connect via local LAN IP or ngrok/cloud URL.
-export const API_BASE_URL = Platform.select({
-  ios: 'http://localhost:3000',
-  android: 'http://10.0.2.2:3000',
-  default: 'http://localhost:3000',
-});
+// Dynamic base URL detection:
+// When accessed from a physical phone on LAN (e.g. http://192.168.1.157:8081),
+// dynamically point to the backend on port 3000 on that same host IP!
+export const getBaseUrl = (): string => {
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    return `${protocol}//${window.location.hostname}:3000`;
+  }
+  return Platform.select({
+    ios: 'http://localhost:3000',
+    android: 'http://10.0.2.2:3000',
+    default: 'http://localhost:3000',
+  });
+};
+
+export const API_BASE_URL = getBaseUrl();
 
 export function resolveImageUrl(url: string | null | undefined): string {
   if (!url) {
@@ -20,8 +29,9 @@ export function resolveImageUrl(url: string | null | undefined): string {
   if (url.startsWith('http')) {
     return url;
   }
+  const base = getBaseUrl();
   if (url.startsWith('/')) {
-    return `${API_BASE_URL}${url}`;
+    return `${base}${url}`;
   }
   return url;
 }
@@ -144,7 +154,7 @@ export interface RealEstateListing {
 export const CURRENT_ACCESS_CONDITIONS_VERSION = '2026-10-v1';
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${getBaseUrl()}${endpoint}`;
   const response = await fetch(url, {
     ...options,
     headers: {

@@ -164,13 +164,28 @@ const MarqueeRow: React.FC<MarqueeRowProps> = ({
   );
 };
 
+const DEFAULT_INTRO_PICS = [
+  '/intro_pics/14a7fad9-48d3-4df2-92c7-bf0dfa08ecf9.png',
+  '/intro_pics/2092114d-fbdb-4545-82ae-e0e666dcd898.png',
+  '/intro_pics/374f8224-1117-48bd-9ee6-714b509fa0c3.png',
+  '/intro_pics/39e643be-f0e4-45fb-b4dd-41fc63f03cac.png',
+  '/intro_pics/51b420a3-6ad3-4021-b53a-4a0e3e105d54.png',
+  '/intro_pics/8c4e4fb6-64f3-4d66-8082-10e20d74d08e.png',
+  '/intro_pics/90667298-4d39-45d2-8914-61683919683f.png',
+  '/intro_pics/A%20thoughtful%20acquisition%20conversation.png',
+  '/intro_pics/Applied%20AI%20founder%20tests%20a%20robot.png',
+  '/intro_pics/b05f7f2a-35ae-429e-a450-9d1ff0ef1c87.png',
+];
+
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onGoToSignUp,
   onEnterClub,
 }) => {
   const insets = useSafeAreaInsets();
   const { openConditions, conditionsAgreed, setConditionsAgreedState } = useClub();
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<string[]>(() =>
+    DEFAULT_INTRO_PICS.map((pic) => resolveImageUrl(pic))
+  );
   // Only show conditions modal if user has not yet agreed
   const [showConditionsModal, setShowConditionsModal] = useState<boolean>(!conditionsAgreed);
 
