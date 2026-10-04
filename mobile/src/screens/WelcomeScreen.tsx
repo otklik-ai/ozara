@@ -31,6 +31,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useClub } from '../context/ClubContext';
 import { AccessConditionsModal } from '../components/AccessConditionsModal';
+import { ContactModal } from '../components/ContactModal';
 import { ApiService, resolveImageUrl } from '../services/api';
 import { OzaraTheme } from '../constants/ozara-theme';
 
@@ -243,6 +244,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     DEFAULT_INTRO_PICS.map((pic) => resolveImageUrl(pic))
   );
   const [showConditionsModal, setShowConditionsModal] = useState<boolean>(!conditionsAgreed);
+  const [showContactModal, setShowContactModal] = useState<boolean>(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -288,9 +290,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     }
   };
 
-  // Button Action Handlers
+  // Button Action Handlers: Intro opens Contact Panel from all 3 screens
   const handleIntroPress = () => {
-    goToSlide(0);
+    setShowContactModal(true);
   };
 
   const handlePrimaryPress = () => {
@@ -478,6 +480,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           setConditionsAgreedState(true);
           onGoToSignUp();
         }}
+      />
+
+      {/* Contact Panel Modal (Accessible via Intro button on all 3 onboarding screens) */}
+      <ContactModal
+        visible={showContactModal}
+        onClose={() => setShowContactModal(false)}
       />
     </View>
   );

@@ -225,6 +225,16 @@ def migrate(db_path: Path):
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- Onboarding Contact Messages
+    CREATE TABLE IF NOT EXISTS contact_messages (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        status TEXT DEFAULT 'new'
+    );
+
     -- Indices for performance and search
     CREATE INDEX IF NOT EXISTS idx_users_chapter ON users(chapter_id);
     CREATE INDEX IF NOT EXISTS idx_taxonomies_cat_slug ON taxonomies(category, slug);
@@ -234,6 +244,7 @@ def migrate(db_path: Path):
     CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_logs(target_member_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_invitation_email ON invitation_tokens(email);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_invitation_token ON invitation_tokens(token);
+    CREATE INDEX IF NOT EXISTS idx_contact_messages_email ON contact_messages(email);
     """);
 
     # Safe dynamic column migrations for existing databases

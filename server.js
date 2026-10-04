@@ -55,6 +55,7 @@ async function sendEmailNotification({ to, subject, html, text }) {
 }
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 const dbFileName = fs.existsSync(path.join(__dirname, 'ozara.db')) ? 'ozara.db' : 'sila.db';
 const dbPath = path.join(__dirname, dbFileName);
 const db = new Database(dbPath);
@@ -62,6 +63,19 @@ const db = new Database(dbPath);
 // Enable WAL mode & foreign keys
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+
+// Ensure contact_messages table exists
+db.exec(`
+  CREATE TABLE IF NOT EXISTS contact_messages (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status TEXT DEFAULT 'new'
+  );
+  CREATE INDEX IF NOT EXISTS idx_contact_messages_email ON contact_messages(email);
+`);
 
 app.use(cors());
 app.use(express.json());
@@ -111,6 +125,183 @@ function validateContent(text) {
   }
   return null;
 }
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Configurable Admin Inboxes for Alexandra and Julia
+function getAdminContactInboxes() {
+  // 1. Explicit admin contact emails environment variable
+  if (process.env.ADMIN_CONTACT_EMAILS && process.env.ADMIN_CONTACT_EMAILS.trim()) {
+    const envEmails = process.env.ADMIN_CONTACT_EMAILS.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+    if (envEmails.length > 0) return envEmails;
+  }
+
+  // 2. Query configured admin / founder records from DB for Alexandra and Julia
+  try {
+    const adminRows = db.prepare(`
+      SELECT email FROM users 
+      WHERE (id IN ('usr_alexandra', 'usr_julia') 
+         OR LOWER(full_name) LIKE '%alexandra%' 
+         OR LOWER(full_name) LIKE '%julia%')
+        AND email IS NOT NULL
+    `).all();
+    if (adminRows && adminRows.length > 0) {
+      const dbEmails = Array.from(new Set(adminRows.map(r => r.email.toLowerCase())));
+      if (dbEmails.length > 0) return dbEmails;
+    }
+  } catch (err) {
+    console.error('[CONTACT INBOX] Error fetching admin inboxes from database:', err.message);
+  }
+
+  // 3. Fallback to FOUNDER_EMAILS env variable
+  if (process.env.FOUNDER_EMAILS && process.env.FOUNDER_EMAILS.trim()) {
+    const founderEmails = process.env.FOUNDER_EMAILS.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+    if (founderEmails.length > 0) return founderEmails;
+  }
+
+  // 4. Default canonical configured addresses for Alexandra and Julia
+  return ['agniyahill@gmail.com', 'iuliiashchukinainvest@gmail.com'];
+}
+
+// In-memory rate limiting map for basic spam protection
+const contactRateLimits = new Map();
+
+function isContactRateLimited(key) {
+  if (!key) return false;
+  const now = Date.now();
+  const windowMs = 60 * 1000; // 1 minute window
+  const maxRequests = 3;
+
+  const timestamps = (contactRateLimits.get(key) || []).filter(t => now - t < windowMs);
+  if (timestamps.length >= maxRequests) {
+    return true;
+  }
+  timestamps.push(now);
+  contactRateLimits.set(key, timestamps);
+  return false;
+}
+
+// Contact configuration endpoint (detects if WhatsApp is configured)
+app.get('/api/contact/config', (req, res) => {
+  const whatsappNumber = (process.env.ADMIN_WHATSAPP_NUMBER || '').trim();
+  res.json({
+    whatsapp_configured: Boolean(whatsappNumber),
+    whatsapp_number: whatsappNumber || null,
+  });
+});
+
+// Contact message submission endpoint
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { name, email, message, website, honeypot } = req.body || {};
+
+    // 1. Basic Spam Protection: Honeypot check
+    // If a bot fills the hidden website/honeypot field, silently pretend success
+    if (website || honeypot) {
+      console.warn('[SPAM BLOCKED] Honeypot field filled:', { website, honeypot });
+      return res.json({
+        success: true,
+        message: "Thank you. Your message has been received."
+      });
+    }
+
+    // 2. Field Validation
+    const cleanName = (name || '').trim();
+    if (!cleanName || cleanName.length < 2) {
+      return res.status(400).json({ error: "Please enter your name (at least 2 characters)." });
+    }
+    if (cleanName.length > 100) {
+      return res.status(400).json({ error: "Name must be 100 characters or fewer." });
+    }
+
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
+      return res.status(400).json({ error: "Please provide a valid email address." });
+    }
+    if (cleanEmail.length > 150) {
+      return res.status(400).json({ error: "Email must be 150 characters or fewer." });
+    }
+
+    const cleanMessage = (message || '').trim();
+    if (!cleanMessage || cleanMessage.length < 10) {
+      return res.status(400).json({ error: "Please enter a message of at least 10 characters." });
+    }
+    if (cleanMessage.length > 3000) {
+      return res.status(400).json({ error: "Message must be 3,000 characters or fewer." });
+    }
+
+    // 3. Prohibited Content Check (Content Guardrail)
+    const contentError = validateContent(cleanMessage);
+    if (contentError) {
+      return res.status(400).json({ error: contentError });
+    }
+
+    // 4. Rate Limiting (by IP and email)
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    if (isContactRateLimited(clientIp) || isContactRateLimited(cleanEmail)) {
+      return res.status(429).json({ error: "Too many messages sent. Please wait a moment before trying again." });
+    }
+
+    // 5. Store message in database
+    const msgId = 'msg_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+    db.prepare(`
+      INSERT INTO contact_messages (id, name, email, message, created_at, status)
+      VALUES (?, ?, ?, ?, ?, 'new')
+    `).run(msgId, cleanName, cleanEmail, cleanMessage, new Date().toISOString());
+
+    // 6. Route submission to configured admin inboxes for Alexandra and Julia
+    const adminInboxes = getAdminContactInboxes();
+    console.log(`[CONTACT INQUIRY] Routing note from ${cleanName} (${cleanEmail}) to:`, adminInboxes);
+
+    const emailSubject = `[ÖZARA Inquiry] New message from ${cleanName}`;
+    const emailText = `New contact inquiry received on ÖZARA:\n\nName: ${cleanName}\nEmail: ${cleanEmail}\n\nMessage:\n${cleanMessage}\n\nTimestamp: ${new Date().toISOString()}`;
+    const emailHtml = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #080c18; color: #f8fafc; padding: 32px 24px; border-radius: 12px; max-width: 580px; margin: 0 auto; border: 1px solid rgba(255,255,255,0.1);">
+        <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px; margin-bottom: 20px;">
+          <h2 style="margin: 0; color: #ffffff; letter-spacing: 3px; font-size: 18px;">ÖZARA</h2>
+          <span style="font-size: 10px; color: #94a3b8; letter-spacing: 1.5px; font-weight: 700;">PRIVATE CLUB • TEAM INBOX</span>
+        </div>
+        <p style="font-size: 14px; color: #cbd5e1; margin-bottom: 20px;">A prospective member has submitted a note via the onboarding contact panel:</p>
+        <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+          <p style="margin: 0 0 8px 0; font-size: 14px;"><strong style="color: #94a3b8;">Name:</strong> <span style="color: #ffffff;">${escapeHtml(cleanName)}</span></p>
+          <p style="margin: 0 0 8px 0; font-size: 14px;"><strong style="color: #94a3b8;">Email:</strong> <a href="mailto:${escapeHtml(cleanEmail)}" style="color: #818cf8; text-decoration: none;">${escapeHtml(cleanEmail)}</a></p>
+          <p style="margin: 0; font-size: 14px;"><strong style="color: #94a3b8;">Received:</strong> <span style="color: #cbd5e1;">${new Date().toUTCString()}</span></p>
+        </div>
+        <div style="background: #0f172a; border-left: 3px solid #6366f1; border-radius: 4px; padding: 14px 16px; margin-bottom: 24px;">
+          <div style="font-size: 11px; color: #818cf8; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px;">Message</div>
+          <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #f1f5f9; white-space: pre-wrap;">${escapeHtml(cleanMessage)}</p>
+        </div>
+        <p style="font-size: 12px; color: #64748b; margin: 0;">This email was automatically routed to configured administrators Alexandra and Julia.</p>
+      </div>
+    `;
+
+    for (const recipient of adminInboxes) {
+      sendEmailNotification({
+        to: recipient,
+        subject: emailSubject,
+        text: emailText,
+        html: emailHtml
+      }).catch(err => console.error(`[CONTACT NOTIFICATION ERROR] to ${recipient}:`, err));
+    }
+
+    return res.json({
+      success: true,
+      message: "Thank you. Your message has been received."
+    });
+  } catch (error) {
+    console.error('[CONTACT API ERROR]', error);
+    return res.status(500).json({ error: "Failed to submit message. Please try again later." });
+  }
+});
 
 // Access Conditions Active Version
 const CURRENT_ACCESS_CONDITIONS_VERSION = '2026-10-v1';

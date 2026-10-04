@@ -342,4 +342,24 @@ export const ApiService = {
         body: JSON.stringify({ answers }),
       }
     ),
+
+  getContactConfig: () =>
+    request<{
+      whatsapp_configured: boolean;
+      whatsapp_number: string | null;
+    }>('/api/contact/config'),
+
+  submitContactMessage: (payload: {
+    name: string;
+    email: string;
+    message: string;
+    website?: string;
+  }) =>
+    request<{
+      success: boolean;
+      message: string;
+    }>('/api/contact', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 };
