@@ -14,6 +14,7 @@ export const OZARA_STORAGE_KEYS = {
   PENDING_TOKEN: 'ozara_pending_token',
   CURRENT_USER_ID: 'ozara_current_user_id',
   SIGNUP_STEP: 'ozara_signup_step',
+  VERIFIED_PHONE: 'ozara_verified_phone',
 } as const;
 
 class StorageService {

@@ -261,6 +261,7 @@ export const ApiService = {
     token?: string;
     chapter_id?: string;
     accepted_conditions_version: string;
+    phone?: string;
   }) =>
     request<{ success: boolean; user: any }>('/api/register', {
       method: 'POST',
@@ -286,6 +287,7 @@ export const ApiService = {
     fullName: string;
     role?: string;
     notes?: string;
+    phone?: string;
   }) =>
     request<{
       success: boolean;

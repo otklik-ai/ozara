@@ -51,7 +51,18 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return OzaraStorage.getItem(OZARA_STORAGE_KEYS.PENDING_EMAIL) || '';
   });
 
-  const [verifiedPhone, setVerifiedPhone] = useState<string>('');
+  const [verifiedPhone, setVerifiedPhoneState] = useState<string>(() => {
+    return OzaraStorage.getItem(OZARA_STORAGE_KEYS.VERIFIED_PHONE) || '';
+  });
+
+  const setVerifiedPhone = (phone: string) => {
+    setVerifiedPhoneState(phone);
+    if (phone) {
+      OzaraStorage.setItem(OZARA_STORAGE_KEYS.VERIFIED_PHONE, phone);
+    } else {
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.VERIFIED_PHONE);
+    }
+  };
 
   const [appView, setAppViewState] = useState<AppView>(() => {
     const saved = OzaraStorage.getItem(OZARA_STORAGE_KEYS.APP_VIEW) as AppView | null;
@@ -88,7 +99,9 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     OzaraStorage.removeItem(OZARA_STORAGE_KEYS.APP_VIEW);
     OzaraStorage.removeItem(OZARA_STORAGE_KEYS.PENDING_EMAIL);
     OzaraStorage.removeItem(OZARA_STORAGE_KEYS.SIGNUP_STEP);
+    OzaraStorage.removeItem(OZARA_STORAGE_KEYS.VERIFIED_PHONE);
     setPendingAccessEmailState('');
+    setVerifiedPhoneState('');
     setAppView('welcome');
   };
 

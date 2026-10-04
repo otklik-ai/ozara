@@ -289,6 +289,8 @@ def migrate(db_path: Path):
         cursor.execute("ALTER TABLE invitation_tokens ADD COLUMN approved_by TEXT DEFAULT NULL")
     if "approved_at" not in inv_cols:
         cursor.execute("ALTER TABLE invitation_tokens ADD COLUMN approved_at TIMESTAMP DEFAULT NULL")
+    if "phone" not in inv_cols:
+        cursor.execute("ALTER TABLE invitation_tokens ADD COLUMN phone TEXT DEFAULT NULL")
 
     conn.commit()
     conn.close()

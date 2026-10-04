@@ -327,7 +327,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
     pendingAccessEmail,
     setPendingAccessEmail,
     setAppView,
+    verifiedPhone,
   } = useClub();
+
+  const activePhone = verifiedPhone || OzaraStorage.getItem(OZARA_STORAGE_KEYS.VERIFIED_PHONE) || '';
 
   // Navigation mode within SignUp flow - only restore valid interactive steps
   const [viewMode, setViewModeState] = useState<GateView>(() => {
@@ -689,6 +692,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
         email: normalizedEmail,
         role: structuredRoleHeadline,
         notes: reqNotes.trim(),
+        phone: activePhone || undefined,
       });
 
       // Save email context so user can resume where they left off
@@ -737,6 +741,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
         chapter_id: `ch_${chapter.toLowerCase().replace(/\s+/g, '_')}`,
         accepted_conditions_version: CURRENT_ACCESS_CONDITIONS_VERSION,
         avatar_url: avatarUrl.trim() || undefined,
+        phone: activePhone || undefined,
       });
 
       if (res.success && res.user) {
@@ -1094,6 +1099,22 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
                 🔒 Pre-populated from invitation token. Locked to prevent unauthorized transfer.
               </Text>
             </View>
+
+            {/* VERIFIED PHONE NUMBER */}
+            {activePhone ? (
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>VERIFIED PHONE NUMBER</Text>
+                <TextInput
+                  style={[styles.input, styles.inputLocked]}
+                  value={activePhone}
+                  editable={false}
+                  selectTextOnFocus={false}
+                />
+                <Text style={styles.lockHint}>
+                  🔒 Verified via SMS authentication. Bound to your member account for security.
+                </Text>
+              </View>
+            ) : null}
 
             {/* PROFILE PICTURE / EXECUTIVE PORTRAIT */}
             <View style={styles.formGroup}>

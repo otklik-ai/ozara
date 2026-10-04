@@ -1226,11 +1226,12 @@ app.post('/api/profile/:id/accept-conditions', (req, res) => {
 
 // Member Registration endpoint with token claim and conditions tracking
 app.post('/api/register', (req, res) => {
-  const { full_name, email, headline, avatar_url, country, state, city, industry, chapter_id, accepted_conditions_version, token } = req.body;
+  const { full_name, email, headline, avatar_url, country, state, city, industry, chapter_id, accepted_conditions_version, token, phone } = req.body;
   if (!full_name || !email) {
     return res.status(400).json({ error: "Full name and email are required." });
   }
   const cleanEmail = email.trim().toLowerCase();
+  const cleanPhone = phone ? String(phone).trim() : null;
 
   // If token is provided, validate and claim it
   if (token) {
@@ -1259,9 +1260,9 @@ app.post('/api/register', (req, res) => {
   if (existingUser) {
     db.prepare(`
       UPDATE users 
-      SET full_name = ?, headline = ?, avatar_url = ?, country = ?, state = ?, city = ?, industry = ?, chapter_id = ?
+      SET full_name = ?, headline = ?, avatar_url = ?, country = ?, state = ?, city = ?, industry = ?, chapter_id = ?, phone = COALESCE(?, phone)
       WHERE id = ?
-    `).run(full_name, headline || existingUser.headline, finalAvatar, finalCountry, finalState, finalCity, finalIndustry, chapter_id || existingUser.chapter_id, existingUser.id);
+    `).run(full_name, headline || existingUser.headline, finalAvatar, finalCountry, finalState, finalCity, finalIndustry, chapter_id || existingUser.chapter_id, cleanPhone, existingUser.id);
     const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(existingUser.id);
     return res.json({ success: true, user: updated });
   }
@@ -1271,9 +1272,9 @@ app.post('/api/register', (req, res) => {
   const conditionsVersion = accepted_conditions_version || CURRENT_ACCESS_CONDITIONS_VERSION;
   try {
     db.prepare(`
-      INSERT INTO users (id, email, full_name, headline, avatar_url, chapter_id, city, state, country, industry, contact_preference, role, is_admitted, admitted_by, is_complete, accepted_access_conditions_version, accepted_access_conditions_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'direct_contact', 'MEMBER', 1, 'Invitation-Token-Verified', 0, ?, ?)
-    `).run(newId, cleanEmail, full_name, headline || 'New Member', finalAvatar, chapter_id || 'ch_dubai', finalCity, finalState, finalCountry, finalIndustry, conditionsVersion, now);
+      INSERT INTO users (id, email, full_name, headline, avatar_url, chapter_id, city, state, country, industry, contact_preference, role, is_admitted, admitted_by, is_complete, accepted_access_conditions_version, accepted_access_conditions_at, phone)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'direct_contact', 'MEMBER', 1, 'Invitation-Token-Verified', 0, ?, ?, ?)
+    `).run(newId, cleanEmail, full_name, headline || 'New Member', finalAvatar, chapter_id || 'ch_dubai', finalCity, finalState, finalCountry, finalIndustry, conditionsVersion, now, cleanPhone);
 
     // Seed 30 canonical question rows for newly registered user
     const insertAnswer = db.prepare(`
@@ -1408,7 +1409,7 @@ app.post('/api/invitations/verify', (req, res) => {
 
 // Request access (Uninvited prospective members)
 app.post('/api/invitations/request-access', (req, res) => {
-  const { email, fullName, role, notes } = req.body;
+  const { email, fullName, role, notes, phone } = req.body;
   if (!email || !email.trim()) {
     return res.status(400).json({ success: false, message: "Business email is required." });
   }
@@ -1417,6 +1418,7 @@ app.post('/api/invitations/request-access', (req, res) => {
   const cleanName = (fullName || '').trim();
   const cleanRole = (role || '').trim();
   const cleanNotes = (notes || '').trim();
+  const cleanPhone = phone ? String(phone).trim() : null;
 
   // Check if already registered
   const existingUser = db.prepare("SELECT id, full_name FROM users WHERE LOWER(email) = ?").get(cleanEmail);
@@ -1446,18 +1448,19 @@ app.post('/api/invitations/request-access', (req, res) => {
       UPDATE invitation_tokens
       SET full_name = COALESCE(NULLIF(?, ''), full_name),
           role_or_headline = COALESCE(NULLIF(?, ''), role_or_headline),
-          notes = COALESCE(NULLIF(?, ''), notes)
+          notes = COALESCE(NULLIF(?, ''), notes),
+          phone = COALESCE(?, phone)
       WHERE id = ?
-    `).run(cleanName, cleanRole, cleanNotes, id);
+    `).run(cleanName, cleanRole, cleanNotes, cleanPhone, id);
   } else {
     id = 'req_acc_' + Math.random().toString(36).substring(2, 9);
     const tempToken = 'PENDING-' + Math.random().toString(36).substring(2, 8).toUpperCase();
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     db.prepare(`
-      INSERT INTO invitation_tokens (id, email, token, full_name, role_or_headline, notes, status, created_by, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'pending_admin_approval', 'self_applicant', ?)
-    `).run(id, cleanEmail, tempToken, cleanName, cleanRole, cleanNotes, expiresAt);
+      INSERT INTO invitation_tokens (id, email, token, full_name, role_or_headline, notes, status, created_by, expires_at, phone)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending_admin_approval', 'self_applicant', ?, ?)
+    `).run(id, cleanEmail, tempToken, cleanName, cleanRole, cleanNotes, expiresAt, cleanPhone);
   }
 
   console.log(`\n======================================================`);
@@ -1465,6 +1468,7 @@ app.post('/api/invitations/request-access', (req, res) => {
   console.log(`To: ermolov.elena@gmail.com, agniyahill@gmail.com, iuliiashchukinainvest@gmail.com`);
   console.log(`Subject: [ÖZARA Access Request] New application from ${cleanName || 'Candidate'} (${cleanEmail})`);
   console.log(`Role: ${cleanRole || 'Not specified'}`);
+  console.log(`Verified Phone: ${cleanPhone || 'Not verified'}`);
   console.log(`Notes: ${cleanNotes || 'None'}`);
   console.log(`Action: Review and approve in Admin Console or via /api/admin/invitations/approve`);
   console.log(`======================================================\n`);
@@ -1475,7 +1479,7 @@ app.post('/api/invitations/request-access', (req, res) => {
   sendEmailNotification({
     to: 'ermolov.elena@gmail.com',
     subject: `[ÖZARA Access Request] New application from ${cleanName || 'Candidate'} (${cleanEmail})`,
-    text: `New membership application received for ÖZARA.\n\nApplicant: ${cleanName}\nEmail: ${cleanEmail}\nRole: ${cleanRole}\nNotes: ${cleanNotes}\n\nTo approve this applicant and issue their 1:1 invitation token, click:\n${magicApprovalUrl}`,
+    text: `New membership application received for ÖZARA.\n\nApplicant: ${cleanName}\nEmail: ${cleanEmail}\nVerified Phone: ${cleanPhone || 'Not verified'}\nRole: ${cleanRole}\nNotes: ${cleanNotes}\n\nTo approve this applicant and issue their 1:1 invitation token, click:\n${magicApprovalUrl}`,
     html: `
       <div style="font-family: Arial, sans-serif; background: #0b1020; color: #ffffff; padding: 28px; border-radius: 12px; max-width: 520px;">
         <h2 style="color: #ffffff; letter-spacing: 3px; margin-top: 0;">ÖZARA MEMBERSHIP COMMITTEE</h2>
@@ -1483,6 +1487,7 @@ app.post('/api/invitations/request-access', (req, res) => {
         <div style="background: #111827; padding: 18px; border-radius: 8px; margin: 18px 0; border: 1px solid #1e293b;">
           <p style="margin: 6px 0; font-size: 14px;"><strong>Applicant:</strong> ${cleanName || 'Not specified'}</p>
           <p style="margin: 6px 0; font-size: 14px;"><strong>Business Email:</strong> <span style="color: #38bdf8;">${cleanEmail}</span></p>
+          <p style="margin: 6px 0; font-size: 14px;"><strong>Verified Phone:</strong> <span style="color: #10b981; font-weight: bold;">${cleanPhone || 'Not verified'}</span></p>
           <p style="margin: 6px 0; font-size: 14px;"><strong>Role / Headline:</strong> ${cleanRole || 'Not specified'}</p>
           <p style="margin: 6px 0; font-size: 14px;"><strong>Notes:</strong> ${cleanNotes || 'None'}</p>
         </div>
