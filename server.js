@@ -422,8 +422,7 @@ app.post('/api/auth/phone/send-code', async (req, res) => {
       success: true,
       message: isWhatsApp ? "Verification code sent via WhatsApp." : "Verification code sent via SMS.",
       provider,
-      expires_in_seconds: 600,
-      demoCode: process.env.NODE_ENV !== 'production' ? code : undefined
+      expires_in_seconds: 600
     });
   } catch (err) {
     console.error('[SEND PHONE CODE ERROR]', err);

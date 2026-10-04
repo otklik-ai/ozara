@@ -10,6 +10,7 @@ Validates:
 """
 
 import sys
+import os
 import json
 import urllib.request
 import urllib.error
@@ -33,6 +34,16 @@ def request_json(path, method="GET", data=None):
         except Exception:
             res_body = {"error": str(e)}
         return status, res_body
+
+def get_latest_code(phone):
+    import sqlite3
+    db_name = "ozara.db" if os.path.exists("ozara.db") else "sila.db"
+    conn = sqlite3.connect(db_name)
+    c = conn.cursor()
+    c.execute("SELECT code FROM phone_verifications WHERE phone = ? ORDER BY created_at DESC LIMIT 1", (phone,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else None
 
 def run_tests():
     print("=== Testing Phone Auth & Membership Routing ===")
@@ -58,7 +69,7 @@ def run_tests():
     print(f"3. Send code to existing member ({elena_phone}): status={status}, success={res.get('success')}")
     assert status == 200, f"Expected 200, got {status}"
     assert res.get("success") is True, "Failed to dispatch code"
-    demo_code = res.get("demoCode")
+    demo_code = get_latest_code(elena_phone)
     assert demo_code and len(demo_code) == 6, f"Expected 6-digit code, got {demo_code}"
     print(f"   [PASS] 6-digit verification code dispatched: {demo_code}")
 
@@ -82,7 +93,7 @@ def run_tests():
     candidate_phone = "+14155550199"
     status, send_res = request_json("/api/auth/phone/send-code", method="POST", data={"phone": candidate_phone, "country_code": "US"})
     assert status == 200, f"Failed to send code to candidate: {send_res}"
-    cand_code = send_res.get("demoCode")
+    cand_code = get_latest_code(candidate_phone)
 
     status, res = request_json("/api/auth/phone/verify-code", method="POST", data={"phone": candidate_phone, "code": cand_code})
     print(f"6. Verify valid code for new candidate: status={status}, verified={res.get('verified')}, is_existing_member={res.get('is_existing_member')}")

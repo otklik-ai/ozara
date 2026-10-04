@@ -113,7 +113,6 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
   const [countrySearch, setCountrySearch] = useState<string>('');
   const [showContactModal, setShowContactModal] = useState<boolean>(false);
   const [showConditionsModal, setShowConditionsModal] = useState<boolean>(false);
-  const [demoCode, setDemoCode] = useState<string | null>(null);
 
   const [whatsappEnabled, setWhatsappEnabled] = useState<boolean>(false);
 
@@ -164,9 +163,6 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
       if (res && res.success) {
         setStep('enter_code');
         setCode('');
-        if (res.demoCode) {
-          setDemoCode(res.demoCode);
-        }
         setCountdown(45);
         setIsResendActive(false);
         setTimeout(() => codeInputRef.current?.focus(), 300);
@@ -245,9 +241,6 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
 
       if (res && res.success) {
         setCode('');
-        if (res.demoCode) {
-          setDemoCode(res.demoCode);
-        }
         setCountdown(45);
         setIsResendActive(false);
       } else {
@@ -393,22 +386,6 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
                   </View>
                 </View>
 
-                {/* Simulated Verification Code Hint (Available during local/dev testing) */}
-                {demoCode && (
-                  <TouchableOpacity
-                    style={styles.demoBadge}
-                    onPress={() => {
-                      setCode(demoCode);
-                      handleVerifyCode(demoCode);
-                    }}
-                    activeOpacity={0.8}>
-                    <Ionicons name="key-outline" size={13} color="#fbbf24" style={{ marginRight: 6 }} />
-                    <Text style={styles.demoBadgeText}>
-                      Code: <Text style={styles.demoCodeBold}>{demoCode}</Text> (tap to fill)
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
                 {/* Error Banner */}
                 {errorMessage && (
                   <View style={styles.errorBanner}>
@@ -437,7 +414,7 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
                   })}
                 </View>
 
-                {/* Hidden Overlay Input for Reliable Keypad Handling */}
+                {/* Hidden Overlay Input with SMS Autofill Support */}
                 <TextInput
                   ref={codeInputRef}
                   style={styles.hiddenCodeInput}
@@ -454,6 +431,8 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
                     }
                   }}
                   keyboardType="number-pad"
+                  textContentType="oneTimeCode"
+                  autoComplete="sms-otp"
                   maxLength={6}
                   autoFocus
                   editable={!isLoading}
@@ -741,29 +720,6 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 12,
     fontWeight: '500',
-  },
-  demoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.35)',
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  demoBadgeText: {
-    color: '#fbbf24',
-    fontSize: 12.5,
-    fontWeight: '500',
-  },
-  demoCodeBold: {
-    fontWeight: '700',
-    color: '#ffffff',
-    letterSpacing: 1.5,
   },
   errorBanner: {
     flexDirection: 'row',
