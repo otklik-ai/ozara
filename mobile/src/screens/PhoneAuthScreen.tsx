@@ -53,8 +53,8 @@ interface CountryItem {
 }
 
 const COUNTRIES_LIST: CountryItem[] = [
-  { name: 'United Arab Emirates', code: 'AE', flag: '🇦🇪', dialCode: '+971', format: '50 123 4567' },
   { name: 'United States', code: 'US', flag: '🇺🇸', dialCode: '+1', format: '(202) 555-0199' },
+  { name: 'United Arab Emirates', code: 'AE', flag: '🇦🇪', dialCode: '+971', format: '50 123 4567' },
   { name: 'United Kingdom', code: 'GB', flag: '🇬🇧', dialCode: '+44', format: '7911 123456' },
   { name: 'Switzerland', code: 'CH', flag: '🇨🇭', dialCode: '+41', format: '79 123 45 67' },
   { name: 'Kazakhstan', code: 'KZ', flag: '🇰🇿', dialCode: '+7', format: '701 123 4567' },
