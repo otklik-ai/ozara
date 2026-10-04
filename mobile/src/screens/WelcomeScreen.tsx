@@ -47,10 +47,10 @@ interface WelcomeScreenProps {
 // -------------------------------------------------------------
 // Screen 1: Marquee Dimensions & Infinite Scroll Component
 // -------------------------------------------------------------
-const CARD_WIDTH = 136;
-const CARD_HEIGHT = 168;
-const CARD_GAP = 12;
-const VISUAL_CONTAINER_HEIGHT = 348; // Exactly fits 2 rows (168 + 12 + 168 = 348px)
+const CARD_WIDTH = 132;
+const CARD_HEIGHT = 198; // Exact 2:3 aspect ratio matching 1024x1536 images, uncropped
+const CARD_GAP = 10;
+const VISUAL_CONTAINER_HEIGHT = 406; // Exactly fits 2 rows: 198 + 10 + 198 = 406px
 
 interface MarqueeRowProps {
   images: string[];
@@ -210,7 +210,8 @@ const ONBOARDING_SLIDES: SlideData[] = [
   {
     id: 'events',
     title: 'Events',
-    headlineMain: 'A place among exceptional minds.',
+    headlineMain: 'A place among ',
+    headlineHighlight: 'exceptional minds.',
     description: 'Private events. A selected circle. Conversations that open new possibilities.',
   },
   {
@@ -223,7 +224,8 @@ const ONBOARDING_SLIDES: SlideData[] = [
   {
     id: 'invest',
     title: 'Invest',
-    headlineMain: 'Put your capital to work.',
+    headlineMain: 'Put your capital ',
+    headlineHighlight: 'to work.',
     description: 'Explore real estate investment opportunities. Get to know the project, review the details, and decide what fits your goals.',
   },
 ];
@@ -282,11 +284,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     scrollRef.current?.scrollTo({ x: target * containerWidth, animated: true });
   };
 
-  const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+  // Real-time & End-of-drag Scroll Handler
+  // Guarantees dots update immediately on swipe across all platforms (web, mobile Safari, iOS, Android)
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = e.nativeEvent.contentOffset.x;
-    const newIndex = Math.round(offsetX / containerWidth);
-    if (newIndex !== currentIndex && newIndex >= 0 && newIndex <= 2) {
-      setCurrentIndex(newIndex);
+    const layoutWidth = e.nativeEvent.layoutMeasurement?.width || containerWidth;
+    if (layoutWidth > 10) {
+      const newIndex = Math.round(offsetX / layoutWidth);
+      if (newIndex >= 0 && newIndex <= 2 && newIndex !== currentIndex) {
+        setCurrentIndex(newIndex);
+      }
     }
   };
 
@@ -325,19 +332,19 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           bounces={false}
-          onMomentumScrollEnd={handleScrollEnd}
+          onScroll={handleScroll}
+          onMomentumScrollEnd={handleScroll}
+          onScrollEndDrag={handleScroll}
           scrollEventThrottle={16}
           style={styles.pagerScrollView}
           contentContainerStyle={{ width: containerWidth * 3 }}>
           {ONBOARDING_SLIDES.map((slide, sIdx) => {
             return (
               <View key={slide.id} style={[styles.slidePage, { width: containerWidth }]}>
-                {/* 1. VISUAL AREA (Consistently Positioned at exactly 348px) */}
+                {/* 1. VISUAL AREA (Consistently Positioned at exactly 406px) */}
                 <View style={styles.visualContainer}>
                   {sIdx === 0 && (
                     <View style={styles.marqueeContainer}>
-                      <View style={styles.edgeGradientLeft} pointerEvents="none" />
-                      <View style={styles.edgeGradientRight} pointerEvents="none" />
                       <MarqueeRow
                         images={row1Images}
                         direction="left"
@@ -526,14 +533,26 @@ const styles = StyleSheet.create({
   /* Pager Carousel */
   pagerScrollView: {
     flex: 1,
+    ...Platform.select({
+      web: {
+        scrollSnapType: 'x mandatory',
+        WebkitOverflowScrolling: 'touch',
+      } as any,
+    }),
   },
   slidePage: {
     flex: 1,
     justifyContent: 'flex-start',
     alignItems: 'center',
+    ...Platform.select({
+      web: {
+        scrollSnapAlign: 'start',
+        scrollSnapStop: 'always',
+      } as any,
+    }),
   },
 
-  /* Visual Container (Exactly 348px height across all 3 screens) */
+  /* Visual Container (Exactly 406px height across all 3 screens) */
   visualContainer: {
     height: VISUAL_CONTAINER_HEIGHT,
     width: '100%',
@@ -560,7 +579,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: '#0f172a',
     borderWidth: 1,
@@ -572,24 +591,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#0b1020',
   },
-  edgeGradientLeft: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 28,
-    zIndex: 5,
-    backgroundColor: 'rgba(11, 16, 32, 0.75)',
-  },
-  edgeGradientRight: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 28,
-    zIndex: 5,
-    backgroundColor: 'rgba(11, 16, 32, 0.75)',
-  },
 
   /* Screens 2 & 3: Hero Image Mockup Cards */
   heroCardContainer: {
@@ -597,11 +598,11 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   heroCard: {
     height: VISUAL_CONTAINER_HEIGHT - 6,
-    width: Math.min(290, CARD_WIDTH * 2 + CARD_GAP),
+    width: Math.round((VISUAL_CONTAINER_HEIGHT - 6) * (682 / 1024)),
     borderRadius: 22,
     overflow: 'hidden',
     backgroundColor: '#090e1c',
@@ -698,7 +699,8 @@ const styles = StyleSheet.create({
     lineHeight: 31,
   },
   headlineHighlight: {
-    color: OzaraTheme.colors.accentElectricOrange,
+    color: '#FF6B00',
+    fontWeight: '800',
   },
   description: {
     fontSize: 13,
