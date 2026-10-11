@@ -2090,10 +2090,14 @@ async function fetchAndRenderCatalogListings() {
             ${hasMultiple ? `
               <button class="prop-carousel-btn prop-carousel-prev" 
                       title="Previous photo" 
-                      onclick="navigateCardPhoto('${item.id}', -1, event)"><svg class="prop-carousel-arrow-svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10H6M10 6l-4 4 4 4"/></svg></button>
+                      onclick="navigateCardPhoto('${item.id}', -1, event)">
+                <img src="/investments/icons/arrow_left_glass.png" class="prop-carousel-arrow-glass" alt="‹">
+              </button>
               <button class="prop-carousel-btn prop-carousel-next" 
                       title="Next photo" 
-                      onclick="navigateCardPhoto('${item.id}', 1, event)"><svg class="prop-carousel-arrow-svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10h8M10 6l4 4-4 4"/></svg></button>
+                      onclick="navigateCardPhoto('${item.id}', 1, event)">
+                <img src="/investments/icons/arrow_right_glass.png" class="prop-carousel-arrow-glass" alt="›">
+              </button>
             ` : ''}
 
             <div class="prop-photo-counter" id="photoCount_${item.id}">

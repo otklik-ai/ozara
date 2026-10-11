@@ -70,4 +70,49 @@ for name, src in icon_mapping.items():
     mobile_out = os.path.join(mobile_dir, name)
     remove_white_bg(src, mobile_out)
 
-print("All filter icons successfully generated and saved!")
+# Process 3D translucent glass neon contour arrows
+from PIL import ImageOps
+src_arrow = '/Users/bikram6am/.gemini/antigravity-ide/brain/e937d090-7538-4833-bb53-358d42566df1/arrow_left_glass_neon_1791741342305.jpg'
+if os.path.exists(src_arrow):
+    im_left = Image.open(src_arrow).convert('RGBA')
+    im_right = ImageOps.mirror(im_left)
+
+    def process_clean_arrow(img, out_name):
+        arr = np.array(img, dtype=np.float32)
+        r, g, b = arr[:,:,0], arr[:,:,1], arr[:,:,2]
+        max_c = np.maximum(np.maximum(r, g), b)
+        min_c = np.minimum(np.minimum(r, g), b)
+        chroma = max_c - min_c
+        darkness = 255.0 - ((r + g + b) / 3.0)
+        tube_weight = np.clip((chroma - 8.0) / 15.0, 0, 1)
+        dark_weight = np.clip((darkness - 15.0) / 25.0, 0, 1)
+        strength = np.maximum(tube_weight, dark_weight)
+        alpha = np.clip(strength * 255.0, 0, 255)
+        arr[:,:,3] = alpha
+        result = Image.fromarray(arr.astype(np.uint8), mode='RGBA')
+        bbox = result.getbbox()
+        if bbox:
+            w = bbox[2] - bbox[0]
+            h = bbox[3] - bbox[1]
+            pad = int(max(w, h) * 0.03)
+            crop_box = (
+                max(0, bbox[0] - pad),
+                max(0, bbox[1] - pad),
+                min(result.width, bbox[2] + pad),
+                min(result.height, bbox[3] + pad)
+            )
+            result = result.crop(crop_box)
+        target_size = (180, 180)
+        max_dim = max(result.width, result.height)
+        square_im = Image.new('RGBA', (max_dim, max_dim), (0, 0, 0, 0))
+        offset = ((max_dim - result.width) // 2, (max_dim - result.height) // 2)
+        square_im.paste(result, offset)
+        final_im = square_im.resize(target_size, Image.Resampling.LANCZOS)
+        final_im.save(os.path.join(dest_dir, out_name), format='PNG', optimize=True)
+        final_im.save(os.path.join(mobile_dir, out_name), format='PNG', optimize=True)
+        print(f"Processed: {out_name}")
+
+    process_clean_arrow(im_left, 'arrow_left_glass.png')
+    process_clean_arrow(im_right, 'arrow_right_glass.png')
+
+print("All filter and arrow icons successfully generated and saved!")

@@ -158,7 +158,10 @@ const ListingCardImageCarousel: React.FC<ListingCardImageCarouselProps> = ({
           onPress={onPrev}
           activeOpacity={0.7}
         >
-          <Feather name="arrow-left" size={15} color="#ffffff" />
+          <Image
+            source={{ uri: `${API_BASE_URL}/investments/icons/arrow_left_glass.png` }}
+            style={{ width: 26, height: 26, resizeMode: 'contain' }}
+          />
         </TouchableOpacity>
       )}
 
@@ -169,7 +172,10 @@ const ListingCardImageCarousel: React.FC<ListingCardImageCarouselProps> = ({
           onPress={onNext}
           activeOpacity={0.7}
         >
-          <Feather name="arrow-right" size={15} color="#ffffff" />
+          <Image
+            source={{ uri: `${API_BASE_URL}/investments/icons/arrow_right_glass.png` }}
+            style={{ width: 26, height: 26, resizeMode: 'contain' }}
+          />
         </TouchableOpacity>
       )}
 
@@ -2411,20 +2417,20 @@ const styles = StyleSheet.create({
   carouselBtn: {
     position: 'absolute',
     top: '50%',
-    marginTop: -17,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(14, 16, 22, 0.65)',
+    marginTop: -19,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(10, 14, 20, 0.32)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
+    shadowColor: '#00f2fe',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
     elevation: 4,
   },
   carouselPrevBtn: {
