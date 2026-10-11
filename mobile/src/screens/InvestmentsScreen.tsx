@@ -843,7 +843,7 @@ export const InvestmentsScreen: React.FC = () => {
                       ? 'Price: High'
                       : selectedSort === 'title'
                       ? 'Title'
-                      : 'Newest'}
+                      : 'Sort: Newest'}
                   </Text>
                   {selectedSort !== 'newest' && (
                     <TouchableOpacity
@@ -1192,7 +1192,7 @@ export const InvestmentsScreen: React.FC = () => {
           <View style={styles.sortModalContainer}>
             <Text style={styles.sortModalTitle}>Sort Properties</Text>
             {[
-              { key: 'newest', label: 'Newest Added' },
+              { key: 'newest', label: 'Sort: Newest' },
               { key: 'price_asc', label: 'Price: Low to High' },
               { key: 'price_desc', label: 'Price: High to Low' },
               { key: 'title', label: 'Property Title (A-Z)' },

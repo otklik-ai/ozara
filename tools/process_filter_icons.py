@@ -8,11 +8,13 @@ icon_mapping = {
     'filter_budget.png': '/Users/bikram6am/.gemini/antigravity-ide/brain/e937d090-7538-4833-bb53-358d42566df1/filter_budget_3d_1791739739592.jpg',
     'filter_bedrooms.png': '/Users/bikram6am/.gemini/antigravity-ide/brain/e937d090-7538-4833-bb53-358d42566df1/filter_bedrooms_3d_1791739792126.jpg',
     'filter_features.png': '/Users/bikram6am/.gemini/antigravity-ide/brain/e937d090-7538-4833-bb53-358d42566df1/filter_features_3d_1791739810086.jpg',
-    'filter_sort.png': '/Users/bikram6am/.gemini/antigravity-ide/brain/e937d090-7538-4833-bb53-358d42566df1/filter_sort_3d_1791739825114.jpg'
+    'filter_sort.png': '/Users/bikram6am/.gemini/antigravity-ide/brain/e937d090-7538-4833-bb53-358d42566df1/filter_sort_bars_3d_1791740523163.jpg'
 }
 
 dest_dir = '/Users/bikram6am/Sila/public/investments/icons'
+mobile_dir = '/Users/bikram6am/Sila/mobile/assets/investments'
 os.makedirs(dest_dir, exist_ok=True)
+os.makedirs(mobile_dir, exist_ok=True)
 
 def remove_white_bg(img_path, out_path, size=(180, 180)):
     im = Image.open(img_path).convert('RGBA')
@@ -65,5 +67,7 @@ def remove_white_bg(img_path, out_path, size=(180, 180)):
 for name, src in icon_mapping.items():
     out = os.path.join(dest_dir, name)
     remove_white_bg(src, out)
+    mobile_out = os.path.join(mobile_dir, name)
+    remove_white_bg(src, mobile_out)
 
 print("All filter icons successfully generated and saved!")

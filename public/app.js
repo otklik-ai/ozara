@@ -1862,7 +1862,7 @@ function syncFilterClearButtons() {
         if (isFiltered) {
           firstOpt.textContent = `✕ Clear ${cfg.label}`;
         } else {
-          firstOpt.textContent = cfg.label === 'Sort' ? 'Best Match' : cfg.label;
+          firstOpt.textContent = cfg.label === 'Sort' ? 'Sort: Newest' : cfg.label;
         }
       }
     }

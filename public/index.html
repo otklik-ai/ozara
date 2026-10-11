@@ -645,18 +645,18 @@
               </div>
             </div>
 
-            <!-- Sorting on the right (Equal width, Best Match capitalized) -->
+            <!-- Sorting on the right (Equal width, Sort: Newest) -->
             <div class="inv-sort-wrap" id="wrapInvFilterSort">
               <span class="inv-dd-icon" title="Sort">
                 <img src="/investments/icons/filter_sort.png" class="inv-filter-3d-img" alt="Sort">
               </span>
               <select id="invFilterSort" class="inv-select inv-select-sort" onchange="handleInvFilterChange()">
-                <option value="newest">Best Match</option>
+                <option value="newest">Sort: Newest</option>
                 <option value="price_asc">Price: Low to High</option>
                 <option value="price_desc">Price: High to Low</option>
                 <option value="title">Title: A to Z</option>
               </select>
-              <button type="button" class="inv-dd-clear" id="clearInvFilterSort" onclick="clearSpecificFilter('sort', event)" title="Reset to Best Match">✕</button>
+              <button type="button" class="inv-dd-clear" id="clearInvFilterSort" onclick="clearSpecificFilter('sort', event)" title="Reset to Sort: Newest">✕</button>
               <span class="inv-dd-chevron">
                 <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M2 3.5L5 6.5L8 3.5"/>
