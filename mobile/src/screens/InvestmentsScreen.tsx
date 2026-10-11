@@ -41,7 +41,7 @@ import {
 } from '../services/api';
 import { useClub } from '../context/ClubContext';
 import { OzaraTheme } from '../constants/ozara-theme';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { Image as ExpoImage } from 'expo-image';
 
 type TopCategory = 'real_estate' | 'private_tech';
@@ -158,7 +158,7 @@ const ListingCardImageCarousel: React.FC<ListingCardImageCarouselProps> = ({
           onPress={onPrev}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={16} color="#ffffff" />
+          <Feather name="arrow-left" size={15} color="#ffffff" />
         </TouchableOpacity>
       )}
 
@@ -169,13 +169,12 @@ const ListingCardImageCarousel: React.FC<ListingCardImageCarouselProps> = ({
           onPress={onNext}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-forward" size={16} color="#ffffff" />
+          <Feather name="arrow-right" size={15} color="#ffffff" />
         </TouchableOpacity>
       )}
 
-      {/* Photo Counter Badge (📷 1 / N) */}
+      {/* Photo Counter Badge (1 / N) */}
       <View style={styles.photoCountPill}>
-        <Ionicons name="camera-outline" size={11} color="#ffffff" />
         <Text style={styles.photoCountText}>
           {curIdx + 1} / {safeImages.length}
         </Text>
@@ -2412,14 +2411,21 @@ const styles = StyleSheet.create({
   carouselBtn: {
     position: 'absolute',
     top: '50%',
-    marginTop: -16,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    marginTop: -17,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(14, 16, 22, 0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
   },
   carouselPrevBtn: {
     left: 8,
@@ -2443,17 +2449,19 @@ const styles = StyleSheet.create({
     right: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(12, 14, 18, 0.72)',
+    paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
     zIndex: 4,
   },
   photoCountText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
     color: '#ffffff',
+    letterSpacing: 0.5,
   },
   photoRightBadges: {
     flexDirection: 'row',

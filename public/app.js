@@ -451,10 +451,10 @@ function renderCommunityFeed() {
                ontouchend="handleCarouselTouchEnd(event, '${post.id}')">
             <img src="${activePhoto.url}" alt="Post photo" class="community-carousel-img">
             ${hasMultiple ? `
-              <button type="button" class="carousel-arrow carousel-arrow-left" onclick="handleCommunityPhotoPrev('${post.id}')" title="Previous photo">‹</button>
-              <button type="button" class="carousel-arrow carousel-arrow-right" onclick="handleCommunityPhotoNext('${post.id}')" title="Next photo">›</button>
+              <button type="button" class="carousel-arrow carousel-arrow-left" onclick="handleCommunityPhotoPrev('${post.id}')" title="Previous photo"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10H6M10 6l-4 4 4 4"/></svg></button>
+              <button type="button" class="carousel-arrow carousel-arrow-right" onclick="handleCommunityPhotoNext('${post.id}')" title="Next photo"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10h8M10 6l4 4-4 4"/></svg></button>
               <div class="carousel-counter-badge">
-                <span>📷 ${curIdx + 1} / ${photoAttachments.length}</span>
+                <span>${curIdx + 1} / ${photoAttachments.length}</span>
               </div>
             ` : ''}
           </div>
@@ -719,7 +719,7 @@ function updateCommunityCarouselDom(postId, attachments, idx) {
     img.onload = () => { img.style.opacity = '1'; };
   }
   if (badge) {
-    badge.textContent = `📷 ${idx + 1} / ${attachments.length}`;
+    badge.textContent = `${idx + 1} / ${attachments.length}`;
   }
 }
 
@@ -2090,14 +2090,14 @@ async function fetchAndRenderCatalogListings() {
             ${hasMultiple ? `
               <button class="prop-carousel-btn prop-carousel-prev" 
                       title="Previous photo" 
-                      onclick="navigateCardPhoto('${item.id}', -1, event)">‹</button>
+                      onclick="navigateCardPhoto('${item.id}', -1, event)"><svg class="prop-carousel-arrow-svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10H6M10 6l-4 4 4 4"/></svg></button>
               <button class="prop-carousel-btn prop-carousel-next" 
                       title="Next photo" 
-                      onclick="navigateCardPhoto('${item.id}', 1, event)">›</button>
+                      onclick="navigateCardPhoto('${item.id}', 1, event)"><svg class="prop-carousel-arrow-svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10h8M10 6l4 4-4 4"/></svg></button>
             ` : ''}
 
             <div class="prop-photo-counter" id="photoCount_${item.id}">
-              📷 ${curIndex + 1} / ${images.length}
+              ${curIndex + 1} / ${images.length}
             </div>
 
             <button class="prop-card-save-btn ${item.is_saved ? 'saved' : ''}" 
@@ -2172,7 +2172,7 @@ function navigateCardPhoto(listingId, delta, event) {
   const imgEl = document.getElementById(`cardImg_${listingId}`);
   const counterEl = document.getElementById(`photoCount_${listingId}`);
   if (imgEl) imgEl.src = listing.images[next];
-  if (counterEl) counterEl.textContent = `📷 ${next + 1} / ${total}`;
+  if (counterEl) counterEl.textContent = `${next + 1} / ${total}`;
 }
 
 function handleCardTouchStart(e) {
