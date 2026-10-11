@@ -269,6 +269,12 @@ def migrate(db_path: Path):
     if "phone" not in user_cols:
         cursor.execute("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT NULL")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone)")
+    if "terms_accepted_version" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN terms_accepted_version TEXT DEFAULT NULL")
+    if "terms_accepted_at" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN terms_accepted_at TIMESTAMP DEFAULT NULL")
+    if "biometrics_enabled" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN biometrics_enabled BOOLEAN DEFAULT 0")
 
     cursor.execute("PRAGMA table_info(real_estate_listings)")
     listing_cols = [r[1] for r in cursor.fetchall()]

@@ -14,14 +14,15 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OzaraTheme } from '../constants/ozara-theme';
 import { OzaraHeader } from './OzaraHeader';
-import { EventsScreen } from '../screens/EventsScreen';
+import { CommunityScreen } from '../screens/CommunityScreen';
 import { NetworkingScreen } from '../screens/NetworkingScreen';
+import { EventsScreen } from '../screens/EventsScreen';
 import { InvestmentsScreen } from '../screens/InvestmentsScreen';
 import { TeamScreen } from '../screens/TeamScreen';
 import { ProfileDrawerModal } from './ProfileDrawerModal';
 import { Ionicons } from '@expo/vector-icons';
 
-type TabKey = 'events' | 'networking' | 'investments' | 'team';
+type TabKey = 'community' | 'networking' | 'events' | 'investments';
 
 interface TabConfig {
   key: TabKey;
@@ -32,16 +33,22 @@ interface TabConfig {
 
 const TABS: TabConfig[] = [
   {
+    key: 'community',
+    label: 'Community',
+    icon: 'chatbubbles-outline',
+    activeIcon: 'chatbubbles',
+  },
+  {
+    key: 'networking',
+    label: 'Network',
+    icon: 'people-outline',
+    activeIcon: 'people',
+  },
+  {
     key: 'events',
     label: 'Events',
     icon: 'calendar-outline',
     activeIcon: 'calendar',
-  },
-  {
-    key: 'networking',
-    label: 'Networking',
-    icon: 'people-outline',
-    activeIcon: 'people',
   },
   {
     key: 'investments',
@@ -49,17 +56,11 @@ const TABS: TabConfig[] = [
     icon: 'business-outline',
     activeIcon: 'business',
   },
-  {
-    key: 'team',
-    label: 'Team',
-    icon: 'ribbon-outline',
-    activeIcon: 'ribbon',
-  },
 ];
 
 export const OzaraTabs: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<TabKey>('events');
+  const [activeTab, setActiveTab] = useState<TabKey>('community');
 
   return (
     <View style={styles.container}>
@@ -68,11 +69,12 @@ export const OzaraTabs: React.FC = () => {
 
       {/* Active Screen View */}
       <View style={styles.screenContainer}>
-        {activeTab === 'events' && <EventsScreen />}
+        {activeTab === 'community' && <CommunityScreen />}
         {activeTab === 'networking' && <NetworkingScreen />}
+        {activeTab === 'events' && <EventsScreen />}
         {activeTab === 'investments' && <InvestmentsScreen />}
-        {activeTab === 'team' && <TeamScreen />}
       </View>
+
 
       {/* Luxury Bottom Tab Bar */}
       <View style={[styles.bottomTabBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>

@@ -20,9 +20,11 @@ import urllib.error
 
 BASE_URL = "http://localhost:3000"
 
-def request(path, method="GET", data=None):
+def request(path, method="GET", data=None, extra_headers=None):
     url = f"{BASE_URL}{path}"
     headers = {"Content-Type": "application/json"}
+    if extra_headers:
+        headers.update(extra_headers)
     body = json.dumps(data).encode("utf-8") if data else None
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
@@ -36,20 +38,46 @@ def request(path, method="GET", data=None):
             return {"error": err_body}, e.code
 
 def run():
-    print("[*] Testing Complete Token -> Registration -> 30-Question Flow...")
+    print("[*] Testing Complete Token -> Registration -> Canonical Questions Flow...")
 
-    # 1. Verify 30 Canonical Questions
+    # 1. Verify Canonical Questions
     questions, status = request("/api/questions")
     assert status == 200, f"Failed fetching questions: {status}"
-    assert len(questions) == 30, f"Expected 30 canonical questions, got {len(questions)}"
+    assert len(questions) == 25, f"Expected 25 canonical active questions, got {len(questions)}"
     
+    q14 = next(q for q in questions if q["id"] == 14)
+    assert q14["type"] == "multi_with_note", "Question 14 must be type multi_with_note"
+    assert q14["prompt"] == "What are you focused on right now?", "Question 14 prompt mismatch"
+
+    q15 = next(q for q in questions if q["id"] == 15)
+    assert q15["prompt"] == "Which industries would you like to explore?", "Question 15 prompt must be 'Which industries would you like to explore?'"
+
+    q16 = next(q for q in questions if q["id"] == 16)
+    assert q16["prompt"] == "Where would you like to build connections?", "Question 16 prompt mismatch"
+    assert q16["type"] == "country_multi", "Question 16 must be type country_multi"
+    assert "five countries" in q16["helper"], "Question 16 helper mismatch"
+
+    q17 = next(q for q in questions if q["id"] == 17)
+    assert q17["prompt"] == "Who would you like to connect with right now?", "Question 17 prompt must be 'Who would you like to connect with right now?'"
+    assert q17["helper"] == "Choose up to five types of connections.", "Question 17 helper mismatch"
+    assert q17["type"] == "multi_with_note", "Question 17 must be type multi_with_note"
+    assert q17["char_limit"] == 200, "Question 17 char limit must be 200"
+
+    q12 = next(q for q in questions if q["id"] == 12)
+    assert q12["prompt"] == "Your background", "Question 12 prompt must be 'Your background'"
+    assert q12["char_limit"] == 600, "Question 12 must have 600 char limit"
+
+    q13 = next(q for q in questions if q["id"] == 13)
+    assert q13["type"] == "url", "Question 13 must be type url"
+    assert q13["prompt"] == "LinkedIn or website", "Question 13 prompt must be 'LinkedIn or website'"
+
     q18 = next(q for q in questions if q["id"] == 18)
     assert q18["is_required"] is True, "Question 18 must be required"
     
     q23 = next(q for q in questions if q["id"] == 23)
     assert q23["is_confidential"] is True, "Question 23 must be confidential"
     assert q23["default_visibility"] == "private", "Question 23 default visibility must be private"
-    print(f" [PASS] Canonical Questions: 30 loaded, Q18 required, Q23 confidential.")
+    print(f" [PASS] Canonical Questions: 25 loaded, Q14 multi_with_note, Q15 explore industries, Q17 connect with (helper, 200 chars), Q13 url, Q12 background (600 chars), Q18 required, Q23 confidential.")
 
     # 2. Submit Access Request for new candidate
     import time
@@ -106,8 +134,8 @@ def run():
     assert user["is_complete"] == 0 or user["is_complete"] is False, "New profile should not be marked complete before answering Q18"
     print(f" [PASS] User registered with separate fields: Country={user['country']}, State={user['state']}, City={user['city']}, Industry={user['industry']}")
 
-    # 6. Verify 30 questions were seeded for this user and separate fields persisted
-    user_profile, status = request(f"/api/profile/{user_id}")
+    # 6. Verify questions were seeded for this user and separate fields persisted
+    user_profile, status = request(f"/api/profile/{user_id}", extra_headers={"x-user-id": user_id})
     assert status == 200, f"Profile fetch failed: {user_profile}"
     assert user_profile["avatar_url"] == test_avatar, "Avatar did not persist in profile"
     assert user_profile["country"] == "United Arab Emirates", "Country did not persist"
@@ -116,31 +144,68 @@ def run():
     assert user_profile["industry"] == "Artificial Intelligence & DeepTech", "Industry did not persist"
     print(f" [PASS] User profile verified with separate location (Country, State, City) & Industry.")
 
-    # 7. Bulk Submit Questionnaire Answers WITHOUT Question 18
+    # 7. Bulk Submit Questionnaire Answers WITHOUT Question 18 (testing Q14, Q15, Q17, Q13 normalization, Q12 background)
+    q14_composite = json.dumps({
+        "tags": ["Building or launching a project", "Raising funding"],
+        "note": "Looking for research partners in UAE for autonomous systems."
+    })
+    q17_composite = json.dumps({
+        "tags": ["Founders & Business Owners", "Investors"],
+        "note": "An experienced real estate developer in Seattle."
+    })
     bulk_res_no_q18, status = request(f"/api/profile/{user_id}/answers-bulk", method="POST", data={
         "answers": [
             {"question_id": 1, "value": "Building sovereign cross-border compute clusters", "visibility": "shared"},
-            {"question_id": 5, "value": "Dubai & Singapore family offices", "visibility": "shared"}
+            {"question_id": 5, "value": "Dubai & Singapore family offices", "visibility": "shared"},
+            {"question_id": 12, "value": "Previously Principal Engineer at DeepMind; built distributed training infra.", "visibility": "shared"},
+            {"question_id": 13, "value": "linkedin.com/in/alexander-vance", "visibility": "shared"}, # missing https://, should be normalized
+            {"question_id": 14, "value": q14_composite, "visibility": "shared"},
+            {"question_id": 15, "value": "Artificial Intelligence & Machine Learning; Financial Services & Fintech", "visibility": "shared"},
+            {"question_id": 17, "value": q17_composite, "visibility": "shared"}
         ]
-    })
+    }, extra_headers={"x-user-id": user_id})
     assert status == 200, f"Bulk save failed: {bulk_res_no_q18}"
     assert bulk_res_no_q18["is_complete"] is False, "Profile must remain incomplete without Question 18"
-    print(f" [PASS] Partial questionnaire saved. Profile completion remains False without Q18.")
+    
+    user_prof_after, status = request(f"/api/profile/{user_id}", extra_headers={"x-user-id": user_id})
+    assert status == 200, f"Profile fetch failed: {user_prof_after}"
+
+    # Verify Q13 normalized with https://
+    q13_saved = next(a for a in user_prof_after["answers"] if a["question_id"] == 13)
+    assert q13_saved["value_text"] == "https://linkedin.com/in/alexander-vance", f"Q13 normalization failed: {q13_saved['value_text']}"
+    
+    # Verify Q14 preserved composite JSON
+    q14_saved = next(a for a in user_prof_after["answers"] if a["question_id"] == 14)
+    q14_data = json.loads(q14_saved["value_text"])
+    assert "Building or launching a project" in q14_data["tags"]
+    assert q14_data["note"] == "Looking for research partners in UAE for autonomous systems."
+
+    # Verify Q15 explored industries saved
+    q15_saved = next(a for a in user_prof_after["answers"] if a["question_id"] == 15)
+    assert "Artificial Intelligence & Machine Learning" in q15_saved["value_text"]
+
+    # Verify Q17 composite connections saved
+    q17_saved = next(a for a in user_prof_after["answers"] if a["question_id"] == 17)
+    q17_data = json.loads(q17_saved["value_text"])
+    assert "Founders & Business Owners" in q17_data["tags"]
+    assert "Investors" in q17_data["tags"]
+    assert q17_data["note"] == "An experienced real estate developer in Seattle."
+    print(f" [PASS] Partial questionnaire saved: Q13 normalized to https://, Q14 composite focus, Q15 explored industries, Q17 composite connections saved, is_complete remains False without Q18.")
 
     # 8. Bulk Submit Questionnaire Answers WITH Question 18 and Question 23
     bulk_res_with_q18, status = request(f"/api/profile/{user_id}/answers-bulk", method="POST", data={
         "answers": [
-            {"question_id": 18, "value": "Deploy $100M infrastructure fund across MENA & APAC.", "visibility": "shared"},
+            {"question_id": 18, "value": "Advising and structuring cross-border compute clusters across MENA & APAC.", "visibility": "shared"},
             {"question_id": 23, "value": "Seeking discreet advice on sovereign fund GP structuring.", "visibility": "shared"} # tries shared
         ]
-    })
+    }, extra_headers={"x-user-id": user_id})
     assert status == 200, f"Bulk save failed: {bulk_res_with_q18}"
     assert bulk_res_with_q18["is_complete"] is True, "Profile must be marked complete once Q18 is answered"
     print(f" [PASS] Question 18 answered: Profile is_complete is now True!")
 
     # 9. Verify Question 23 Permanent Lock Rule:
     # 9a. Peer member view: Question 23 MUST be redacted with founder confidentiality disclaimer
-    peer_profile, status = request(f"/api/profile/{user_id}?viewerId=usr_peer_member")
+    peer_profile, status = request(f"/api/profile/{user_id}?viewerId=usr_marcus", extra_headers={"x-user-id": "usr_marcus"})
     assert status == 200
     assert peer_profile["is_complete"] is True
     peer_answers = peer_profile.get("answers", [])
@@ -152,7 +217,7 @@ def run():
     print(f" [PASS] Question 23 Permanent Lock verified: Redacted for peer members with founder confidentiality notice.")
 
     # 9b. Owner view: Member can view their own private answer
-    owner_profile, status = request(f"/api/profile/{user_id}?viewerId={user_id}")
+    owner_profile, status = request(f"/api/profile/{user_id}?viewerId={user_id}", extra_headers={"x-user-id": user_id})
     assert status == 200
     owner_answers = owner_profile.get("answers", [])
     q23_owner = next((a for a in owner_answers if a.get("question_id") == 23), None)

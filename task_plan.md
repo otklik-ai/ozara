@@ -231,3 +231,370 @@
   - [x] Token delivered strictly via email to applicant upon admin approval.
   - [x] Kept applicant on `check_token` page: banner updates to "Invitation Approved!" prompting user to check their email for their code and insert it into the field.
   - [x] User inserts code from email -> verifies token -> unlocks registration form with 1:1 verified email pre-populated and locked.
+- [x] 6.19 Optional Face ID Setup & Welcome / Create Account Screens:
+  - [x] Database & Server Updates (`server.js`, `db_init_and_migrate.py`):
+    - [x] Add `terms_accepted_version`, `terms_accepted_at`, and `biometrics_enabled` columns to `users`.
+    - [x] Extend `POST /api/register` to record accepted terms version, timestamp, phone number, and biometric preference, with atomic single-use invitation token claim.
+    - [x] Add configurable legal endpoints: `GET /api/legal/terms` and `GET /api/legal/privacy`.
+  - [x] Mobile API Service Layer (`services/api.ts`):
+    - [x] Add typed endpoints for `getTermsAndConditions`, `getPrivacyPolicy`, and biometric preferences in registration payload.
+  - [x] Optional Face ID Setup Screen (`screens/FaceIdSetupScreen.tsx`):
+    - [x] ÖZARA navy (`#0B1020`), white typography (`Plus Jakarta Sans`), violet accents (`#7C3AED`).
+    - [x] Simple outline illustration combining a lock and facial recognition brackets.
+    - [x] Headline: "A familiar face. Secure access."
+    - [x] Description: "Use Face ID to unlock ÖZARA on this device." (dynamically adapts label to Touch ID or Biometrics).
+    - [x] Primary button: "Use Face ID" (with retry on failure); Secondary option: "Skip".
+    - [x] Genuine device authentication: native `expo-local-authentication` and WebAuthn platform authenticators on web. Automatically skip screen if unsupported.
+    - [x] Store biometric preference in storage and advance to Welcome / Create Account.
+  - [x] Welcome / Create Account Screen (`screens/CreateAccountScreen.tsx`):
+    - [x] Clean layout matching reference: Small header "Create account", Headline "Welcome to ÖZARA", Description "Your next chapter starts here."
+    - [x] Two underlined inputs: Full name (autofill, clear label) and Email (prepopulated from validated invitation, locked 1:1, autofill).
+    - [x] Bottom legal copy: "By creating an account, you agree to our Terms & Conditions and acknowledge our Privacy Policy."
+    - [x] Clickable violet links opening dedicated readable modals for Terms & Conditions and Privacy Policy (preserving form state on close).
+    - [x] Primary button: "Create account" (disabled until both fields valid, inline validation, loading spinner, duplicate prevention).
+    - [x] Creates account via `POST /api/register`, atomically claims token, and continues to member profile setup (30-question questionnaire).
+    - [x] Bottom safe area and keyboard avoiding behavior.
+  - [x] Navigation & App Integration (`ClubContext.tsx`, `AppNavigator.tsx`, `PhoneAuthScreen.tsx`):
+    - [x] Route new member after successful phone OTP verification directly to `face_id_setup` (or auto-skip to `create_account` if unsupported).
+    - [x] Route `create_account` success directly to profile questionnaire (`viewMode = 'questionnaire_page'`).
+    - [x] Support back navigation preserving all state.
+  - [x] Verification & Automated Testing:
+    - [x] Update `tools/test_invitation_onboarding_gate.py` with test cases for terms recording, biometric preference persistence, and token claim.
+    - [x] Compile check (`npx tsc --noEmit`) and run full automated suite against `localhost:3000`.
+
+- [x] 6.13 Chronological Event Calendar Redesign (2026/2027 Calendar):
+  - [x] Blueprint & SOP: Updated `gemini.md` with full Event Entity schema and updated `architecture/04_events_and_targeted_invites.md` with data integrity & presentation invariants.
+  - [x] Database & Migration (`tools/migrate_events_calendar.py`):
+    - [x] Expand `events` table with structured columns: `headline`, `start_date`, `end_date`, `date_precision`, `display_date`, `year`, `month_name`, `city`, `region`, `country`, `venue`, `available_spots`, `registration_status`, `registration_link`, `price`, `whats_included`, `travel_info`, `hosts`, `hero_image`, `agenda`.
+    - [x] Seed all 2026/2027 events accurately from the attached calendar poster into `ozara.db` and `sila.db`.
+  - [x] Backend Server & API (`server.js`):
+    - [x] `GET /api/events`: Return structured chronological events with `is_next_upcoming`, `is_past`, filtering by year, city, type, and registration status.
+    - [x] `GET /api/events/:id`: Return full event details for dedicated event detail page/modal.
+    - [x] `PUT /api/events/:id`: Authenticated admin event editor (update venue, capacity, status, price, dates, hero image).
+    - [x] `GET /api/events/:id/ics`: Dynamic iCalendar (`.ics`) file generation for personal calendar integration.
+    - [x] `POST /api/events/:id/rsvp`: RSVP registration endpoint for members.
+  - [x] Mobile & Web Frontend (`EventsScreen.tsx` & `public/app.js`):
+    - [x] Modern, elegant, chronological layout with prominent dedicated date block on the left (responsive on mobile).
+    - [x] Grouped by Year and Month.
+    - [x] Highlight Next Upcoming Event with a distinctive badge and spotlight card (Miami Nov 13–15, 2026).
+    - [x] Strict data integrity: "To be confirmed" / "To be announced" for unconfirmed venue, capacity, and price (never fabricated).
+    - [x] "Dates to Be Announced" section for events without exact dates (European Grand Tour).
+    - [x] "Past Events Archive" toggle for past events (Dubai Marina, London Mayfair).
+    - [x] Dedicated Event Detail Page/Modal with hero image, full description, agenda, venue, hosts, pricing, what's included, registration action, route extensions, and "Add to Calendar" export (.ics).
+    - [x] Comprehensive filtering: Year, City/Destination, Event Type, Registration Status.
+    - [x] Administrator in-app event editor modal.
+  - [x] Testing & Validation:
+    - [x] Dedicated test script `tools/test_events_calendar.py` validating 100% data integrity, chronological sorting, admin updates, and .ics export.
+    - [x] Mobile TypeScript typecheck clean (`npx tsc --noEmit`).
+    - [x] Regression tests verified: `test_questionnaire_flow.py` and `test_24_questions_and_layers.py` pass 100%.
+
+- [x] 6.14 Professional Networking Profile Redesign ("My Club Profile"):
+  - [x] SOP & Architecture: Updated `architecture/02_questionnaire_and_profile.md` with Section 6 mapping canonical questions to 9 networking sections, read-only presentation, and privacy invariants.
+  - [x] Mobile Profile Component (`ProfileDrawerModal.tsx`):
+    - [x] Redesigned default view to visual professional networking profile (Header, About Me, Professional Background, Current Focus, Let's Connect, What I Can Offer, Locations & Community, Beyond Work, Contact & Connections).
+    - [x] Promoted "Let's Connect" and "What I Can Offer" with high-prominence visual treatment (elevated cards, accent borders, rich badges).
+    - [x] "Edit Profile" button toggles to organized Questionnaire Editor divided into canonical sections (A, B, C, D, E) with section switcher pills.
+    - [x] Preserved all input controls, validation, debounced autosave, and inline visibility toggles.
+    - [x] Strict privacy filtering: private answers, Q20/Q21 private status, and Q23 permanently locked from peer view.
+  - [x] Web Drawer Component (`public/app.js` & `public/index.html` & `public/styles.css`):
+    - [x] Redesigned desktop slide-over drawer default view to match the 9 networking sections (`renderNetworkingProfile`).
+    - [x] Provided "Edit Profile" toggle switching to questionnaire form.
+    - [x] Synchronized latest answers dynamically without page refresh.
+  - [x] Verification & Automated Testing:
+    - [x] Created `tools/test_profile_networking_redesign.py` validating API sanitization, privacy guarantees, and complete questionnaire mapping (100% pass).
+    - [x] TypeScript compilation verified (`npx tsc --noEmit` exits 0).
+    - [x] Run full platform regression suite (100% pass).
+
+- [x] 6.15 ÖZARA Curated Investment Tab: Real Estate Catalog, Units & Synchronization:
+  - [x] Blueprint & Architecture:
+    - [x] Defined Data Schemas in `gemini.md` (Section 3.4): Real Estate Catalog, Project Units, Saved Listings, Daily Sync Logs, Member Inquiries.
+    - [x] Updated SOP in `architecture/05_investments_and_guardrails.md`: 2 top-level categories (Real Estate vs Private Tech Companies 'Coming soon'), 4 property types (Residential, Countryside, Commercial, Private Islands), filter cascade, project-to-unit mapping, daily sync with failure recovery, and zero provider branding.
+  - [x] Database Schema & Atomic Sync Tool (`tools/sync_real_estate_catalog.py`):
+    - [x] Create/migrate tables: `real_estate_catalog`, `real_estate_units`, `saved_listings`, `investment_sync_logs` in `ozara.db` and `sila.db`.
+    - [x] Build deterministic fetch and sync tool handling pagination (`offset`, `limit`, `has_more`), developerProjectId mapping, units fetching (`parent_project_id`), currency preservation, failure isolation, and sync logging.
+    - [x] Seed initial complete catalog and units from upstream endpoints (239 properties, 71 units).
+  - [x] Backend Server Endpoints & Daily Job (`server.js`):
+    - [x] `GET /api/investments/catalog`: Filterable, searchable, sortable catalog with dynamic filter options (countries, dependent cities, types, budget, bedrooms, features) and saved state for viewer.
+    - [x] `GET /api/investments/catalog/:id`: Comprehensive listing details including units list and viewer save state.
+    - [x] `GET /api/investments/catalog/:id/units`: Individual units within project.
+    - [x] `POST /api/investments/saved/:id`: Toggle saved bookmark with stable IDs.
+    - [x] `GET /api/investments/saved`: Retrieve viewer's bookmarked properties.
+    - [x] `POST /api/investments/request-details`: Route details inquiry to ÖZARA real estate admin (`iuliiashchukinainvest@gmail.com` and `ermolov.elena@gmail.com`) with conditions check.
+    - [x] `POST /api/investments/sync`: Admin-only manual sync trigger.
+    - [x] `GET /api/investments/sync-status`: Retrieve last sync time, counts, and health status.
+    - [x] Scheduled daily synchronization job (configurable interval/timing and enable toggle).
+  - [x] Mobile Frontend Redesign (`InvestmentsScreen.tsx` & `api.ts`):
+    - [x] Top-level category tabs: "Real Estate" (Active) and "Private Tech Companies" ("Coming soon" card).
+    - [x] Property category switcher: All, Residential, Countryside, Commercial, Private Islands.
+    - [x] Rich search & dynamic filter bar (Country, dependent City, Budget, Bedrooms, Features, Sorting, Results count, Clear filters).
+    - [x] Luxury responsive property cards with photo count pill, status badges, price + verified currency, key specs, save button.
+    - [x] Listing Detail Drawer / Modal:
+      - [x] Full photo gallery with active index badge and thumbnails.
+      - [x] Original titles, descriptions, location, map link, completion info, payment terms.
+      - [x] Project-to-unit browser for development projects with multiple units.
+      - [x] "Request details" primary action with access conditions check.
+      - [x] Subtle "Updated..." timestamp and "Price and availability subject to confirmation." disclaimer.
+    - [x] Strict provider confidentiality: 0 provider branding.
+  - [x] Verification & Automated Testing:
+    - [x] `tools/test_investments_catalog.py`: Validate catalog completeness (239 entries, 71 units), units mapping, dynamic filters, currency integrity, saved listings, and error recovery (100% pass).
+    - [x] Typecheck `npx tsc --noEmit` clean (0 errors).
+
+- [x] 6.16 Networking Section Simplification & ÖZARA Community Wall:
+  - [x] Blueprint & Architecture:
+    - [x] Defined Data Schemas in `gemini.md` (Section 3.10) for `CommunityPost` and `CommunityComment`.
+    - [x] Added Behavioral Rules in `gemini.md`: Member Location Filtering Invariant, Community Wall & Moderation Mandate, Chapter & Venue Simplification.
+    - [x] Created `architecture/07_community_wall.md` technical SOP.
+  - [x] Database Migration & Data Fix (`tools/migrate_community_and_locations.py`):
+    - [x] Create `community_posts` and `community_comments` tables with indices and foreign keys in `ozara.db` and `sila.db`.
+    - [x] Update Elena Alexeeva (`usr_muwksc1i`) to decouple from Dubai chapter and anchor to Seattle, United States.
+    - [x] Purge unconfirmed venue & partnership claims from `chapters` table (`gathering_place_*`).
+    - [x] Seed initial curated community posts (welcome/orientation, VARA licensing ask, AI infra discussion).
+  - [x] Backend Server Endpoints (`server.js`):
+    - [x] Fix location filtering in `GET /api/members` to match strictly saved residential location (`m.city`, `m.country`, `m.state`) and NEVER match `m.chapter_name`.
+    - [x] Implement `GET /api/community/posts` (and alias `GET /api/posts`): restricted to admitted members, returns newest first, joins author details, includes comments.
+    - [x] Implement `POST /api/community/posts`: creates post with optional topic pill, validates length, checks content guardrails.
+    - [x] Implement `PUT /api/community/posts/:id`: edit post by author or admin.
+    - [x] Implement `DELETE /api/community/posts/:id`: delete post by author or admin.
+    - [x] Implement `POST /api/community/posts/:id/comments`: create comment by admitted member.
+    - [x] Implement `DELETE /api/community/comments/:id`: delete comment by author or admin.
+  - [x] Mobile Frontend Integration (`NetworkingScreen.tsx` & `api.ts`):
+    - [x] Update `api.ts` with community types and API helper functions.
+    - [x] In `NetworkingScreen.tsx`: Add 'Seattle' to `LOCATIONS` filter options.
+    - [x] Replace "Chapters & Travel" tab with "Community" tab.
+    - [x] Remove chapter city tabs, chapter venue cards, "Meet the Chapter Lead", "Post a Trip", "90s Quarterly Pulse".
+    - [x] Build compact composer: "Ask your network or share something useful…", topic pills (Question, Introduction, Expertise, Opportunity).
+    - [x] Render chronological feed with author avatar/initials, name, role/headline, timestamp, topic badge, text.
+    - [x] Interactive comment list & comment input.
+    - [x] Edit and delete controls for authors; moderation controls for admins.
+    - [x] Tapping author opens `ProfileDrawerModal` with contact gate.
+    - [x] Clean empty state and generous spacing matching ÖZARA luxury minimalist aesthetic.
+  - [x] Verification & Automated Testing:
+    - [x] Build `tools/test_community_and_members.py`:
+      - [x] Verify Elena Alexeeva never matches Dubai filter, matches Seattle/United States.
+      - [x] Verify unadmitted user gets 401 on Community Wall.
+      - [x] Verify post creation, topic tagging, content guardrails, editing, commenting, and deletion.
+      - [x] Verify admin moderation capabilities.
+    - [x] Run full platform test suite (0 regressions).
+    - [x] Run `npx tsc --noEmit` (0 TypeScript errors).
+
+- [x] 6.17 Investments Section Revision: Landing Page, Dynamic Categories, 3-Card Grid & Photo Browsing:
+  - [x] Blueprint & Architecture (Layer 1):
+    - [x] Updated Behavioral Rules in `GEMINI.md`: Landing page tiles first, dynamic categories, 3-card grid (desktop 3, tablet 2, phone 1), 4:3 ratio without stretch, direct photo browsing with arrows & swipe, state restoration.
+    - [x] Updated Section 3.4 Data Schemas in `GEMINI.md`: `CatalogCategoryPayload`.
+    - [x] Updated `architecture/05_investments_and_guardrails.md` SOP.
+    - [x] Extracted reference 3D isometric illustrated icons (`residential.png`, `countryside.png`, `commercial.png`, `private_islands.png`) and generated matching icons (`parking.png`, `fallback.png`).
+  - [x] Backend Dynamic Categories & Sync (Layer 2 & 3):
+    - [x] In `server.js`: Add `GET /api/investments/categories` returning dynamic categories with counts, normalized names, and icon keys.
+    - [x] In `server.js`: Update `GET /api/investments/catalog` to dynamically populate `filter_options.categories` and `filter_options.types` from published catalog.
+    - [x] Update `tools/sync_real_estate_catalog.py` to ensure dynamic category mapping, English normalization, and zero destructive wipes.
+  - [x] Web Application Frontend (`public/index.html`, `public/app.js`, `public/styles.css`):
+    - [x] Investment Landing Page: Dynamic square category tiles with 3D icons, counts, and "Private Tech Companies — Coming soon" tile.
+    - [x] Category Results Page:
+      - [x] Filter bar dropdowns: Country, City (cascading), Budget, Bedrooms, Type, Features, and Sorting on right (`best match`).
+      - [x] Compact illustrated category tiles row with active highlight and checkmark.
+      - [x] Synchronize Type dropdown and category tiles.
+      - [x] Result count ("239 properties found"), Clear filters, and "← Back to Categories" button.
+    - [x] Compact Listing Grid:
+      - [x] Centered content container (max-width 1240px).
+      - [x] 3 cards per row on desktop, 2 on tablet, 1 on phone.
+      - [x] 4:3 aspect ratio images with balanced cropping (no stretching).
+      - [x] Direct photo carousel on card: subtle left/right arrows, photo counter (`📷 1 / 12`), stopPropagation on clicks.
+      - [x] Location, title, specs line, price + currency, bookmark button, and Details button.
+    - [x] State restoration on refresh: URL hash + sessionStorage.
+  - [x] Mobile Client Redesign (`InvestmentsScreen.tsx` & `api.ts`):
+    - [x] Update `api.ts` with `getCatalogCategories` API method and Category types.
+    - [x] Implement Landing Page view with 2-column square category tiles + Coming soon card.
+    - [x] Implement Results Page view with horizontal scrolling compact category row and filter modals.
+    - [x] Implement 4:3 card photo carousel with arrows, touch swiping, photo counter, and fixed dimensions.
+    - [x] State persistence across reloads.
+  - [x] Verification & Automated Testing:
+    - [x] Create `tools/test_investments_dynamic_categories_and_grid.py`.
+    - [x] Verify dynamic category extraction, removal of empty categories, addition of Parking, fallback icon handling.
+    - [x] Verify 3-card grid layout, photo browsing, and filter synchronization.
+    - [x] Run full regression suite & `npx tsc --noEmit` (0 errors).
+
+---
+
+## Phase 7: Unified Community Home, Page Restoration & Telegram Integration
+
+- [ ] 7.1 Architecture SOP & Data Schemas (Layer 1):
+  - [x] Updated Behavioral Rules in `GEMINI.md`: Main navigation order (`Community · Network · Events · Investments`), Community as default home, page restoration on refresh, Telegram channel integration with album grouping, translation, and admin controls.
+  - [x] Updated Section 3.7 Data Schemas in `GEMINI.md`: `CommunityPostPayload`, `TelegramPostSyncPayload`, `AdminTranslationCorrectionPayload`, and `NavigationStatePayload`.
+  - [x] Overhauled `architecture/07_community_wall.md` with complete specifications for navigation reorganization, refresh restoration, Telegram bot sync, translation engine, and moderation workflows.
+- [ ] 7.2 Database Schema & Migrations:
+  - [ ] Extend `community_posts` table:
+    - Add `source_type` ('member' or 'telegram')
+    - Add `author_label` ('From ÖZARA')
+    - Add `telegram_channel_id`, `telegram_message_id`, `media_group_id`
+    - Add `original_content`, `original_language`, `translated`
+    - Add `admin_corrected`, `source_modified_after_admin_edit`
+    - Add `status` ('published', 'pending_review', 'hidden', 'deleted')
+    - Add unique index on `(telegram_channel_id, telegram_message_id)`
+  - [ ] Create `community_post_media` table for photo/video albums:
+    - `id`, `post_id`, `media_type`, `url`, `thumbnail_url`, `caption`, `order_index`, `width`, `height`, `created_at`
+  - [ ] Create `telegram_sync_logs` table for sync audit and error tracking.
+  - [ ] Create `community_settings` table to store `auto_publish_enabled`.
+- [ ] 7.3 Telegram Channel Sync & Translation Pipeline (Layer 3):
+  - [ ] Build `tools/sync_telegram_channel.py`:
+    - Reads Telegram credentials (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHANNEL_ID`) from environment.
+    - Fetches recent channel updates/posts and message edits.
+    - Groups photo/video messages sharing `media_group_id` into a single post.
+    - Language detection: detects non-English text and captions.
+    - Entity-preserving translation: translates to English while strictly preserving proper names, URLs, dates, amounts, figures, and currencies.
+    - Source edit sync: in-place updates without duplicating posts.
+    - Admin correction protection: if `admin_corrected == 1`, flag for review without overwriting translation.
+    - Auto-publish if successful; hold in admin review queue on error.
+- [ ] 7.4 Backend Server Endpoints (`server.js`):
+  - [ ] Update `GET /api/community/posts` (and `/api/posts`):
+    - Support query param `?filter=all|ozara|members`
+    - Attach ordered media attachments from `community_post_media`
+    - Format author as "From ÖZARA" for Telegram posts with club badge
+    - Exclude hidden/deleted posts for members; include moderation flags for admins.
+  - [ ] Add `PUT /api/community/posts/:id/translation`: admin translation correction.
+  - [ ] Add `PATCH /api/community/posts/:id/moderate`: admin hide/unhide/delete/approve.
+  - [ ] Add `GET /api/community/settings` and `POST /api/community/settings`: toggle auto-publishing.
+  - [ ] Add `POST /api/telegram/webhook`: real-time Telegram channel webhook update receiver.
+  - [ ] Add `POST /api/telegram/sync`: manual/cron trigger for sync pipeline.
+  - [ ] Session validation & deep-link resource verification endpoint.
+- [ ] 7.5 Desktop Web Application Navigation & Page Restoration:
+  - [ ] Main navigation reordered: `Community · Network · Events · Investments`.
+  - [ ] Relocate Team link into user profile dropdown ("Founders & Team").
+  - [ ] Set Community as default home view on fresh login without specific URL hash.
+  - [ ] Community Page Redesign:
+    - Segmented filter bar: `All · From ÖZARA · From members`.
+    - Official ÖZARA posts with badge, clean typography, photo/video album carousel/grid.
+    - Member composer with topic pills (`Question`, `Introduction`, `Expertise`, `Opportunity`).
+    - Comments list and comment input for both ÖZARA and member posts.
+    - Admin actions: "Edit Translation", "Hide Post", "Delete Post".
+  - [ ] Cross-Platform Page & State Restoration on Refresh:
+    - Persistent hash routing (`#community`, `#network`, `#events`, `#investments`) with query parameters.
+    - Restore selected tab, active filters, search query, sorting, opened modal/drawer, and scroll offset.
+    - Preserve valid sessions; deep links open directly; expired sessions save target URL and resume post-login.
+    - Inaccessible item notification with graceful fallback to parent section.
+    - Clear state on logout.
+- [ ] 7.6 Mobile Client App Navigation & Page Restoration:
+  - [ ] Bottom tab bar reordered: `Community` (Home), `Network`, `Events`, `Investments`.
+  - [ ] Relocate Team into `ProfileDrawerModal` menu.
+  - [ ] Update `mobile/src/services/api.ts` with new community filters, media types, and admin endpoints.
+  - [ ] Build/upgrade `CommunityScreen.tsx`:
+    - Segmented filter pills: `All · From ÖZARA · From members`.
+    - Official ÖZARA post cards with institutional branding, photo/video album displays, and comments.
+    - Member composer and replies.
+  - [ ] Mobile State Restoration:
+    - Persistent storage of active screen, filters, search, and detail modal state via `AsyncStorage`.
+    - Session resumption without kicking user to splash/token/home.
+    - Direct linking/routing to member profile, event, or investment.
+- [ ] 7.7 Verification & Comprehensive Automated Testing:
+  - [ ] Build `tools/test_community_telegram_and_page_restoration.py`:
+    - Verify navigation order across endpoints and client configurations.
+    - Verify Community home page default routing and deep link restoration.
+    - Verify Telegram album grouping (`media_group_id`), translation engine, and entity preservation.
+    - Verify source edit sync without duplicate posts.
+    - Verify admin translation edit protection against upstream overwrites.
+    - Verify feed filtering (`all`, `ozara`, `members`).
+    - Verify state restoration on reload and logout cleanup.
+  - [ ] Run full platform test suite (0 regressions).
+  - [ ] Run `npx tsc --noEmit` in `mobile/` (0 errors).
+
+---
+
+## Phase 8: Inbox, Member Messaging, Email Notifications & Admin Activity
+
+- [ ] 8.1 Blueprint & Architecture SOP (Layer 1):
+  - [x] Defined Data Schemas in `gemini.md` (Section 3.11): `DirectMessagePayload`, `ConversationSummaryPayload`, `InAppNotificationPayload`, `NotificationPreferencesPayload`, `AdminActivityItemPayload`.
+  - [x] Defined Behavioral Rules in `gemini.md`: Top-level Inbox icon with unread badge, Messages vs Notifications tabs, mutual connection messaging gate, message body email omission, message email debouncing (15 min window), email delivery queue & retries, admin activity tracking, and test mailbox sandbox.
+  - [x] Created `architecture/08_inbox_messaging_and_notifications.md` technical SOP.
+- [ ] 8.2 Database Schema & Migrations (Layer 3):
+  - [ ] Build `tools/migrate_inbox_messaging_and_notifications.py` to create tables in `ozara.db` and `sila.db`:
+    - `conversations` (id, participant_one_id, participant_two_id, last_message_text, last_message_sender_id, last_message_at, is_blocked, blocked_by_id)
+    - `direct_messages` (id, conversation_id, sender_id, recipient_id, content, is_read, read_at, created_at)
+    - `user_blocks` (id, blocker_id, blocked_id, reason, created_at)
+    - Update `in_app_notifications` with `metadata_json`, `category`
+    - `notification_preferences` (user_id, email_direct_messages, email_connection_requests, email_new_posts, email_new_events, email_event_invites, email_admin_activity, in_app_new_posts, in_app_new_events)
+    - `email_delivery_queue` (id, idempotency_key, recipient_email, recipient_user_id, notification_id, category, subject, template_type, status, attempts, last_attempt_at, last_error, payload_preview, created_at, sent_at)
+    - `admin_activity_log` (id, activity_type, title, description, actor_id, target_id, entity_type, entity_id, metadata_json, created_at)
+- [ ] 8.3 Backend Services & Endpoints (`server.js`):
+  - [ ] Inbox & Notifications Endpoints:
+    - `GET /api/inbox/summary?viewerId=...`: returns unread counts for messages and notifications.
+    - `GET /api/inbox/notifications?viewerId=...&filter=...`: returns paginated notifications with join on actors/events.
+    - `POST /api/inbox/notifications/:id/read`: marks notification as read.
+    - `POST /api/inbox/notifications/read-all`: marks all user notifications as read.
+  - [ ] Direct Messaging Endpoints:
+    - `GET /api/inbox/conversations?viewerId=...`: list user's conversations with last message, other member info, unread count.
+    - `GET /api/inbox/conversations/:id?viewerId=...`: get messages in conversation and mark them read for viewer.
+    - `POST /api/inbox/conversations/start`: start or resume conversation with connection.
+    - `POST /api/inbox/messages/send`: send message, checks mutual connection or admin permissions, checks block status, creates notification, queues throttled email.
+    - `POST /api/inbox/block`: block/unblock a member.
+    - `POST /api/inbox/report`: report a member or message to admins.
+  - [ ] Notification Preferences Endpoints:
+    - `GET /api/inbox/preferences?viewerId=...`
+    - `PUT /api/inbox/preferences`: update user preferences.
+  - [ ] Admin Activity Endpoints:
+    - `GET /api/admin/activity?viewerId=...&filter=...`: returns operational activity feed (restricted to founders/admins).
+    - `recordAdminActivity(...)` helper integrated across access requests, onboarding completion, connections, community, RSVPs, investments, reports, and sync failures.
+  - [ ] Transactional Email Delivery Engine:
+    - HTML email templates with ÖZARA dark luxury styling.
+    - Message email debouncing / throttling (1 email per unread thread within 15 mins).
+    - Safe suppression & test mailbox endpoint `GET /api/inbox/test-mailbox`.
+- [ ] 8.4 Web Frontend Integration (`public/index.html`, `public/app.js`, `public/styles.css`):
+  - [ ] Add Inbox icon with unread count badge in top navbar.
+  - [ ] Build luxury Inbox modal with Messages, Notifications, and Admin Activity tabs.
+  - [ ] Messages UI: conversation list + active conversation view with message bubbles, avatar header, and block/report actions.
+  - [ ] Notifications UI: list with actionable Accept/Decline for connection requests, direct links to events, posts, profiles.
+  - [ ] Admin Activity UI: real-time operational feed with category pills.
+  - [ ] Notification preferences settings modal.
+- [ ] 8.5 Mobile Frontend Integration (`mobile/src/...`):
+  - [ ] Add Inbox icon with unread badge to `OzaraHeader.tsx`.
+  - [ ] Create `InboxModal.tsx` in `mobile/src/components/` with Messages, Notifications, and Admin Activity tabs.
+  - [ ] Add typed API client methods in `mobile/src/services/api.ts`.
+- [ ] 8.6 Verification & Automated Testing:
+  - [ ] Build comprehensive test suite `tools/test_inbox_messaging_and_notifications.py`:
+    - 1: Inbox counts & summary.
+    - 2: Mutual connection messaging permission check & 403 enforcement for non-connections.
+    - 3: One-to-one text messaging, unread counts, block & report controls.
+    - 4: Notifications for connection requests (with accept/decline), admin messages, event invites, community posts.
+    - 5: Email delivery queue, ÖZARA-branded templates, message body omission, 15-minute debouncing, and sandbox mailbox.
+    - 6: Notification preferences customization (immediate, daily digest, in-app only).
+    - 7: Admin Activity feed coverage across access requests, onboarding, connections, posts, RSVPs, inquiries, reports, and failures.
+  - [ ] Run full platform regression test suites.
+
+## Phase 9: Image Reliability, Durable Media Storage Pipeline, Smooth Photo Browsing & Hosted Staging Preparation
+
+- [ ] 9.1 Root Cause Diagnosis & Network Inspection:
+  - [x] Inspected broken listing URLs: all point to external host `https://developer.edex.estate/uploads/...`.
+  - [x] DNS resolution points to IP `45.131.64.123`.
+  - [x] Network diagnostics (`ping`, `curl`, `nc` on ports 80/443) show 100% packet loss and connection timeouts; external origin is completely offline.
+  - [x] Identified why it was slow before (fetching un-optimized high-res images sequentially on-the-fly over high latency without CDN caching or prefetching) and why broken now (single point of failure: hotlinking an external host that went dark).
+- [ ] 9.2 Durable Media Storage Pipeline & Backfill (Layer 3):
+  - [ ] Create `storage/catalog/` directory structure: `storage/catalog/cards/` (640x480, 4:3, WebP quality 85), `storage/catalog/full/` (up to 1600x1200, WebP quality 90), `storage/catalog/thumb/` (160x120, WebP).
+  - [ ] Implement deterministic Python tool `tools/sync_and_store_catalog_images.py`:
+    - Checks upstream availability with timeout/retry.
+    - Resilient fallback & backfill: for properties where upstream host is offline, attaches verified, high-resolution luxury architectural photography tailored to property category and geography.
+    - Validates downloads (header, dimensions, file size > 5KB) before marking ready.
+    - Preserves photo order (`0, 1, 2, ...`), deduplicates via SHA256 hashes, and retains last working images.
+    - Updates `ozara.db` and `sila.db` records to point to reliable internal delivery routes `/api/media/catalog/...`.
+    - Generates `storage/catalog/manifest.json`.
+- [ ] 9.3 Cacheable Media Delivery Layer & Server Routing (`server.js`):
+  - [ ] Implement `GET /api/media/catalog/:id/:variant/:filename` in `server.js` with `Cache-Control: public, max-age=31536000, immutable`, ETag, 304 response, and category hero fallback.
+  - [ ] Ensure private member avatars and Telegram community media remain protected under `/storage/telegram_media/` and `/api/community/media/` requiring authenticated member token (`validateSession(req)`).
+  - [ ] Update `formatCatalogItem` in `server.js` to serve reliable media paths.
+- [ ] 9.4 Smooth Mobile Photo Browsing (`mobile/src/screens/InvestmentsScreen.tsx`):
+  - [ ] Upgrade card and modal images to `expo-image` (`Image` from `'expo-image'`) with hardware acceleration and memory-disk caching.
+  - [ ] Implement smooth crossfades (`transition={200}`) so current photo remains visible until next photo finishes buffering (no black flickers).
+  - [ ] Implement adjacent photo preloading via `Image.prefetch(resolveImageUrl(nextPhoto))` when card is rendered or index changes.
+  - [ ] Maintain fixed 4:3 aspect ratio (`aspectRatio: 4 / 3`) with zero layout shift.
+  - [ ] Implement loading skeleton/indicator and error fallback state with "Tap to retry" button.
+  - [ ] Fix `mobile/src/services/api.ts` `getBaseUrl()` for hosted staging environments (avoid appending `:3000` when on standard HTTPS).
+- [ ] 9.5 Always-Available Hosted Staging Environment:
+  - [ ] Confirm mobile frontend (`mobile/`) as canonical iOS app (`com.silasvyazei.app`) and web preview (`mobile/dist`).
+  - [ ] Create containerized staging `Dockerfile` packaging Node.js backend, dependencies, mobile web export (`npx expo export --platform web`), persistent volume mount for SQLite (`/app/data`) and media (`/app/storage`).
+  - [ ] Create `fly.toml` / `render.yaml` deployment descriptors with persistent volume configuration.
+  - [ ] Setup database persistence, automated backup script, and server-side secret management.
+  - [ ] Configure staging data isolation (`NODE_ENV=staging`) with test email suppression so real member emails are never contacted.
+  - [ ] Document version-control release process and client preview URL.
+  - [ ] Compile comprehensive cost breakdown before activating paid services.
+- [ ] 9.6 Verification & Testing:
+  - [ ] Run `tools/test_investments_catalog.py` and new media verification tests.
+  - [ ] Verify image serving and 304 caching via curl.
+  - [ ] Verify mobile web build `npx expo export --platform web` and TypeScript compilation `npx tsc --noEmit`.
+  - [ ] Test desktop and mobile browsing, image swiping, server restart, and redeployment.

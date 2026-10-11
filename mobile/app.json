@@ -8,7 +8,12 @@
     "scheme": "ozara",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "com.silasvyazei.app",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "ÖZARA uses Face ID for seamless and secure sign-in to your private club account."
+      }
     },
     "android": {
       "adaptiveIcon": {

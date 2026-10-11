@@ -76,6 +76,8 @@ interface PhoneAuthScreenProps {
   onBack: () => void;
   onEnterClub: () => void;
   onGoToSignUp: () => void;
+  onGoToFaceId?: () => void;
+  onGoToInvitation?: () => void;
 }
 
 type AuthStep = 'enter_phone' | 'enter_code';
@@ -84,6 +86,8 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
   onBack,
   onEnterClub,
   onGoToSignUp,
+  onGoToFaceId,
+  onGoToInvitation,
 }) => {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -95,6 +99,8 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
     conditionsAgreed,
     setConditionsAgreedState,
     openConditions,
+    authMode,
+    setAuthMode,
   } = useClub();
 
   const [step, setStep] = useState<AuthStep>('enter_phone');
@@ -115,15 +121,22 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
   const [showConditionsModal, setShowConditionsModal] = useState<boolean>(false);
 
   const [whatsappEnabled, setWhatsappEnabled] = useState<boolean>(false);
+  const [isTestMode, setIsTestMode] = useState<boolean>(() => {
+    return typeof __DEV__ !== 'undefined' ? Boolean(__DEV__) : true;
+  });
+  const [testModeCode, setTestModeCode] = useState<string>('123456');
 
   const codeInputRef = useRef<TextInput>(null);
 
   // Check backend auth config on mount
   useEffect(() => {
     ApiService.getPhoneAuthConfig()
-      .then((cfg) => {
+      .then((cfg: any) => {
         if (cfg) {
           setWhatsappEnabled(Boolean(cfg.whatsapp_verification_enabled));
+          if (cfg.is_test_mode !== undefined) {
+            setIsTestMode(Boolean(cfg.is_test_mode));
+          }
         }
       })
       .catch(() => {});
@@ -161,6 +174,13 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
       });
 
       if (res && res.success) {
+        if (res.mock_code || res.demoCode) {
+          setIsTestMode(true);
+          setTestModeCode(res.mock_code || res.demoCode || '123456');
+        } else if (res.is_test_mode) {
+          setIsTestMode(true);
+          setTestModeCode('123456');
+        }
         setStep('enter_code');
         setCode('');
         setCountdown(45);
@@ -202,9 +222,16 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
           switchPersona(res.user.id);
           onEnterClub();
         } else {
-          // Case B: New user / candidate -> continue through Access Conditions and Invitation validation
-          if (!conditionsAgreed) {
-            setShowConditionsModal(true);
+          // Case B: Not an existing member
+          if (authMode === 'sign_in') {
+            setErrorType('invalid');
+            setErrorMessage('No active membership found for this number. Please check your phone or enter an invitation code to join.');
+            return;
+          }
+
+          // Case C: New user / candidate with valid invitation -> proceed to Face ID setup
+          if (onGoToFaceId) {
+            onGoToFaceId();
           } else {
             onGoToSignUp();
           }
@@ -240,6 +267,13 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
       });
 
       if (res && res.success) {
+        if (res.mock_code || res.demoCode) {
+          setIsTestMode(true);
+          setTestModeCode(res.mock_code || res.demoCode || '123456');
+        } else if (res.is_test_mode) {
+          setIsTestMode(true);
+          setTestModeCode('123456');
+        }
         setCode('');
         setCountdown(45);
         setIsResendActive(false);
@@ -304,7 +338,7 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
                 <View style={styles.copyHeader}>
                   <Text style={styles.headline}>Enter your phone number</Text>
                   <Text style={styles.description}>
-                    We’ll send you a verification code.
+                    We’ll send you a verification code via SMS.
                   </Text>
                 </View>
 
@@ -354,43 +388,66 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
               <View style={styles.stepContent}>
                 <View style={styles.copyHeader}>
                   <Text style={styles.headline}>Enter verification code</Text>
-                  <View style={styles.destinationRow}>
-                    <Text style={styles.description}>
-                      Sent to{' '}
-                      <Text style={styles.highlightText}>
-                        {selectedCountry.dialCode} {phoneNumber}
-                      </Text>
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setStep('enter_phone');
-                        setErrorMessage(null);
-                        setErrorType(null);
-                      }}
-                      style={styles.changeNumberBtn}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Text style={styles.changeNumberText}>Change number</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Dynamic Provider Messaging */}
-                  <View style={styles.providerBadge}>
-                    <Ionicons
-                      name={whatsappEnabled ? 'logo-whatsapp' : 'chatbox-ellipses-outline'}
-                      size={13}
-                      color={whatsappEnabled ? '#25D366' : '#a78bfa'}
-                    />
-                    <Text style={styles.providerBadgeText}>
-                      {whatsappEnabled ? 'Verification via WhatsApp' : 'Verification code dispatched via SMS'}
-                    </Text>
-                  </View>
+                  <Text style={styles.plainDescription}>
+                    Please check your phone. We sent a code via sms{'\n'}to your number {selectedCountry.dialCode} {phoneNumber}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setStep('enter_phone');
+                      setCode('');
+                      setErrorMessage(null);
+                      setErrorType(null);
+                    }}
+                    style={styles.changeNumberContainer}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Text style={styles.changeNumberOrange}>Change number</Text>
+                  </TouchableOpacity>
                 </View>
+
+                {/* Development-only Mock Verification Test Mode Banner */}
+                {isTestMode && (
+                  <View style={styles.testModeBanner}>
+                    <View style={styles.testModeHeader}>
+                      <View style={styles.testModeBadge}>
+                        <Ionicons name="flask-outline" size={13} color="#f59e0b" style={{ marginRight: 5 }} />
+                        <Text style={styles.testModeBadgeText}>TEST MODE (DEV ONLY)</Text>
+                      </View>
+                      <Text style={styles.testModeNotice}>SMS disabled • Inactive in production</Text>
+                    </View>
+                    <View style={styles.testCodeRow}>
+                      <Text style={styles.testCodeLabel}>Mock verification code:</Text>
+                      <Text style={styles.testCodeNumber}>{testModeCode}</Text>
+                      <TouchableOpacity
+                        style={styles.autoFillBtn}
+                        onPress={() => {
+                          setCode(testModeCode);
+                          handleVerifyCode(testModeCode);
+                        }}
+                        activeOpacity={0.75}>
+                        <Text style={styles.autoFillBtnText}>Auto-fill</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
 
                 {/* Error Banner */}
                 {errorMessage && (
                   <View style={styles.errorBanner}>
                     <Ionicons name="alert-circle" size={16} color="#ef4444" style={styles.errorIcon} />
-                    <Text style={styles.errorText}>{errorMessage}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.errorText}>{errorMessage}</Text>
+                      {authMode === 'sign_in' && onGoToInvitation && errorMessage.includes('invitation code') && (
+                        <TouchableOpacity
+                          style={{ marginTop: 6 }}
+                          onPress={onGoToInvitation}
+                          activeOpacity={0.75}>
+                          <Text style={{ color: '#a78bfa', fontWeight: '700', fontSize: 13, textDecorationLine: 'underline' }}>
+                            Enter Invitation Code →
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 )}
 
@@ -412,31 +469,31 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
                       </View>
                     );
                   })}
-                </View>
 
-                {/* Hidden Overlay Input with SMS Autofill Support */}
-                <TextInput
-                  ref={codeInputRef}
-                  style={styles.hiddenCodeInput}
-                  value={code}
-                  onChangeText={(val) => {
-                    const clean = val.replace(/\D/g, '').slice(0, 6);
-                    setCode(clean);
-                    if (errorMessage) {
-                      setErrorMessage(null);
-                      setErrorType(null);
-                    }
-                    if (clean.length === 6) {
-                      handleVerifyCode(clean);
-                    }
-                  }}
-                  keyboardType="number-pad"
-                  textContentType="oneTimeCode"
-                  autoComplete="sms-otp"
-                  maxLength={6}
-                  autoFocus
-                  editable={!isLoading}
-                />
+                  {/* Hidden Overlay Input with SMS Autofill Support */}
+                  <TextInput
+                    ref={codeInputRef}
+                    style={styles.hiddenCodeInput}
+                    value={code}
+                    onChangeText={(val) => {
+                      const clean = val.replace(/\D/g, '').slice(0, 6);
+                      setCode(clean);
+                      if (errorMessage) {
+                        setErrorMessage(null);
+                        setErrorType(null);
+                      }
+                      if (clean.length === 6) {
+                        handleVerifyCode(clean);
+                      }
+                    }}
+                    keyboardType="number-pad"
+                    textContentType="oneTimeCode"
+                    autoComplete="sms-otp"
+                    maxLength={6}
+                    autoFocus
+                    editable={!isLoading}
+                  />
+                </View>
 
                 {/* Resend Option */}
                 <View style={styles.resendContainer}>
@@ -681,45 +738,97 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '400',
   },
-  highlightText: {
-    color: '#ffffff',
-    fontWeight: '600',
+  plainDescription: {
+    color: '#94a3b8',
+    fontSize: 14.5,
+    lineHeight: 22,
+    fontWeight: '400',
   },
-  destinationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 2,
-  },
-  changeNumberBtn: {
+  changeNumberContainer: {
+    marginTop: 6,
+    alignSelf: 'flex-start',
+    zIndex: 10,
     ...Platform.select({
       web: { cursor: 'pointer' } as any,
     }),
   },
-  changeNumberText: {
-    color: '#a78bfa', // Violet accent
-    fontSize: 13.5,
+  changeNumberOrange: {
+    color: '#FF8A00', // Luxury vibrant orange
+    fontSize: 14.5,
     fontWeight: '600',
-    textDecorationLine: 'underline',
   },
-  providerBadge: {
+  testModeBanner: {
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.28)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 20,
+    marginTop: 4,
+  },
+  testModeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  testModeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.16)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  testModeBadgeText: {
+    color: '#f59e0b',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  testModeNotice: {
+    color: '#94a3b8',
+    fontSize: 11.5,
+    fontWeight: '400',
+  },
+  testCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0a0f24',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    marginTop: 14,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
-  providerBadgeText: {
-    color: '#94a3b8',
-    fontSize: 12,
+  testCodeLabel: {
+    color: '#cbd5e1',
+    fontSize: 13,
     fontWeight: '500',
+  },
+  testCodeNumber: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 3,
+    fontFamily: Platform.select({ web: 'monospace', default: undefined }),
+  },
+  autoFillBtn: {
+    backgroundColor: OzaraTheme.colors.accentViolet,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    ...Platform.select({
+      web: { cursor: 'pointer' } as any,
+    }),
+  },
+  autoFillBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   errorBanner: {
     flexDirection: 'row',
@@ -795,6 +904,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginVertical: 18,
+    position: 'relative',
   },
   codeCell: {
     width: 48,
@@ -823,13 +933,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   hiddenCodeInput: {
-    position: 'absolute',
-    top: 80,
-    left: 0,
-    right: 0,
-    height: 70,
+    ...StyleSheet.absoluteFill,
     opacity: 0.01,
     fontSize: 1,
+    ...Platform.select({
+      web: {
+        outlineStyle: 'none',
+        cursor: 'default',
+      } as any,
+    }),
   },
   resendContainer: {
     alignItems: 'center',

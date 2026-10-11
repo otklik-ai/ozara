@@ -3,27 +3,45 @@
  * Features brand logo, persona switcher, and Gmail-style circular account avatar
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Image,
-  Modal,
-  FlatList,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useClub } from '../context/ClubContext';
 import { OzaraTheme } from '../constants/ozara-theme';
-import { resolveImageUrl } from '../services/api';
+import { ApiService, resolveImageUrl } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
+import { InboxModal } from './InboxModal';
 
 export const OzaraHeader: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const { currentUser, personas, switchPersona, openProfile, setAppView } = useClub();
-  const [personaModalVisible, setPersonaModalVisible] = useState(false);
+  const { currentUser, openProfile } = useClub();
+
+  const [unreadTotalCount, setUnreadTotalCount] = useState<number>(0);
+  const [showInbox, setShowInbox] = useState<boolean>(false);
+
+  const fetchUnreadCount = async () => {
+    const uid = currentUser?.id;
+    if (!uid) return;
+    try {
+      const summary = await ApiService.getInboxSummary(uid);
+      setUnreadTotalCount(summary.total_unread || 0);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 25000);
+    return () => clearInterval(interval);
+  }, [currentUser?.id]);
 
   const isIncomplete = currentUser && !currentUser.is_complete && currentUser.role === 'MEMBER';
 
@@ -36,24 +54,31 @@ export const OzaraHeader: React.FC = () => {
           <Text style={styles.brandSub}>PRIVATE CLUB</Text>
         </View>
 
-        {/* Right Controls: Persona Switcher & Gmail-Style Avatar */}
+        {/* Right Controls: Inbox & Messages + Authenticated Member Avatar */}
         <View style={styles.controlsRow}>
-          {/* Persona Switcher Pill */}
+          {/* Top Navigation Inbox Button */}
           <TouchableOpacity
-            style={styles.personaPill}
-            onPress={() => setPersonaModalVisible(true)}
-            activeOpacity={0.7}>
-            <Text style={styles.personaLabel} numberOfLines={1}>
-              {currentUser?.full_name?.split(' ')[0] || 'User'}
-            </Text>
-            <Ionicons name="chevron-down" size={12} color={OzaraTheme.colors.textSecondary} />
+            style={styles.bellTouchWrapper}
+            onPress={() => setShowInbox(true)}
+            activeOpacity={0.75}
+            accessibilityLabel="Inbox & Messages">
+            <View style={styles.bellIconBox}>
+              <Ionicons name="mail-outline" size={19} color="#ffffff" />
+            </View>
+            {unreadTotalCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {unreadTotalCount > 9 ? '9+' : unreadTotalCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
 
-          {/* Gmail-Style Circular Profile Avatar Button */}
           <TouchableOpacity
             style={styles.avatarTouchWrapper}
             onPress={() => openProfile()}
-            activeOpacity={0.8}>
+            activeOpacity={0.8}
+            accessibilityLabel="My Profile">
             <View style={styles.avatarGradientRing}>
               <View style={styles.avatarInnerGap}>
                 <Image
@@ -83,74 +108,14 @@ export const OzaraHeader: React.FC = () => {
         </TouchableOpacity>
       )}
 
-      {/* Persona Selection Modal */}
-      <Modal
-        visible={personaModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPersonaModalVisible(false)}>
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setPersonaModalVisible(false)}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Switch Active Persona</Text>
-              <TouchableOpacity onPress={() => setPersonaModalVisible(false)}>
-                <Ionicons name="close" size={20} color="#fff" />
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={personas}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => {
-                const isSelected = item.id === currentUser?.id;
-                return (
-                  <TouchableOpacity
-                    style={[styles.personaItem, isSelected && styles.personaItemSelected]}
-                    onPress={() => {
-                      switchPersona(item.id);
-                      setPersonaModalVisible(false);
-                    }}>
-                    <Image
-                      source={{ uri: resolveImageUrl(item.avatar_url) }}
-                      style={styles.personaAvatar}
-                    />
-                    <View style={styles.personaMeta}>
-                      <View style={styles.personaNameRow}>
-                        <Text style={styles.personaNameText}>{item.full_name}</Text>
-                        <Text
-                          style={[
-                            styles.roleBadgeText,
-                            item.role === 'FOUNDER' ? styles.founderBadge : styles.memberBadge,
-                          ]}>
-                          {item.role === 'FOUNDER' ? 'Co-founder' : 'Member'}
-                        </Text>
-                      </View>
-                      <Text style={styles.personaHeadline} numberOfLines={1}>
-                        {item.headline}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={18} color={OzaraTheme.colors.accentCyan} />
-                    )}
-                  </TouchableOpacity>
-                );
-              }}
-            />
-            <TouchableOpacity
-              style={styles.signOutBtn}
-              onPress={() => {
-                setPersonaModalVisible(false);
-                setAppView('welcome');
-              }}
-              activeOpacity={0.7}>
-              <Ionicons name="log-out-outline" size={16} color={OzaraTheme.colors.textMuted} />
-              <Text style={styles.signOutText}>Sign Out to Welcome Page</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* In-App Inbox & Messaging Modal */}
+      <InboxModal
+        visible={showInbox}
+        onClose={() => {
+          setShowInbox(false);
+          fetchUnreadCount();
+        }}
+      />
     </View>
   );
 };
@@ -193,7 +158,40 @@ const styles = StyleSheet.create({
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+  },
+  bellTouchWrapper: {
+    position: 'relative',
+    padding: 2,
+  },
+  bellIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#38bdf8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#000000',
+  },
+  unreadBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#000000',
   },
   personaPill: {
     flexDirection: 'row',
@@ -367,18 +365,33 @@ const styles = StyleSheet.create({
     color: OzaraTheme.colors.textMuted,
   },
   signOutBtn: {
-    flexDirection: 'row',
+    marginTop: 18,
+    paddingVertical: 14,
+    borderRadius: OzaraTheme.radius.full,
+    backgroundColor: OzaraTheme.colors.accentViolet,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: OzaraTheme.colors.borderSubtle,
+    width: '100%',
+    ...Platform.select({
+      ios: {
+        shadowColor: OzaraTheme.colors.accentViolet,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        cursor: 'pointer',
+        boxShadow: `0 4px 14px ${OzaraTheme.colors.accentViolet}55`,
+      } as any,
+    }),
   },
   signOutText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: OzaraTheme.colors.textMuted,
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

@@ -7,13 +7,16 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { ApiService, Persona } from '../services/api';
 import { OzaraStorage, OZARA_STORAGE_KEYS } from '../services/storage';
 
-export type AppView = 'welcome' | 'phone_auth' | 'signup' | 'tabs' | 'conditions';
+export type AppView = 'welcome' | 'invitation' | 'phone_auth' | 'face_id_setup' | 'create_account' | 'signup' | 'tabs' | 'conditions';
+
+export type AuthMode = 'new_member' | 'sign_in';
 
 interface ClubContextType {
   personas: Persona[];
   currentUser: Persona | null;
   currentUserId: string;
   switchPersona: (id: string) => void;
+  signOut: () => void;
   profileDrawerUserId: string | null;
   openProfile: (userId?: string) => void;
   closeProfile: () => void;
@@ -30,6 +33,16 @@ interface ClubContextType {
   setPendingAccessEmail: (email: string) => void;
   verifiedPhone: string;
   setVerifiedPhone: (phone: string) => void;
+  invitationCode: string;
+  setInvitationCode: (code: string) => void;
+  invitationEmail: string;
+  setInvitationEmail: (email: string) => void;
+  invitationFullName: string;
+  setInvitationFullName: (name: string) => void;
+  authMode: AuthMode;
+  setAuthMode: (mode: AuthMode) => void;
+  welcomeSlideIndex: number;
+  setWelcomeSlideIndex: (index: number) => void;
   resetOnboarding: () => void;
 }
 
@@ -38,9 +51,9 @@ const ClubContext = createContext<ClubContextType | undefined>(undefined);
 export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [personas, setPersonas] = useState<Persona[]>([]);
   
-  // Persisted Session & Onboarding state
+  // Persisted Session & Onboarding state - Strictly defaults to empty (no auto-login)
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
-    return OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID) || 'usr_elena';
+    return OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID) || '';
   });
 
   const [conditionsAgreed, setConditionsAgreed] = useState<boolean>(() => {
@@ -55,6 +68,28 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return OzaraStorage.getItem(OZARA_STORAGE_KEYS.VERIFIED_PHONE) || '';
   });
 
+  const [invitationCode, setInvitationCodeState] = useState<string>(() => {
+    return OzaraStorage.getItem(OZARA_STORAGE_KEYS.INVITATION_CODE) || '';
+  });
+
+  const [invitationEmail, setInvitationEmailState] = useState<string>(() => {
+    return OzaraStorage.getItem(OZARA_STORAGE_KEYS.INVITATION_EMAIL) || '';
+  });
+
+  const [invitationFullName, setInvitationFullNameState] = useState<string>(() => {
+    return OzaraStorage.getItem(OZARA_STORAGE_KEYS.INVITATION_FULL_NAME) || '';
+  });
+
+  const [authMode, setAuthModeState] = useState<AuthMode>(() => {
+    const saved = OzaraStorage.getItem(OZARA_STORAGE_KEYS.AUTH_MODE) as AuthMode | null;
+    return saved === 'sign_in' ? 'sign_in' : 'new_member';
+  });
+
+  const [welcomeSlideIndex, setWelcomeSlideIndexState] = useState<number>(() => {
+    const saved = OzaraStorage.getItem(OZARA_STORAGE_KEYS.WELCOME_SLIDE_INDEX);
+    return saved ? parseInt(saved, 10) : 0;
+  });
+
   const setVerifiedPhone = (phone: string) => {
     setVerifiedPhoneState(phone);
     if (phone) {
@@ -64,9 +99,51 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const setInvitationCode = (code: string) => {
+    setInvitationCodeState(code);
+    if (code) {
+      OzaraStorage.setItem(OZARA_STORAGE_KEYS.INVITATION_CODE, code);
+    } else {
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_CODE);
+    }
+  };
+
+  const setInvitationEmail = (email: string) => {
+    setInvitationEmailState(email);
+    if (email) {
+      OzaraStorage.setItem(OZARA_STORAGE_KEYS.INVITATION_EMAIL, email);
+    } else {
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_EMAIL);
+    }
+  };
+
+  const setInvitationFullName = (name: string) => {
+    setInvitationFullNameState(name);
+    if (name) {
+      OzaraStorage.setItem(OZARA_STORAGE_KEYS.INVITATION_FULL_NAME, name);
+    } else {
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_FULL_NAME);
+    }
+  };
+
+  const setAuthMode = (mode: AuthMode) => {
+    setAuthModeState(mode);
+    OzaraStorage.setItem(OZARA_STORAGE_KEYS.AUTH_MODE, mode);
+  };
+
+  const setWelcomeSlideIndex = (idx: number) => {
+    setWelcomeSlideIndexState(idx);
+    OzaraStorage.setItem(OZARA_STORAGE_KEYS.WELCOME_SLIDE_INDEX, String(idx));
+  };
+
   const [appView, setAppViewState] = useState<AppView>(() => {
     const saved = OzaraStorage.getItem(OZARA_STORAGE_KEYS.APP_VIEW) as AppView | null;
-    if (saved && ['welcome', 'phone_auth', 'signup', 'tabs', 'conditions'].includes(saved)) {
+    const savedUser = OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID);
+    // If not authenticated, always start at welcome screen
+    if (!savedUser && (saved === 'tabs' || saved === 'signup')) {
+      return 'welcome';
+    }
+    if (saved && ['welcome', 'invitation', 'phone_auth', 'face_id_setup', 'create_account', 'signup', 'tabs', 'conditions'].includes(saved)) {
       return saved;
     }
     return 'welcome';
@@ -95,15 +172,31 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const resetOnboarding = () => {
+  const signOut = () => {
     OzaraStorage.removeItem(OZARA_STORAGE_KEYS.APP_VIEW);
     OzaraStorage.removeItem(OZARA_STORAGE_KEYS.PENDING_EMAIL);
     OzaraStorage.removeItem(OZARA_STORAGE_KEYS.SIGNUP_STEP);
     OzaraStorage.removeItem(OZARA_STORAGE_KEYS.VERIFIED_PHONE);
+    OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_CODE);
+    OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_EMAIL);
+    OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_FULL_NAME);
+    OzaraStorage.removeItem(OZARA_STORAGE_KEYS.AUTH_MODE);
+    OzaraStorage.removeItem(OZARA_STORAGE_KEYS.WELCOME_SLIDE_INDEX);
+    OzaraStorage.removeItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID);
+    OzaraStorage.removeItem(OZARA_STORAGE_KEYS.CONDITIONS_AGREED);
+    setCurrentUserId('');
     setPendingAccessEmailState('');
     setVerifiedPhoneState('');
+    setInvitationCodeState('');
+    setInvitationEmailState('');
+    setInvitationFullNameState('');
+    setAuthModeState('new_member');
+    setWelcomeSlideIndexState(0);
+    setConditionsAgreed(false);
     setAppView('welcome');
   };
+
+  const resetOnboarding = signOut;
 
   const openConditions = (returnTo?: AppView) => {
     if (returnTo) {
@@ -123,9 +216,10 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsLoading(true);
       const data = await ApiService.getPersonas();
       setPersonas(data);
-      if (!data.some(p => p.id === currentUserId) && data.length > 0) {
-        setCurrentUserId(data[0].id);
-        OzaraStorage.setItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID, data[0].id);
+      // If current user is no longer in directory, reset session
+      if (currentUserId && !data.some(p => p.id === currentUserId)) {
+        console.log('[ClubContext] Logged-in user session no longer valid.');
+        signOut();
       }
     } catch (err) {
       console.warn('[ClubContext] Error fetching personas:', err);
@@ -142,7 +236,11 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const switchPersona = (id: string) => {
     setCurrentUserId(id);
-    OzaraStorage.setItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID, id);
+    if (id) {
+      OzaraStorage.setItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID, id);
+    } else {
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID);
+    }
   };
 
   const openProfile = (userId?: string) => {
@@ -180,7 +278,18 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setPendingAccessEmail,
         verifiedPhone,
         setVerifiedPhone,
+        invitationCode,
+        setInvitationCode,
+        invitationEmail,
+        setInvitationEmail,
+        invitationFullName,
+        setInvitationFullName,
+        authMode,
+        setAuthMode,
+        welcomeSlideIndex,
+        setWelcomeSlideIndex,
         resetOnboarding,
+        signOut,
       }}>
       {children}
     </ClubContext.Provider>

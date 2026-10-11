@@ -34,8 +34,8 @@ QUESTIONS = [
     (19, "How do you prefer to evaluate new peer connections before committing time?"),
     (20, "What is a trusted service provider category you often recommend to peers?"),
     (21, "What was your most impactful cross-border transaction or expansion experience?"),
-    (22, "What is your philosophy on building and preserving long-term relationship capital?"),
-    (23, "Confidential founder notes: What personal inflection point or confidential challenge are you navigating?"), # PERMANENTLY PRIVATE
+    (22, "What are your interests outside work?"),
+    (23, "Is there anything else you’d like our team to know?"), # PERMANENTLY PRIVATE
     (24, "What type of community events or gatherings do you find most valuable?"),
     (25, "Are you open to speaking on panels, hosting salons, or mentoring rising founders?"),
     (26, "What are your criteria for joining an advisory board or angel syndicate?"),
@@ -77,8 +77,8 @@ def seed(db_path: Path):
     # 2. Founders & Admins
     users = [
         ("usr_elena", "ermolov.elena@gmail.com", "Elena Ermolov", "Co-Founder & Managing Partner, ÖZARA", "/avatars/elena_ermolov.jpg", "ch_dubai", "Dubai", "United Arab Emirates", "direct_contact", "FOUNDER", 1, "self", 1, "2026-10-v1", "2026-10-01 10:00:00"),
-        ("usr_alexandra", "agniyahill@gmail.com", "Alexandra Hill", "Co-Founder & Managing Partner, ÖZARA", "/avatars/alexandra_hill.jpg", "ch_dubai", "Dubai", "United Arab Emirates", "through_team", "FOUNDER", 1, "self", 1, "2026-10-v1", "2026-10-01 10:00:00"),
-        ("usr_julia", "iuliiashchukinainvest@gmail.com", "Julia Shchukina", "Co-Founder & Head of Curation, ÖZARA", "/avatars/julia_shchukina.jpg", "ch_dubai", "Dubai", "United Arab Emirates", "through_team", "FOUNDER", 1, "self", 1, "2026-10-v1", "2026-10-01 10:00:00"),
+        ("usr_alexandra", "alexandra@ozara.club", "Alexandra Hill", "Co-Founder & Managing Partner, ÖZARA", "/avatars/alexandra_hill.jpg", "ch_dubai", "Dubai", "United Arab Emirates", "through_team", "FOUNDER", 1, "self", 1, "2026-10-v1", "2026-10-01 10:00:00"),
+        ("usr_julia", "julia@ozara.club", "Julia Shchukina", "Co-Founder & Head of Curation, ÖZARA", "/avatars/julia_shchukina.jpg", "ch_dubai", "Dubai", "United Arab Emirates", "through_team", "FOUNDER", 1, "self", 1, "2026-10-v1", "2026-10-01 10:00:00"),
         # 3. Verified Members
         ("usr_marcus", "marcus.vance@vancetech.io", "Marcus Vance", "Founder & CEO, Vance Enterprise AI", "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300", "ch_london", "London", "United Kingdom", "direct_contact", "MEMBER", 1, "Julia Shchukina", 1, "2026-10-v1", "2026-10-01 10:00:00"),
         ("usr_tariq", "tariq@almansoorcap.com", "Tariq Al-Mansoor", "Managing Partner, Al-Mansoor Real Estate Capital", "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300", "ch_dubai", "Dubai", "United Arab Emirates", "direct_contact", "MEMBER", 1, "Elena Ermolov", 1, "2026-10-v1", "2026-10-01 10:00:00"),

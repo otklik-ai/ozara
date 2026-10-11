@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 /**
  * ÖZARA Mobile Design System
  * AXEVIL-inspired ultra-luxury dark aesthetic
@@ -66,6 +68,28 @@ export const OzaraTheme = {
   },
 
   typography: {
+    fontFamily: Platform.select({
+      ios: 'Plus Jakarta Sans',
+      android: 'Plus Jakarta Sans',
+      default: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    }),
+    fonts: {
+      regular: Platform.select({
+        ios: 'Plus Jakarta Sans',
+        android: 'Plus Jakarta Sans',
+        default: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }),
+      medium: Platform.select({
+        ios: 'Plus Jakarta Sans',
+        android: 'Plus Jakarta Sans',
+        default: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }),
+      bold: Platform.select({
+        ios: 'Plus Jakarta Sans',
+        android: 'Plus Jakarta Sans',
+        default: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }),
+    },
     headline: {
       fontSize: 28,
       fontWeight: '700' as const,

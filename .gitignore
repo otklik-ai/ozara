@@ -38,3 +38,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
+
+# Scratch & database backup snapshots
+scratch/
+backups/
+public/*_test.png
+public/category_strip_debug.png
+

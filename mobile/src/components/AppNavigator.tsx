@@ -9,7 +9,10 @@ import { View, StyleSheet } from 'react-native';
 import { useClub } from '../context/ClubContext';
 import { LimeIntroScreen } from './LimeIntroScreen';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
+import { InvitationScreen } from '../screens/InvitationScreen';
 import { PhoneAuthScreen } from '../screens/PhoneAuthScreen';
+import { FaceIdSetupScreen } from '../screens/FaceIdSetupScreen';
+import { CreateAccountScreen } from '../screens/CreateAccountScreen';
 import { SignUpScreen } from '../screens/SignUpScreen';
 import { OzaraTabs } from './OzaraTabs';
 import { AccessConditionsScreen } from '../screens/AccessConditionsScreen';
@@ -19,7 +22,7 @@ import { OzaraTheme } from '../constants/ozara-theme';
 let introAlreadyShownInSession = false;
 
 export const AppNavigator: React.FC = () => {
-  const { appView, setAppView, closeConditions } = useClub();
+  const { appView, setAppView, closeConditions, authMode, setAuthMode } = useClub();
   const [welcomeInitialSlide, setWelcomeInitialSlide] = useState<number>(0);
   
   // Always show the opening purple screen with appearing logo on initial app load / refresh
@@ -38,24 +41,71 @@ export const AppNavigator: React.FC = () => {
           initialSlideIndex={welcomeInitialSlide}
           onGoToSignUp={() => setAppView('signup')}
           onEnterClub={() => setAppView('tabs')}
-          onGoToPhoneAuth={() => setAppView('phone_auth')}
+          onGoToInvitation={(fromSlide) => {
+            setWelcomeInitialSlide(fromSlide);
+            setAppView('invitation');
+          }}
+          onGoToSignIn={() => {
+            setAuthMode('sign_in');
+            setAppView('phone_auth');
+          }}
+        />
+      )}
+
+      {appView === 'invitation' && (
+        <InvitationScreen
+          onBack={() => {
+            // Returns to the exact intro screen they left, without replaying splash
+            setAppView('welcome');
+          }}
+          onValidInvitation={() => {
+            setAuthMode('new_member');
+            setAppView('phone_auth');
+          }}
         />
       )}
 
       {appView === 'phone_auth' && (
         <PhoneAuthScreen
           onBack={() => {
-            setWelcomeInitialSlide(2); // Return directly to Invest screen (Screen 3)
-            setAppView('welcome');
+            if (authMode === 'new_member') {
+              // Return to invitation screen
+              setAppView('invitation');
+            } else {
+              // Return to the intro screen they left
+              setAppView('welcome');
+            }
           }}
           onEnterClub={() => setAppView('tabs')}
-          onGoToSignUp={() => setAppView('signup')}
+          onGoToSignUp={() => setAppView('face_id_setup')}
+          onGoToFaceId={() => setAppView('face_id_setup')}
+          onGoToInvitation={() => {
+            setAuthMode('new_member');
+            setAppView('invitation');
+          }}
+        />
+      )}
+
+      {appView === 'face_id_setup' && (
+        <FaceIdSetupScreen
+          onBack={() => setAppView('phone_auth')}
+          onSuccess={() => setAppView('create_account')}
+          onSkip={() => setAppView('create_account')}
+        />
+      )}
+
+      {appView === 'create_account' && (
+        <CreateAccountScreen
+          onBack={() => setAppView('face_id_setup')}
+          onAccountCreated={() => setAppView('signup')}
         />
       )}
 
       {appView === 'signup' && (
         <SignUpScreen
-          onBack={() => setAppView('welcome')}
+          onBack={() => {
+            setAppView('create_account');
+          }}
           onCompleteSignUp={() => setAppView('tabs')}
         />
       )}

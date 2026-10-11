@@ -1,0 +1,45 @@
+# Fly.io Staging Configuration for ÖZARA
+app = "ozara-staging"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "staging"
+  PORT = "3000"
+  DATABASE_DIR = "/app/data"
+  STORAGE_DIR = "/app/storage"
+  SUPPRESS_EMAIL_NOTIFICATIONS = "false"
+  ADMIN_CONTACT_EMAILS = "ermolov.elena@gmail.com"
+
+[mounts]
+  source = "ozara_data"
+  destination = "/app/data"
+  initial_size = "5gb"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 3000
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 250
+    soft_limit = 200
+
+  [[services.http_checks]]
+    interval = "15s"
+    timeout = "3s"
+    grace_period = "10s"
+    method = "get"
+    path = "/api/intro-pics"

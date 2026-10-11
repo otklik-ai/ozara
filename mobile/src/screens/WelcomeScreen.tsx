@@ -43,6 +43,8 @@ interface WelcomeScreenProps {
   onGoToSignUp: () => void;
   onEnterClub: () => void;
   onGoToPhoneAuth?: () => void;
+  onGoToInvitation?: (fromSlideIndex: number) => void;
+  onGoToSignIn?: () => void;
   initialSlideIndex?: number;
 }
 
@@ -236,6 +238,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onGoToSignUp,
   onEnterClub,
   onGoToPhoneAuth,
+  onGoToInvitation,
+  onGoToSignIn,
   initialSlideIndex = 0,
 }) => {
   const insets = useSafeAreaInsets();
@@ -321,8 +325,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     if (currentIndex < 2) {
       goToSlide(currentIndex + 1);
     } else {
-      // Screen 3: "Get started" opens Phone Authentication
-      if (onGoToPhoneAuth) {
+      // Screen 3: "Get started" opens Invitation Screen
+      if (onGoToInvitation) {
+        onGoToInvitation(2);
+      } else if (onGoToPhoneAuth) {
         onGoToPhoneAuth();
       } else if (conditionsAgreed) {
         onGoToSignUp();
@@ -443,6 +449,15 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                   <Text style={styles.description}>
                     {slide.description}
                   </Text>
+
+                  {/* Discreet Have an invitation? link on each intro screen */}
+                  <TouchableOpacity
+                    style={styles.copyInlineInviteTouch}
+                    onPress={() => onGoToInvitation?.(sIdx)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}>
+                    <Text style={styles.copyInlineInviteText}>Have an invitation?</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             );
@@ -472,10 +487,18 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Member Sign In Link */}
+          {/* Discreet Have an invitation? Link */}
+          <TouchableOpacity
+            style={styles.haveInviteBtn}
+            onPress={() => onGoToInvitation?.(currentIndex)}
+            activeOpacity={0.75}>
+            <Text style={styles.haveInviteBtnText}>Have an invitation?</Text>
+          </TouchableOpacity>
+
+          {/* Member Sign In Link (Separate route for existing members) */}
           <TouchableOpacity
             style={styles.secondaryBtn}
-            onPress={onGoToPhoneAuth || onEnterClub}
+            onPress={onGoToSignIn || onGoToPhoneAuth || onEnterClub}
             activeOpacity={0.75}>
             <Text style={styles.secondaryBtnText}>
               Already a member? <Text style={styles.secondaryBtnBold}>Sign In</Text>
@@ -790,6 +813,40 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  haveInviteBtn: {
+    paddingVertical: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+      },
+    }),
+  },
+  haveInviteBtnText: {
+    color: '#a78bfa',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    textDecorationLine: 'underline',
+  },
+  copyInlineInviteTouch: {
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+      },
+    }),
+  },
+  copyInlineInviteText: {
+    color: '#a78bfa',
+    fontSize: 12,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+    letterSpacing: 0.2,
   },
   secondaryBtn: {
     paddingVertical: 4,

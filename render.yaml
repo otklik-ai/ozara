@@ -1,0 +1,28 @@
+# Render Blueprint Configuration for ÖZARA Staging
+services:
+  - type: web
+    name: ozara-staging
+    runtime: docker
+    plan: starter
+    region: ohio
+    branch: main
+    dockerfilePath: Dockerfile
+    disk:
+      name: ozara-data
+      mountPath: /app/data
+      sizeGB: 10
+    envVars:
+      - key: NODE_ENV
+        value: staging
+      - key: PORT
+        value: 3000
+      - key: DATABASE_DIR
+        value: /app/data
+      - key: STORAGE_DIR
+        value: /app/data/storage
+      - key: APP_SECRET
+        generateValue: true
+      - key: ADMIN_CONTACT_EMAILS
+        value: ermolov.elena@gmail.com
+      - key: SUPPRESS_EMAIL_NOTIFICATIONS
+        value: false

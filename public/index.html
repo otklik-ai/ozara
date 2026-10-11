@@ -31,18 +31,47 @@
         </svg>
       </a>
 
-      <!-- Main Navigation Tabs: Events, Networking, Investments, Team -->
+      <!-- Main Navigation Tabs: Community, Network, Events, Investments -->
       <nav class="nav-links">
-        <button class="nav-btn active" data-tab="events">Events</button>
-        <button class="nav-btn" data-tab="networking">Networking</button>
+        <button class="nav-btn active" data-tab="community">Community</button>
+        <button class="nav-btn" data-tab="networking">Network</button>
+        <button class="nav-btn" data-tab="events">Events</button>
         <button class="nav-btn" data-tab="investments">Investments</button>
-        <button class="nav-btn" data-tab="team">Team</button>
       </nav>
     </div>
 
-    <!-- Right Controls: Persona Switcher & Clickable Profile Avatar Pill -->
+    <!-- Right Controls: Founders link, Inbox, Persona Switcher & Clickable Profile Avatar Pill -->
     <div class="nav-right">
-      <div class="persona-control">
+      <button class="btn btn-sm btn-ghost-pill" onclick="switchTab('team')" title="Meet ÖZARA Leadership">Founders &amp; Team</button>
+
+      <!-- Top Navigation Inbox Button with Unread Badge -->
+      <button id="inboxNavBtn" class="inbox-nav-btn" onclick="openInboxModal()" title="Inbox, Messages & Notifications">
+        <svg class="inbox-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        <span id="inboxUnreadBadge" class="inbox-unread-badge" style="display: none;">0</span>
+      </button>
+
+      <!-- In-App Event & Invitation Notifications Bell -->
+      <div class="notif-bell-container" id="notifBellContainer">
+        <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleWebNotificationsDropdown(event)" title="Notifications & Event Invitations">
+          🔔
+          <span id="webNotifBadge" class="notif-badge" style="display: none;">0</span>
+        </button>
+        <div id="webNotifDropdown" class="notif-dropdown-panel" style="display: none;">
+          <div class="notif-dropdown-header">
+            <h4>Notifications &amp; Invitations</h4>
+            <button class="notif-mark-read-btn" onclick="markAllWebNotificationsRead(event)">Mark all read</button>
+          </div>
+          <div id="webNotifList" class="notif-dropdown-list">
+            <p class="muted-text" style="padding: 1rem; text-align: center;">No notifications</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Persona Switcher (Hidden) -->
+      <div class="persona-control" style="display: none;">
         <span class="persona-label">Persona:</span>
         <select id="personaSelect" class="persona-dropdown"></select>
       </div>
@@ -76,88 +105,232 @@
   <!-- Main View Containers -->
   <main class="main-wrapper">
 
-    <!-- HERO SECTION (AXEVIL Style: Bold headline, description, 3 stat cards, ticker) -->
-    <section class="hero-section">
-      <div class="hero-top-grid">
-        <div class="hero-headline-col">
-          <h1 class="hero-title">Exclusive Access to Verified Leaders</h1>
+    <!-- 0. COMMUNITY VIEW (DEFAULT FIRST PAGE: HIGH-TRUST MEMBER EXCHANGE & ÖZARA FEED) -->
+    <section id="view-community" class="view-panel active">
+
+      <!-- HERO SECTION (Desktop Community Only: Bold headline, description, 3 stat cards, ticker) -->
+      <section class="hero-section">
+        <div class="hero-top-grid">
+          <div class="hero-headline-col">
+            <h1 class="hero-title">Exclusive Access to Verified Leaders</h1>
+          </div>
+          <div class="hero-desc-col">
+            <p class="hero-subtext">
+              Connect with vetted venture founders, institutional partners, and operators before key inflection points. Leaders in AI, fintech, cross-border logistics and beyond — driving the future.
+            </p>
+            <div class="hero-stats-row">
+              <div class="stat-card">
+                <div class="stat-icon">💼</div>
+                <div class="stat-number">142</div>
+                <div class="stat-label">Verified Members</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">🗄️</div>
+                <div class="stat-number">18</div>
+                <div class="stat-label">Sectors & Industries</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-number">4</div>
+                <div class="stat-label">Global Chapters</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="hero-desc-col">
-          <p class="hero-subtext">
-            Connect with vetted venture founders, institutional partners, and operators before key inflection points. Leaders in AI, fintech, cross-border logistics and beyond — driving the future.
-          </p>
-          <div class="hero-stats-row">
-            <div class="stat-card">
-              <div class="stat-icon">💼</div>
-              <div class="stat-number">142</div>
-              <div class="stat-label">Verified Members</div>
+
+        <!-- Ticker Row (AXEVIL Style with Real 2026/2027 Events) -->
+        <div class="hero-ticker-strip">
+          <div class="ticker-pill">
+            <span class="ticker-symbol">MIA</span>
+            <span class="ticker-name">Miami</span>
+            <span class="ticker-metric positive">Nov 13–15 • Registration Open</span>
+          </div>
+          <div class="ticker-pill">
+            <span class="ticker-symbol">HKT</span>
+            <span class="ticker-name">Phuket, Thailand</span>
+            <span class="ticker-metric positive">Jan 2–9 • New Year Retreat</span>
+          </div>
+          <div class="ticker-pill">
+            <span class="ticker-symbol">SV</span>
+            <span class="ticker-name">Silicon Valley</span>
+            <span class="ticker-metric">Feb 19–22</span>
+          </div>
+          <div class="ticker-pill">
+            <span class="ticker-symbol">GEO</span>
+            <span class="ticker-name">Georgia</span>
+            <span class="ticker-metric">Mar 26–30</span>
+          </div>
+          <div class="ticker-pill">
+            <span class="ticker-symbol">BCN</span>
+            <span class="ticker-name">Barcelona (7th Year Jubilee)</span>
+            <span class="ticker-metric positive">Apr 23–26</span>
+          </div>
+          <div class="ticker-pill">
+            <span class="ticker-symbol">BOS</span>
+            <span class="ticker-name">New York + Boston</span>
+            <span class="ticker-metric">June • 7 Universities</span>
+          </div>
+          <div class="ticker-pill">
+            <span class="ticker-symbol">EUR</span>
+            <span class="ticker-name">Grand Tour (London, Paris, Monaco)</span>
+            <span class="ticker-metric">Autumn 2027</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="community-view-wrapper">
+        <!-- Community View Header -->
+        <div class="view-header">
+          <div>
+            <h2 class="section-heading">Community</h2>
+            <p class="view-desc">Direct member communication, questions, warm introductions, and verified intelligence from ÖZARA.</p>
+          </div>
+        </div>
+
+        <div class="community-feed-layout">
+          <!-- Compact Rich Composer Card -->
+          <div class="community-composer-card">
+            <div class="composer-header-row">
+              <img id="composerUserAvatar" src="" alt="Avatar" class="composer-avatar">
+              <div class="composer-meta">
+                <span id="composerUserName" class="composer-user-name"></span>
+                <span id="composerUserRole" class="composer-user-role"></span>
+              </div>
             </div>
-            <div class="stat-card">
-              <div class="stat-icon">🗄️</div>
-              <div class="stat-number">18</div>
-              <div class="stat-label">Sectors & Industries</div>
+
+            <textarea id="communityComposerText" class="composer-textarea" rows="3" placeholder="Share an insight, question, or request introductions with the community…"></textarea>
+
+            <!-- Attachment Previews Area -->
+            <div id="composerAttachmentsPreview" class="composer-attachments-preview" style="display: none;"></div>
+
+            <!-- Inline Link Input -->
+            <div id="composerLinkInputRow" class="composer-link-input-row" style="display: none;">
+              <span class="link-input-icon">🔗</span>
+              <input type="url" id="composerLinkUrl" class="composer-inline-input" placeholder="Paste link (https://...)" />
+              <input type="text" id="composerLinkTitle" class="composer-inline-input title-input" placeholder="Title or label (optional)" />
+              <button type="button" class="btn btn-xs btn-white-pill" onclick="confirmAddLinkAttachment()">Add</button>
+              <button type="button" class="btn btn-xs btn-ghost-pill" onclick="cancelAddLinkAttachment()">Cancel</button>
             </div>
-            <div class="stat-card">
-              <div class="stat-icon">🎯</div>
-              <div class="stat-number">4</div>
-              <div class="stat-label">Global Chapters</div>
+
+            <!-- Attachment Toolbar & Footer -->
+            <div class="composer-toolbar-footer">
+              <div class="composer-attach-bar">
+                <input type="file" id="attachPhotoInput" accept="image/*" multiple style="display: none;" onchange="handleComposerFilesSelected(event, 'photo')" />
+                <input type="file" id="attachVideoInput" accept="video/*" style="display: none;" onchange="handleComposerFilesSelected(event, 'video')" />
+                <input type="file" id="attachFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" multiple style="display: none;" onchange="handleComposerFilesSelected(event, 'file')" />
+
+                <button type="button" class="composer-attach-btn" onclick="document.getElementById('attachPhotoInput').click()" title="Attach pictures">
+                  <span class="attach-icon">📷</span> Photo
+                </button>
+                <button type="button" class="composer-attach-btn" onclick="document.getElementById('attachVideoInput').click()" title="Attach video">
+                  <span class="attach-icon">🎥</span> Video
+                </button>
+                <button type="button" class="composer-attach-btn" onclick="document.getElementById('attachFileInput').click()" title="Attach file or document">
+                  <span class="attach-icon">📁</span> File
+                </button>
+                <button type="button" class="composer-attach-btn" onclick="toggleComposerLinkInput()" title="Attach link">
+                  <span class="attach-icon">🔗</span> Link
+                </button>
+              </div>
+
+              <div class="composer-submit-group">
+                <button id="btnSubmitCommunityPost" class="btn btn-sm btn-white-pill" onclick="handleCreateCommunityPost()">
+                  Post
+                </button>
+              </div>
+            </div>
+
+            <p class="composer-compliance-note" style="margin-top: 0.6rem;">
+              Members describe what they do and what they need. Prohibit specific fundraising terms, check sizes, or returns.
+            </p>
+          </div>
+
+          <!-- Feed Loading Indicator & Container -->
+          <div id="communityFeedContainer" class="community-feed-container">
+            <div class="community-feed-loading">
+              <div class="loading-spinner"></div>
+              <span>Loading community feed…</span>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- Ticker Row (AXEVIL Style with Real 2026/2027 Events) -->
-      <div class="hero-ticker-strip">
-        <div class="ticker-pill">
-          <span class="ticker-symbol">MIA</span>
-          <span class="ticker-name">Miami</span>
-          <span class="ticker-metric positive">Nov 13–15 • Registration Open</span>
-        </div>
-        <div class="ticker-pill">
-          <span class="ticker-symbol">HKT</span>
-          <span class="ticker-name">Phuket, Thailand</span>
-          <span class="ticker-metric positive">Jan 2–9 • New Year Retreat</span>
-        </div>
-        <div class="ticker-pill">
-          <span class="ticker-symbol">SV</span>
-          <span class="ticker-name">Silicon Valley</span>
-          <span class="ticker-metric">Feb 19–22</span>
-        </div>
-        <div class="ticker-pill">
-          <span class="ticker-symbol">GEO</span>
-          <span class="ticker-name">Georgia</span>
-          <span class="ticker-metric">Mar 26–30</span>
-        </div>
-        <div class="ticker-pill">
-          <span class="ticker-symbol">BCN</span>
-          <span class="ticker-name">Barcelona (7th Year Jubilee)</span>
-          <span class="ticker-metric positive">Apr 23–26</span>
-        </div>
-        <div class="ticker-pill">
-          <span class="ticker-symbol">BOS</span>
-          <span class="ticker-name">New York + Boston</span>
-          <span class="ticker-metric">June • 7 Universities</span>
-        </div>
-        <div class="ticker-pill">
-          <span class="ticker-symbol">EUR</span>
-          <span class="ticker-name">Grand Tour (London, Paris, Monaco)</span>
-          <span class="ticker-metric">Autumn 2027</span>
-        </div>
-      </div>
     </section>
 
-    <!-- 1. EVENTS VIEW (DEFAULT FIRST PAGE: CALENDAR OF EVENTS 2026 / 2027) -->
-    <section id="view-events" class="view-panel active">
+    <!-- 1. EVENTS VIEW (CALENDAR OF EVENTS 2026 / 2027) -->
+    <section id="view-events" class="view-panel">
       <div class="view-header">
         <div>
           <span style="font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-dim); font-weight: 700;">Investment Club ÖZARA</span>
           <h2 class="section-heading" style="margin-top: 0.25rem;">Calendar of Events 2026 / 2027</h2>
           <p class="view-desc">Exclusive executive expeditions, private retreats, and the annual community jubilee.</p>
         </div>
-        <div class="view-actions admin-only-block" style="display: none;">
-          <button class="btn btn-white-pill" onclick="openTargetedInviteModal()">
-            Targeted Invitation Engine
-          </button>
+        <div class="view-actions">
+          <div class="calendar-mode-toggle">
+            <button class="cal-mode-btn active" id="btnModeUpcoming" onclick="setCalendarMode('upcoming')">Upcoming (2026–2027)</button>
+            <button class="cal-mode-btn" id="btnModeArchive" onclick="setCalendarMode('archive')">Past Events Archive</button>
+          </div>
+          <div class="admin-only-block" style="display: none; margin-left: 0.75rem;">
+            <button class="btn btn-white-pill" onclick="openTargetedInviteModal()">
+              Targeted Invitation Engine
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Spotlight Next Upcoming Event -->
+      <div id="spotlightEventWrap" class="spotlight-event-wrap" style="display: none;"></div>
+
+      <!-- Filter Bar -->
+      <div class="calendar-filter-bar">
+        <div class="filter-group">
+          <span class="filter-label-text">Year:</span>
+          <button class="filter-tag-btn active" data-filter="year" data-val="all" onclick="filterEvents('year', 'all', this)">All</button>
+          <button class="filter-tag-btn" data-filter="year" data-val="2026" onclick="filterEvents('year', '2026', this)">2026</button>
+          <button class="filter-tag-btn" data-filter="year" data-val="2027" onclick="filterEvents('year', '2027', this)">2027</button>
+        </div>
+
+        <div class="filter-sep"></div>
+
+        <div class="filter-group">
+          <span class="filter-label-text">Type:</span>
+          <select id="filterEventType" class="filter-select" onchange="filterEvents('type', this.value)">
+            <option value="all">All Types</option>
+            <option value="Summit">Summit</option>
+            <option value="Retreat">Retreat</option>
+            <option value="Trek">Trek</option>
+            <option value="Family">Family & Education</option>
+            <option value="Networking">Networking</option>
+          </select>
+        </div>
+
+        <div class="filter-sep"></div>
+
+        <div class="filter-group">
+          <span class="filter-label-text">Destination:</span>
+          <select id="filterEventDest" class="filter-select" onchange="filterEvents('dest', this.value)">
+            <option value="all">All Destinations</option>
+            <option value="Miami">Miami</option>
+            <option value="Phuket">Phuket</option>
+            <option value="Silicon Valley">Silicon Valley</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Barcelona">Barcelona</option>
+            <option value="Central Asia">Central Asia</option>
+            <option value="New York">New York & Boston</option>
+            <option value="Europe">Europe</option>
+          </select>
+        </div>
+
+        <div class="filter-sep"></div>
+
+        <div class="filter-group">
+          <span class="filter-label-text">Status:</span>
+          <select id="filterEventStatus" class="filter-select" onchange="filterEvents('status', this.value)">
+            <option value="all">All Statuses</option>
+            <option value="open">Open</option>
+            <option value="coming_soon">Coming Soon</option>
+            <option value="full">Full</option>
+            <option value="closed">Closed</option>
+          </select>
         </div>
       </div>
 
@@ -247,21 +420,238 @@
 
     <!-- 3. INVESTMENTS VIEW (THIRD PAGE) -->
     <section id="view-investments" class="view-panel">
-      <div class="view-header">
-        <div>
-          <h2 class="section-heading">Curated Real Estate Showcase</h2>
-          <p class="view-desc">Direct off-market opportunities and prime yield residential/commercial assets vetted by community leadership.</p>
+      <!-- Centered Max-Width Content Area -->
+      <div class="investments-container">
+        
+        <!-- View 1: Investments Landing Page (Two Square Cards Inline: Real Estate & Private Tech Companies) -->
+        <div id="investmentsLandingView" class="investments-landing-view">
+          <div class="inv-landing-header">
+            <h1 class="inv-page-title">Investments</h1>
+            <p class="inv-page-subtitle">Vetted prime opportunities curated exclusively for <strong>ÖZARA club members</strong>.</p>
+          </div>
+          <div class="inv-two-squares-container">
+            <!-- 1. Real Estate Square Card -->
+            <div class="inv-main-square-card" id="invCardRealEstate" onclick="openRealEstateBrowsing()">
+              <div class="inv-square-art-wrap">
+                <img src="/investments/real_estate_card.jpg" alt="Curated Real Estate" class="inv-square-art-img" />
+                <div class="inv-square-art-overlay"></div>
+                <span class="inv-square-badge" id="reTotalCountBadge">239 Properties</span>
+              </div>
+              <div class="inv-square-text-wrap">
+                <h3 class="inv-square-title">Curated Real Estate</h3>
+                <p class="inv-square-desc">Explore verified prime developments, private islands, and luxury portfolios curated for ÖZARA members.</p>
+                <div class="inv-square-action">
+                  <span>Explore portfolio</span>
+                  <span class="inv-square-arrow">→</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Private Tech Companies Square Card -->
+            <div class="inv-main-square-card inv-main-square-card-tech" id="invCardPrivateTech" onclick="openPrivateTechModal()">
+              <div class="inv-square-art-wrap">
+                <img src="/investments/tech_companies_card.jpg" alt="Private Tech Companies" class="inv-square-art-img" />
+                <div class="inv-square-art-overlay"></div>
+                <span class="inv-square-badge inv-badge-soon">Coming soon</span>
+              </div>
+              <div class="inv-square-text-wrap">
+                <h3 class="inv-square-title">Private Tech Companies</h3>
+                <p class="inv-square-desc">Direct venture allocations, secondary liquidity, and syndicated co-investments in high-growth AI and deep tech.</p>
+                <div class="inv-square-action inv-action-soon">
+                  <span>Allocations opening soon</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <!-- Regulatory Disclaimer Banner -->
-      <div class="legal-disclaimer-box">
-        <span class="legal-icon">⚖️</span>
-        <p><strong>Regulatory Compliance Notice:</strong> ÖZARA is a private community directory and informational showcase. The opportunities below do not constitute investment advice, a financial promotion, or an offer of securities. No transaction commissions or funds transfers are processed by the platform.</p>
-      </div>
+        <!-- View 2: Real Estate Browsing Page -->
+        <div id="investmentsResultsView" class="investments-results-view" style="display: none;">
+          
+          <!-- Top Navigation: Back button to Investments & Breadcrumbs -->
+          <div class="results-top-nav">
+            <button class="btn-back-link" onclick="backToInvestmentsLanding()">
+              ← Back to Investments
+            </button>
+            <div class="results-breadcrumbs">
+              <span>Investments</span> / <span>Real Estate</span> / <strong id="activeCategoryBreadcrumb">All Listings</strong>
+            </div>
+          </div>
 
-      <div id="listingsGrid" class="listings-grid">
-        <div class="loading-state">Fetching verified property portfolios...</div>
+          <!-- Compact Filter Controls Bar (Visible Dropdowns with Small Icons and Chevrons) -->
+          <div class="inv-filter-bar">
+            <div class="inv-filter-group">
+              <!-- Country -->
+              <div class="inv-dropdown-wrap">
+                <span class="inv-dd-icon">📍</span>
+                <select id="invFilterCountry" class="inv-select" onchange="handleInvCountryChange(this.value)">
+                  <option value="all">Country</option>
+                  <option value="Albania">Albania</option>
+                  <option value="Armenia">Armenia</option>
+                  <option value="Australia">Australia</option>
+                  <option value="Azerbaijan">Azerbaijan</option>
+                  <option value="Brazil">Brazil</option>
+                  <option value="Cambodia">Cambodia</option>
+                  <option value="Croatia">Croatia</option>
+                  <option value="Cyprus">Cyprus</option>
+                  <option value="Dominican Republic">Dominican Republic</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Indonesia">Indonesia</option>
+                  <option value="Kenya">Kenya</option>
+                  <option value="Maldives">Maldives</option>
+                  <option value="Mauritius">Mauritius</option>
+                  <option value="Mexico">Mexico</option>
+                  <option value="Montenegro">Montenegro</option>
+                  <option value="Oman">Oman</option>
+                  <option value="Panama">Panama</option>
+                  <option value="Philippines">Philippines</option>
+                  <option value="Portugal">Portugal</option>
+                  <option value="Qatar">Qatar</option>
+                  <option value="Saudi Arabia">Saudi Arabia</option>
+                  <option value="Spain">Spain</option>
+                  <option value="Tanzania">Tanzania</option>
+                  <option value="Thailand">Thailand</option>
+                  <option value="Turkey">Turkey</option>
+                  <option value="United Arab Emirates">United Arab Emirates</option>
+                  <option value="United Kingdom">United Kingdom</option>
+                  <option value="United States">United States</option>
+                  <option value="Vietnam">Vietnam</option>
+                </select>
+                <span class="inv-dd-chevron">⌄</span>
+              </div>
+
+              <!-- City (dependent on Country) -->
+              <div class="inv-dropdown-wrap">
+                <span class="inv-dd-icon">🏛</span>
+                <select id="invFilterCity" class="inv-select" onchange="handleInvFilterChange()">
+                  <option value="all">City</option>
+                  <option value="Alanya">Alanya</option>
+                  <option value="Baku">Baku</option>
+                  <option value="Bali Island">Bali Island</option>
+                  <option value="Batumi">Batumi</option>
+                  <option value="Budva">Budva</option>
+                  <option value="Cascais">Cascais</option>
+                  <option value="Costa Blanca">Costa Blanca</option>
+                  <option value="Doha">Doha</option>
+                  <option value="Dubai">Dubai</option>
+                  <option value="Ho Chi Minh City">Ho Chi Minh City</option>
+                  <option value="Krabi">Krabi</option>
+                  <option value="Lisbon">Lisbon</option>
+                  <option value="London">London</option>
+                  <option value="Melbourne">Melbourne</option>
+                  <option value="Muscat">Muscat</option>
+                  <option value="Nairobi">Nairobi</option>
+                  <option value="New York">New York</option>
+                  <option value="Palawan">Palawan</option>
+                  <option value="Panama City">Panama City</option>
+                  <option value="Paphos">Paphos</option>
+                  <option value="Phuket">Phuket</option>
+                  <option value="Porto">Porto</option>
+                  <option value="Punta Cana">Punta Cana</option>
+                  <option value="Ras Al Khaimah">Ras Al Khaimah</option>
+                  <option value="Riyadh">Riyadh</option>
+                  <option value="Tbilisi">Tbilisi</option>
+                  <option value="Tivat">Tivat</option>
+                  <option value="Yerevan">Yerevan</option>
+                  <option value="Zanzibar">Zanzibar</option>
+                </select>
+                <span class="inv-dd-chevron">⌄</span>
+              </div>
+
+              <!-- Budget -->
+              <div class="inv-dropdown-wrap">
+                <span class="inv-dd-icon">💳</span>
+                <select id="invFilterBudget" class="inv-select" onchange="handleInvFilterChange()">
+                  <option value="any">Budget</option>
+                  <option value="0-150000">Up to $150K</option>
+                  <option value="150000-300000">$150K – $300K</option>
+                  <option value="300000-1000000">$300K – $1M</option>
+                  <option value="1000000-3000000">$1M – $3M</option>
+                  <option value="3000000-0">&gt; $3M</option>
+                </select>
+                <span class="inv-dd-chevron">⌄</span>
+              </div>
+
+              <!-- Bedrooms -->
+              <div class="inv-dropdown-wrap">
+                <span class="inv-dd-icon">🛏</span>
+                <select id="invFilterBedrooms" class="inv-select" onchange="handleInvFilterChange()">
+                  <option value="any">Bedrooms</option>
+                  <option value="1">1 bd</option>
+                  <option value="2">2 bd</option>
+                  <option value="3">3 bd</option>
+                  <option value="4">4 bd</option>
+                  <option value="5">5 bd</option>
+                  <option value="6+">6+ bd</option>
+                </select>
+                <span class="inv-dd-chevron">⌄</span>
+              </div>
+
+              <!-- Features (Canonical options: Ready, Instalments, Sea view, Furnished) -->
+              <div class="inv-dropdown-wrap">
+                <span class="inv-dd-icon">🎛</span>
+                <select id="invFilterFeatures" class="inv-select" onchange="handleInvFilterChange()">
+                  <option value="">Features</option>
+                  <option value="ready">Ready</option>
+                  <option value="instalments">Instalments</option>
+                  <option value="sea_view">Sea view</option>
+                  <option value="furnished">Furnished</option>
+                </select>
+                <span class="inv-dd-chevron">⌄</span>
+              </div>
+            </div>
+
+            <!-- Sorting on the right (Equal width, Best Match capitalized) -->
+            <div class="inv-sort-wrap">
+              <span class="inv-dd-icon">⇅</span>
+              <select id="invFilterSort" class="inv-select inv-select-sort" onchange="handleInvFilterChange()">
+                <option value="newest">Best Match</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+                <option value="title">Title: A to Z</option>
+              </select>
+              <span class="inv-dd-chevron">⌄</span>
+            </div>
+          </div>
+
+          <!-- Compact Category Tiles Row / 4-Inline Wrapping Grid Below Filters -->
+          <div class="compact-category-strip-container">
+            <div id="resultsCategoryStrip" class="compact-category-strip">
+              <!-- Dynamically populated from catalog categories -->
+            </div>
+          </div>
+
+          <!-- Category Notice / Removed Explanation Alert -->
+          <div id="categoryRemovedAlert" class="category-removed-alert" style="display: none;">
+            <span>ℹ️ The previously selected category is no longer available in the catalog. Showing All Properties.</span>
+            <button class="alert-close-btn" onclick="this.parentElement.style.display='none'">✕</button>
+          </div>
+
+          <!-- Results Meta Row (Count & Clear) -->
+          <div class="results-meta-row">
+            <div class="results-count-wrap">
+              <span id="investmentsResultsCount" class="results-count-text">239 properties found</span>
+            </div>
+            <div class="results-actions-wrap">
+              <button id="investmentsClearFiltersBtn" class="btn-clear-filters" onclick="clearAllInvestmentFilters()">
+                Clear filters
+              </button>
+            </div>
+          </div>
+
+          <!-- Proportional 3-Column Listing Grid -->
+          <div id="listingsGrid" class="listings-grid-3col">
+            <div class="loading-state">Fetching verified property portfolios...</div>
+          </div>
+
+          <!-- Regulatory Disclaimer Banner -->
+          <div class="legal-disclaimer-box" style="margin-top: 3rem;">
+            <span class="legal-icon">⚖️</span>
+            <p><strong>Regulatory Compliance Notice:</strong> ÖZARA is a private community directory and informational showcase. The opportunities displayed do not constitute investment advice, a financial promotion, or an offer of securities. Price and availability subject to confirmation.</p>
+          </div>
+
+        </div>
+
       </div>
     </section>
 
@@ -392,33 +782,267 @@
 
       <!-- Drawer Sub-Navigation Tabs -->
       <div class="drawer-tabs-strip">
-        <button class="drawer-tab-btn active" data-dtab="questions" onclick="switchDrawerTab('questions')">30 Questions</button>
-        <button class="drawer-tab-btn" data-dtab="taxonomies" onclick="switchDrawerTab('taxonomies')">Taxonomies & Notes</button>
-        <button class="drawer-tab-btn" data-dtab="travel" onclick="switchDrawerTab('travel')">Travel Itinerary</button>
+        <button class="drawer-tab-btn active" data-dtab="overview" onclick="switchDrawerTab('overview')">Profile Overview</button>
+        <button class="drawer-tab-btn" data-dtab="editor" id="drawerTabEditorBtn" onclick="switchDrawerTab('editor')">Edit Questionnaire</button>
+        <button class="drawer-tab-btn" data-dtab="travel" onclick="switchDrawerTab('travel')">Travel &amp; Chapter</button>
+        <button class="drawer-tab-btn admin-only-tab" data-dtab="admin" id="drawerTabAdminBtn" onclick="switchDrawerTab('admin')" style="display: none;">Admin Dashboard</button>
       </div>
 
       <!-- Drawer Body Content -->
       <div class="drawer-body">
-        <!-- Tab 1: 30 Questions -->
-        <div id="drawer-tab-questions" class="drawer-tab-pane active">
-          <div class="content-guidance-pill" style="margin-bottom: 1.25rem;">
-            <span>🛡️ Content Rule: Refrain from specific fundraising terms, valuations, guaranteed return promises, or minimum check sizes.</span>
-          </div>
-          <div id="drawerQuestionsContainer" class="questions-stack">
-            <!-- Dynamically populated Q1 - Q30 -->
+        <!-- Tab 1: Profile Overview (Polished Networking Profile) -->
+        <div id="drawer-tab-overview" class="drawer-tab-pane active">
+          <div id="drawerNetworkingProfileContainer" class="networking-profile-stack">
+            <!-- Dynamically rendered 9 Networking Profile Sections -->
           </div>
         </div>
 
-        <!-- Tab 2: Taxonomies -->
-        <div id="drawer-tab-taxonomies" class="drawer-tab-pane">
-          <h3 class="section-title" style="font-size: 1.15rem; margin-bottom: 0.75rem;">Verified Capabilities & Taxonomies</h3>
-          <div id="drawerTaxonomiesContainer" class="taxonomies-block"></div>
+        <!-- Tab 2: Questionnaire Editor -->
+        <div id="drawer-tab-editor" class="drawer-tab-pane">
+          <div class="content-guidance-pill" style="margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+            <span>🛡️ Content Rule: Refrain from specific fundraising terms, valuations, guaranteed return promises, or minimum check sizes.</span>
+            <button class="btn btn-sm btn-white-pill" onclick="switchDrawerTab('overview')">✓ Done Editing</button>
+          </div>
+          <div id="drawerQuestionsContainer" class="questions-stack">
+            <!-- Dynamically populated Q1 - Q27 -->
+          </div>
         </div>
 
         <!-- Tab 3: Travel Plans -->
         <div id="drawer-tab-travel" class="drawer-tab-pane">
-          <h3 class="section-title" style="font-size: 1.15rem; margin-bottom: 0.75rem;">Voluntary Travel Plans</h3>
+          <h3 class="section-title" style="font-size: 1.15rem; margin-bottom: 0.75rem;">Voluntary Travel Plans &amp; Chapter Gatherings</h3>
           <div id="drawerTravelContainer" class="travel-stack"></div>
+        </div>
+
+        <!-- Tab 4: Admin Dashboard (Executive Console for Julia, Alexandra, Elena) -->
+        <div id="drawer-tab-admin" class="drawer-tab-pane">
+          <div class="admin-dashboard-container">
+            <!-- Admin Sub-Navigation -->
+            <div class="admin-subnav-strip">
+              <button class="admin-subnav-btn active" data-atab="events" onclick="switchAdminSubTab('events')">
+                📅 Events Management
+              </button>
+              <button class="admin-subnav-btn" data-atab="invitations" onclick="switchAdminSubTab('invitations')">
+                ✉️ Targeted Invitations
+              </button>
+              <button class="admin-subnav-btn" data-atab="membership" onclick="switchAdminSubTab('membership')">
+                🔑 Membership &amp; Tokens
+              </button>
+              <button class="admin-subnav-btn" data-atab="audit" onclick="switchAdminSubTab('audit')">
+                🛡️ Audit Logs
+              </button>
+            </div>
+
+            <!-- Admin Sub-Pane 1: Events -->
+            <div id="admin-subpane-events" class="admin-subpane active">
+              <div class="admin-pane-header">
+                <div>
+                  <h3 class="admin-pane-title">Club Events Management</h3>
+                  <p class="admin-pane-desc">Create, preview, publish, edit, cancel events, and manage attendee RSVP rosters.</p>
+                </div>
+                <button class="btn btn-sm btn-white-pill" onclick="openAdminCreateEventModal()">+ Create Event</button>
+              </div>
+              <div id="adminEventsList" class="admin-events-grid">
+                <!-- Populated via loadAdminEvents() -->
+              </div>
+            </div>
+
+            <!-- Admin Sub-Pane 2: Targeted Invitations & Broadcasts -->
+            <div id="admin-subpane-invitations" class="admin-subpane">
+              <div class="admin-pane-header">
+                <div>
+                  <h3 class="admin-pane-title">Event Invitations &amp; Broadcasts</h3>
+                  <p class="admin-pane-desc">Preview recipient lists, check deduplication, choose delivery channels, and explicitly send invitations.</p>
+                </div>
+              </div>
+
+              <div class="admin-card">
+                <div class="form-group">
+                  <label>Select Target Event <span class="required-star">*</span></label>
+                  <select id="adminInviteEventSelect" class="form-control" onchange="refreshAdminRecipientPreview()">
+                    <!-- Options populated from published events -->
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label>Recipient Selection Option <span class="required-star">*</span></label>
+                  <div class="radio-pill-group">
+                    <label class="radio-pill-label">
+                      <input type="radio" name="adminRecipientOpt" value="all_admitted" checked onchange="handleAdminRecipientOptChange()">
+                      <span>All Admitted Members</span>
+                    </label>
+                    <label class="radio-pill-label">
+                      <input type="radio" name="adminRecipientOpt" value="individual" onchange="handleAdminRecipientOptChange()">
+                      <span>Searchable Individual Selection</span>
+                    </label>
+                    <label class="radio-pill-label">
+                      <input type="radio" name="adminRecipientOpt" value="filters" onchange="handleAdminRecipientOptChange()">
+                      <span>Networking Multi-Filter</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Individual selection panel -->
+                <div id="adminIndividualSelectPanel" style="display: none; margin-bottom: 1rem;">
+                  <label>Search Members to Select:</label>
+                  <input type="text" id="adminMemberSearchInput" class="form-control" placeholder="Search by name, role, city..." oninput="filterAdminIndividualMembers()">
+                  <div id="adminMemberCheckboxes" class="member-checkbox-list">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+
+                <!-- Multi-filter panel -->
+                <div id="adminFiltersSelectPanel" style="display: none; margin-bottom: 1rem;">
+                  <div class="grid-2-col">
+                    <div class="form-group">
+                      <label>Location / City / Country</label>
+                      <input type="text" id="adminFilterLocation" class="form-control" placeholder="e.g. Dubai, London, Miami..." onchange="refreshAdminRecipientPreview()">
+                    </div>
+                    <div class="form-group">
+                      <label>Industry</label>
+                      <input type="text" id="adminFilterIndustry" class="form-control" placeholder="e.g. Artificial Intelligence, FinTech..." onchange="refreshAdminRecipientPreview()">
+                    </div>
+                    <div class="form-group">
+                      <label>Interests</label>
+                      <input type="text" id="adminFilterInterests" class="form-control" placeholder="e.g. Venture Capital, Real Estate..." onchange="refreshAdminRecipientPreview()">
+                    </div>
+                    <div class="form-group">
+                      <label>Expertise</label>
+                      <input type="text" id="adminFilterExpertise" class="form-control" placeholder="e.g. Cross-border Licensing..." onchange="refreshAdminRecipientPreview()">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Individual Exclusions -->
+                <div class="form-group">
+                  <label>Individual Exclusions (Exclude specific members from this send)</label>
+                  <input type="text" id="adminExclusionsInput" class="form-control" placeholder="Type member name to exclude..." oninput="filterAdminExclusions()">
+                  <div id="adminExclusionBadges" class="tag-badges-row"></div>
+                </div>
+
+                <!-- Delivery Channels -->
+                <div class="form-group">
+                  <label>Delivery Channels</label>
+                  <div class="checkbox-group-row">
+                    <label class="checkbox-pill active">
+                      <input type="checkbox" id="adminChannelInApp" checked disabled>
+                      <span>In-App Notification (Always enabled)</span>
+                    </label>
+                    <label class="checkbox-pill">
+                      <input type="checkbox" id="adminChannelEmail" onchange="refreshAdminRecipientPreview()">
+                      <span>Direct Email</span>
+                    </label>
+                    <label class="checkbox-pill">
+                      <input type="checkbox" id="adminChannelWhatsApp" onchange="refreshAdminRecipientPreview()">
+                      <span>WhatsApp (When configured)</span>
+                    </label>
+                  </div>
+                  <small class="muted-text">Email and WhatsApp delivery are strictly opt-in and require explicit selection.</small>
+                </div>
+
+                <!-- Custom Invitation Note -->
+                <div class="form-group">
+                  <label>Personal Invitation Note (Optional)</label>
+                  <textarea id="adminInviteCustomNote" class="form-control" rows="2" placeholder="e.g. Alexandra and Julia look forward to hosting you for this executive summit." oninput="updateAdminMessagePreview()"></textarea>
+                </div>
+
+                <!-- Live Recipient Count & Deduplication Preview -->
+                <div class="admin-preview-box">
+                  <div class="admin-preview-header">
+                    <h4>Recipient &amp; Message Preview</h4>
+                    <span id="adminRecipientCountBadge" class="badge badge-cyan">0 Recipients</span>
+                  </div>
+                  <div id="adminRecipientNamesList" class="admin-recipients-pill-list">
+                    <em>Calculating recipients...</em>
+                  </div>
+                  <div class="message-preview-bubble">
+                    <strong id="adminPreviewEventTitle">Event Title</strong>
+                    <p id="adminPreviewEventText" class="muted-text">Previewing message...</p>
+                  </div>
+                </div>
+
+                <!-- Explicit Send Action -->
+                <div class="admin-send-footer">
+                  <div class="send-warning-text">
+                    ⚠️ Messages will be dispatched to matched members only upon clicking Send. Duplicate invitations are automatically prevented.
+                  </div>
+                  <button id="adminSendInviteBtn" class="btn btn-primary" onclick="confirmAndSendAdminInvitations()">
+                    ✉️ Confirm &amp; Send Invitations
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Admin Sub-Pane 3: Membership & Invitation Tokens -->
+            <div id="admin-subpane-membership" class="admin-subpane">
+              <div class="admin-pane-header">
+                <div>
+                  <h3 class="admin-pane-title">Membership Invitation Governance</h3>
+                  <p class="admin-pane-desc">Generate single-use invitation codes, track token usage and claiming members, or revoke invitations.</p>
+                </div>
+                <button class="btn btn-sm btn-white-pill" onclick="toggleAdminCreateInviteCard()">+ Generate Invitation</button>
+              </div>
+
+              <!-- Issue Invitation Card -->
+              <div id="adminCreateInviteCard" class="admin-card" style="display: none; margin-bottom: 1.5rem;">
+                <h4 style="margin-bottom: 0.85rem; color: #fff;">Issue New Single-Use Invitation</h4>
+                <div class="grid-2-col">
+                  <div class="form-group">
+                    <label>Applicant Email <span class="required-star">*</span></label>
+                    <input type="email" id="adminNewInviteEmail" class="form-control" placeholder="founder@venture.co">
+                  </div>
+                  <div class="form-group">
+                    <label>Applicant Full Name (Optional)</label>
+                    <input type="text" id="adminNewInviteName" class="form-control" placeholder="Jane Doe">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Validity Period</label>
+                  <select id="adminNewInviteDays" class="form-control">
+                    <option value="7">7 Days</option>
+                    <option value="14" selected>14 Days</option>
+                    <option value="30">30 Days</option>
+                    <option value="90">90 Days</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary" onclick="submitAdminCreateInvite()">Generate Invitation Token</button>
+              </div>
+
+              <!-- Table of Issued Tokens & Access Requests -->
+              <div class="admin-table-container">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Email / Recipient</th>
+                      <th>Token</th>
+                      <th>Status</th>
+                      <th>Issued Date</th>
+                      <th>Expires</th>
+                      <th>Claimed By</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminInvitationsTableBody">
+                    <!-- Loaded dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Admin Sub-Pane 4: Audit Logs -->
+            <div id="admin-subpane-audit" class="admin-subpane">
+              <div class="admin-pane-header">
+                <div>
+                  <h3 class="admin-pane-title">Immutable Administrative Audit Trail</h3>
+                  <p class="admin-pane-desc">Permanent log of every administrative action, event alteration, invitation broadcast, and member access approval.</p>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="loadAdminAuditLogs()">Refresh Trail</button>
+              </div>
+              <div id="adminAuditLogFeed" class="audit-feed">
+                <!-- Loaded dynamically -->
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -541,6 +1165,82 @@
     </div>
   </div>
 
+  <!-- Modal 3.5: Property Detail Modal with Units Browser & Photo Carousel -->
+  <div id="propertyDetailModal" class="modal-backdrop">
+    <div class="modal-card modal-lg property-modal-card">
+      <div class="modal-header">
+        <div>
+          <span id="propModalTypeTag" class="badge badge-accent">Residential</span>
+          <h3 id="propModalTitle" style="margin-top: 0.35rem; font-size: 1.25rem;">Property Title</h3>
+          <span id="propModalLocation" class="muted-text" style="font-size: 0.85rem;">📍 Location</span>
+        </div>
+        <button class="modal-close" onclick="closeModal('propertyDetailModal')">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 1.5rem 1.75rem; max-height: 75vh; overflow-y: auto;">
+        <!-- Main Image Gallery with Carousel Arrows & Thumbnails -->
+        <div class="prop-gallery-wrapper">
+          <div class="prop-main-photo-wrap">
+            <button class="gallery-nav-btn prev-btn" onclick="prevPropModalPhoto()">‹</button>
+            <img id="propModalMainPhoto" src="" alt="Property Photo">
+            <button class="gallery-nav-btn next-btn" onclick="nextPropModalPhoto()">›</button>
+            <div id="propModalPhotoCount" class="photo-counter-badge">1 / 1</div>
+          </div>
+          <div id="propModalThumbnails" class="prop-thumbnails-row"></div>
+        </div>
+
+        <!-- Specs & Price Strip -->
+        <div class="prop-detail-highlights">
+          <div class="highlight-box">
+            <span class="hl-label">Price / Guidance</span>
+            <span id="propModalPrice" class="hl-val">$0</span>
+          </div>
+          <div class="highlight-box">
+            <span class="hl-label">Bedrooms / Layout</span>
+            <span id="propModalBeds" class="hl-val">-</span>
+          </div>
+          <div class="highlight-box">
+            <span class="hl-label">Area / Size</span>
+            <span id="propModalArea" class="hl-val">-</span>
+          </div>
+          <div class="highlight-box">
+            <span class="hl-label">Handover / Status</span>
+            <span id="propModalHandover" class="hl-val">-</span>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="prop-section-block">
+          <h4 class="prop-section-title">Overview & Specification</h4>
+          <p id="propModalDescription" class="prop-desc-text"></p>
+        </div>
+
+        <!-- Features Tags -->
+        <div class="prop-section-block" id="propModalFeaturesBlock">
+          <h4 class="prop-section-title">Features & Amenities</h4>
+          <div id="propModalFeaturesList" class="prop-features-tags"></div>
+        </div>
+
+        <!-- Payment Terms -->
+        <div class="prop-section-block" id="propModalPaymentBlock">
+          <h4 class="prop-section-title">Payment Terms</h4>
+          <p id="propModalPaymentTerms" class="payment-terms-text"></p>
+        </div>
+
+        <!-- Development Units Browser (if project has units) -->
+        <div class="prop-section-block" id="propModalUnitsBlock" style="display: none;">
+          <h4 class="prop-section-title">Available Units in Project (<span id="propModalUnitsCount">0</span>)</h4>
+          <div id="propModalUnitsList" class="prop-units-grid"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary-pill" onclick="closeModal('propertyDetailModal')">Close</button>
+        <button id="propModalInquireBtn" class="btn btn-white-pill" onclick="triggerInquiryFromDetail()">
+          Request Details / Schedule Call
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal 4: Real Estate Inquiry -->
   <div id="reInquiryModal" class="modal-backdrop">
     <div class="modal-card">
@@ -566,6 +1266,558 @@
       <div class="modal-footer">
         <button class="btn btn-secondary-pill" onclick="closeModal('reInquiryModal')">Cancel</button>
         <button class="btn btn-white-pill" onclick="submitListingInquiry()">Submit Inquiry</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 5: Event Details & Agenda Modal -->
+  <div id="eventDetailModal" class="modal-backdrop">
+    <div class="modal-card modal-lg event-detail-modal-card">
+      <div class="event-detail-hero" id="modalEventHero">
+        <div class="hero-overlay"></div>
+        <button class="modal-close hero-close-btn" onclick="closeModal('eventDetailModal')">✕</button>
+        <div class="hero-badge-strip" id="modalHeroBadges"></div>
+      </div>
+      <div class="modal-body" style="padding: 1.75rem 2rem;">
+        <h2 id="modalEventTitle" class="event-detail-title">Event Title</h2>
+        
+        <div class="event-detail-info-grid">
+          <div class="detail-info-cell">
+            <span class="detail-info-label">DATES & TIMING</span>
+            <span class="detail-info-val" id="modalEventDate">Nov 13–15, 2026</span>
+          </div>
+          <div class="detail-info-cell">
+            <span class="detail-info-label">DESTINATION & VENUE</span>
+            <span class="detail-info-val" id="modalEventLocation">Miami, Florida, USA</span>
+            <span class="detail-info-sub" id="modalEventVenue">Venue: To be confirmed</span>
+          </div>
+          <div class="detail-info-cell">
+            <span class="detail-info-label">CAPACITY & AVAILABILITY</span>
+            <span class="detail-info-val" id="modalEventCapacity">35 Seats · 17 Available</span>
+          </div>
+        </div>
+
+        <div class="event-detail-section">
+          <h4>OVERVIEW</h4>
+          <p id="modalEventDesc" class="event-detail-text"></p>
+        </div>
+
+        <div class="event-detail-section" id="modalAgendaSection">
+          <h4>AGENDA & ITINERARY</h4>
+          <div class="agenda-box" id="modalEventAgenda"></div>
+        </div>
+
+        <div class="event-detail-section" id="modalTravelSection">
+          <h4>TRAVEL & ACCOMMODATIONS</h4>
+          <div class="travel-box" id="modalEventTravel"></div>
+        </div>
+
+        <div class="event-detail-section">
+          <h4>PRICING & WHAT'S INCLUDED</h4>
+          <div class="inclusions-box">
+            <div id="modalEventPrice" style="font-weight:700; color:#fff; margin-bottom:0.25rem;"></div>
+            <div id="modalEventInclusions" style="color:var(--text-dim); font-size:0.86rem; line-height:1.5;"></div>
+          </div>
+        </div>
+
+        <div class="event-detail-cal-row">
+          <button class="btn btn-secondary-pill" id="btnModalIcs" onclick="downloadModalIcs()">
+            📥 Download .ICS File
+          </button>
+          <button class="btn btn-secondary-pill" id="btnModalGoogle" onclick="openModalGoogleCalendar()">
+            📅 Add to Google Calendar
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer" id="modalEventFooter">
+        <button class="btn btn-secondary-pill" onclick="closeModal('eventDetailModal')">Close</button>
+        <button class="btn btn-white-pill" id="modalRsvpBtn" onclick="rsvpFromModal()">Confirm Registration</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Community Post -->
+  <div id="editPostModal" class="modal-backdrop" onclick="handleEditPostBackdropClick(event)">
+    <div class="modal-dialog modal-md">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Post</h3>
+        <button class="modal-close-btn" onclick="closeModal('editPostModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="editPostText" class="composer-textarea" rows="4" placeholder="Edit post content…"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary-pill" onclick="closeModal('editPostModal')">Cancel</button>
+        <button id="btnSaveEditPost" class="btn btn-white-pill" onclick="handleSaveEditPost()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Inbox, Member Messaging & Notifications -->
+  <div id="inboxModal" class="modal-backdrop">
+    <div class="modal-card modal-xl inbox-modal-card">
+      <div class="modal-header inbox-header">
+        <div class="inbox-header-left">
+          <h3 class="modal-title">ÖZARA Inbox</h3>
+          <div class="inbox-nav-tabs">
+            <button id="inboxTabBtnMessages" class="inbox-tab-btn active" onclick="switchInboxTab('messages')">
+              Messages
+              <span id="tabBadgeMessages" class="tab-badge" style="display:none;">0</span>
+            </button>
+            <button id="inboxTabBtnNotifications" class="inbox-tab-btn" onclick="switchInboxTab('notifications')">
+              Notifications
+              <span id="tabBadgeNotifications" class="tab-badge" style="display:none;">0</span>
+            </button>
+            <button id="inboxTabBtnAdminActivity" class="inbox-tab-btn" style="display:none;" onclick="switchInboxTab('admin_activity')">
+              Admin Activity
+              <span id="tabBadgeAdminActivity" class="tab-badge" style="display:none;">0</span>
+            </button>
+          </div>
+        </div>
+        <div class="inbox-header-actions">
+          <button class="btn btn-xs btn-ghost-pill" onclick="openTestMailboxModal()" title="Sandbox Email Queue">
+            ✉ Sandbox
+          </button>
+          <button class="btn btn-xs btn-ghost-pill" onclick="openInboxPreferencesModal()" title="Notification Settings">
+            ⚙ Preferences
+          </button>
+          <button class="modal-close" onclick="closeModal('inboxModal')">✕</button>
+        </div>
+      </div>
+
+      <div class="modal-body inbox-body">
+        <!-- 1. MESSAGES VIEW -->
+        <div id="inboxViewMessages" class="inbox-view-panel active">
+          <div class="inbox-messages-layout">
+            <!-- Left: Conversations List -->
+            <div class="inbox-convos-sidebar">
+              <div class="convos-search-row">
+                <input type="text" id="convosSearchInput" class="input-dark convos-search-input" placeholder="Search conversations…" oninput="filterConversations()">
+              </div>
+              <div id="conversationsListContainer" class="convos-list">
+                <div class="inbox-loading-state">Loading conversations…</div>
+              </div>
+            </div>
+
+            <!-- Right: Active Chat Thread Pane -->
+            <div class="inbox-chat-pane">
+              <!-- Top Bar of Chat -->
+              <div id="chatTopBar" class="chat-top-bar" style="display: none;">
+                <div class="chat-participant-info">
+                  <img id="chatPartnerAvatar" src="" class="chat-partner-avatar" alt="Avatar">
+                  <div>
+                    <div class="chat-partner-name-row">
+                      <span id="chatPartnerName" class="chat-partner-name">Member Name</span>
+                      <span id="chatMutualBadge" class="badge badge-success">Mutual Connection</span>
+                    </div>
+                    <span id="chatPartnerHeadline" class="chat-partner-headline">Headline / Role</span>
+                  </div>
+                </div>
+                <div class="chat-partner-actions">
+                  <button class="btn btn-xs btn-ghost-pill" onclick="viewChatPartnerProfile()">View Profile</button>
+                  <button class="btn btn-xs btn-danger-ghost-pill" onclick="openReportModalForChatPartner()">Report / Block</button>
+                </div>
+              </div>
+
+              <!-- Message History Scroll Area -->
+              <div id="chatMessagesArea" class="chat-messages-area">
+                <div class="chat-empty-state">
+                  <div class="chat-empty-icon">💬</div>
+                  <h4>Direct Member Messaging</h4>
+                  <p>Select a conversation from the left to start messaging. Direct messaging is exclusively available between mutually accepted connections and club leadership.</p>
+                </div>
+              </div>
+
+              <!-- Chat Input Area -->
+              <div id="chatInputArea" class="chat-input-area" style="display: none;">
+                <div class="chat-disclaimer">
+                  🔒 Private 1:1 conversation between verified members. Messages are confidential and never shared.
+                </div>
+                <form id="chatMessageForm" class="chat-input-form" onsubmit="handleSendDirectMessage(event)">
+                  <textarea id="chatMessageInput" class="chat-textarea" placeholder="Write a confidential message…" rows="2" onkeydown="handleChatInputKeydown(event)"></textarea>
+                  <button type="submit" id="chatSendBtn" class="btn btn-white-pill chat-send-btn">Send</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. NOTIFICATIONS VIEW -->
+        <div id="inboxViewNotifications" class="inbox-view-panel">
+          <div class="inbox-notifications-layout">
+            <div class="notif-controls-row">
+              <div class="notif-filters-pills">
+                <button class="notif-filter-pill active" data-category="all" onclick="filterNotifications('all')">All</button>
+                <button class="notif-filter-pill" data-category="connection" onclick="filterNotifications('connection')">Connections</button>
+                <button class="notif-filter-pill" data-category="event" onclick="filterNotifications('event')">Events</button>
+                <button class="notif-filter-pill" data-category="community" onclick="filterNotifications('community')">Community</button>
+                <button class="notif-filter-pill" data-category="system" onclick="filterNotifications('system')">Announcements</button>
+              </div>
+              <button class="btn btn-xs btn-secondary-pill" onclick="handleMarkAllNotificationsRead()">Mark all as read</button>
+            </div>
+            <div id="inboxNotificationsList" class="notif-list-container">
+              <div class="inbox-loading-state">Loading notifications…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. ADMIN ACTIVITY VIEW -->
+        <div id="inboxViewAdminActivity" class="inbox-view-panel">
+          <div class="inbox-admin-activity-layout">
+            <div class="activity-controls-row">
+              <div class="activity-filters-pills">
+                <button class="activity-filter-pill active" data-acategory="all" onclick="filterAdminActivity('all')">All Activity</button>
+                <button class="activity-filter-pill" data-acategory="access_request" onclick="filterAdminActivity('access_request')">Access Requests</button>
+                <button class="activity-filter-pill" data-acategory="onboarding" onclick="filterAdminActivity('onboarding')">Onboarding</button>
+                <button class="activity-filter-pill" data-acategory="connection" onclick="filterAdminActivity('connection')">Connections</button>
+                <button class="activity-filter-pill" data-acategory="community" onclick="filterAdminActivity('community')">Community</button>
+                <button class="activity-filter-pill" data-acategory="rsvp" onclick="filterAdminActivity('rsvp')">RSVPs</button>
+                <button class="activity-filter-pill" data-acategory="inquiry" onclick="filterAdminActivity('inquiry')">Inquiries</button>
+                <button class="activity-filter-pill" data-acategory="report" onclick="filterAdminActivity('report')">Reports</button>
+              </div>
+              <span class="activity-realtime-badge">● Operational Feed</span>
+            </div>
+            <div id="inboxAdminActivityList" class="activity-list-container">
+              <div class="inbox-loading-state">Loading activity feed…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Notification Preferences -->
+  <div id="inboxPreferencesModal" class="modal-backdrop">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <h3 class="modal-title">Notification &amp; Email Preferences</h3>
+        <button class="modal-close" onclick="closeModal('inboxPreferencesModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted-text" style="margin-bottom: 1.25rem; font-size: 0.88rem;">
+          Control how and when you receive transactional updates from ÖZARA. In-app notifications remain active even if email delivery is switched to daily digest or disabled.
+        </p>
+
+        <div class="pref-setting-row">
+          <div class="pref-info">
+            <strong>Direct Messages</strong>
+            <span>Alerts for confidential member messages (debounced to 1 email every 15 min per sender)</span>
+          </div>
+          <div class="pref-badge-fixed">Immediate Email</div>
+        </div>
+
+        <div class="pref-setting-row">
+          <div class="pref-info">
+            <strong>Connection Requests</strong>
+            <span>When a member asks to connect or accepts your connection</span>
+          </div>
+          <select id="prefEmailConnections" class="input-dark pref-select">
+            <option value="immediate">Immediate Email</option>
+            <option value="in_app_only">In-App Only</option>
+          </select>
+        </div>
+
+        <div class="pref-setting-row">
+          <div class="pref-info">
+            <strong>Event Invitations &amp; Updates</strong>
+            <span>Invitations, date/venue changes, and newly published gatherings</span>
+          </div>
+          <select id="prefEmailEvents" class="input-dark pref-select">
+            <option value="immediate">Immediate Email</option>
+            <option value="daily_digest">Daily Digest</option>
+            <option value="in_app_only">In-App Only</option>
+          </select>
+        </div>
+
+        <div class="pref-setting-row">
+          <div class="pref-info">
+            <strong>New Community Posts</strong>
+            <span>Updates published to the ÖZARA Community feed</span>
+          </div>
+          <select id="prefEmailCommunity" class="input-dark pref-select">
+            <option value="immediate">Immediate Email</option>
+            <option value="daily_digest">Daily Digest</option>
+            <option value="in_app_only">In-App Only</option>
+          </select>
+        </div>
+
+        <div class="pref-setting-row">
+          <div class="pref-info">
+            <strong>Leadership Announcements</strong>
+            <span>Direct notices and executive memos from Alexandra and Julia</span>
+          </div>
+          <select id="prefEmailAnnouncements" class="input-dark pref-select">
+            <option value="immediate">Immediate Email</option>
+            <option value="in_app_only">In-App Only</option>
+          </select>
+        </div>
+
+        <div id="prefAdminRow" class="pref-setting-row" style="display: none;">
+          <div class="pref-info">
+            <strong>Admin Operational Activity</strong>
+            <span>Access requests, onboarding completion, RSVPs, inquiries, reports</span>
+          </div>
+          <select id="prefEmailAdminActivity" class="input-dark pref-select">
+            <option value="immediate">Immediate Email</option>
+            <option value="daily_digest">Daily Digest</option>
+            <option value="in_app_only">In-App Only</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary-pill" onclick="closeModal('inboxPreferencesModal')">Cancel</button>
+        <button class="btn btn-white-pill" onclick="saveInboxPreferences()">Save Preferences</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Report / Block Member -->
+  <div id="inboxReportModal" class="modal-backdrop">
+    <div class="modal-card modal-md">
+      <div class="modal-header">
+        <h3 class="modal-title">Peer Report &amp; Block</h3>
+        <button class="modal-close" onclick="closeModal('inboxReportModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted-text" style="font-size: 0.88rem; margin-bottom: 1rem;">
+          Reports are handled confidentially by Alexandra and Julia. Free text commercial solicitation, fundraising, ticket promotions, and harassment are strictly prohibited under the ÖZARA constitution.
+        </p>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label">Reason for Report</label>
+          <select id="reportReasonSelect" class="input-dark form-control">
+            <option value="unsolicited_fundraising">Commercial / Fundraising solicitation (violates broker-dealer rule)</option>
+            <option value="inappropriate_conduct">Inappropriate or unprofessional conduct</option>
+            <option value="spam">Spam or unwanted repeated contact</option>
+            <option value="impersonation">Misrepresentation or impersonation</option>
+            <option value="other">Other issue</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label">Details (Optional)</label>
+          <textarea id="reportDetailsInput" class="input-dark form-control" rows="3" placeholder="Describe the issue for club leadership review…"></textarea>
+        </div>
+
+        <div class="form-group" style="display: flex; align-items: center; gap: 0.6rem;">
+          <input type="checkbox" id="reportBlockCheckbox" checked style="accent-color: var(--accent-cyan);">
+          <label for="reportBlockCheckbox" style="font-size: 0.88rem; color: #fff; cursor: pointer;">
+            Block this member from sending further messages to me
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary-pill" onclick="closeModal('inboxReportModal')">Cancel</button>
+        <button class="btn btn-danger-pill" onclick="submitPeerReport()">Submit Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Test Mailbox / Email Sandbox Viewer -->
+  <div id="inboxTestMailboxModal" class="modal-backdrop">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Sandbox Email Queue</h3>
+          <p class="modal-subtitle" style="margin: 0.2rem 0 0;">Inspect transactional emails generated by ÖZARA without delivering to real external mailboxes.</p>
+        </div>
+        <button class="modal-close" onclick="closeModal('inboxTestMailboxModal')">✕</button>
+      </div>
+      <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        <div id="sandboxMailboxList">
+          <div class="inbox-loading-state">Loading sandbox queue…</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary-pill" onclick="loadSandboxMailbox()">Refresh Queue</button>
+        <button class="btn btn-white-pill" onclick="closeModal('inboxTestMailboxModal')">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Admin Event Create & Edit Modal -->
+  <div id="adminEventModal" class="modal-backdrop">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3 id="adminEventModalTitle">Create Club Event</h3>
+        <button class="modal-close" onclick="closeModal('adminEventModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="adminEventForm" onsubmit="handleSaveAdminEvent(event)">
+          <input type="hidden" id="adminEditEventId">
+          <div class="grid-2-col">
+            <div class="form-group">
+              <label>Event Title <span class="required-star">*</span></label>
+              <input type="text" id="adminEvtTitle" class="form-control" required placeholder="e.g. London Founder Gathering &amp; Dinner">
+            </div>
+            <div class="form-group">
+              <label>Event Type</label>
+              <select id="adminEvtType" class="form-control">
+                <option value="Summit">Summit</option>
+                <option value="Trek">Trek</option>
+                <option value="Dinner">Chapter Dinner</option>
+                <option value="Masterclass">Masterclass</option>
+                <option value="Family">Family Programme</option>
+                <option value="Online">Online Session</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Headline (Summary)</label>
+            <input type="text" id="adminEvtHeadline" class="form-control" placeholder="1-sentence executive overview">
+          </div>
+
+          <div class="form-group">
+            <label>Description <span class="required-star">*</span></label>
+            <textarea id="adminEvtDesc" class="form-control" rows="3" required placeholder="Detailed context and agenda..."></textarea>
+          </div>
+
+          <div class="grid-2-col">
+            <div class="form-group">
+              <label>Location / City</label>
+              <input type="text" id="adminEvtLocation" class="form-control" placeholder="e.g. Mayfair, London, UK">
+            </div>
+            <div class="form-group">
+              <label>Venue (Physical)</label>
+              <input type="text" id="adminEvtVenue" class="form-control" placeholder="e.g. Private Dining Suite">
+            </div>
+          </div>
+
+          <div class="grid-2-col">
+            <div class="form-group">
+              <label>Online Meeting Link (If virtual)</label>
+              <input type="url" id="adminEvtMeetingLink" class="form-control" placeholder="https://zoom.us/j/...">
+            </div>
+            <div class="form-group">
+              <label>Timezone</label>
+              <select id="adminEvtTimezone" class="form-control">
+                <option value="UTC">UTC</option>
+                <option value="Europe/London">Europe/London</option>
+                <option value="Asia/Dubai">Asia/Dubai</option>
+                <option value="America/New_York">America/New_York</option>
+                <option value="Europe/Paris">Europe/Paris</option>
+                <option value="Asia/Singapore">Asia/Singapore</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-3-col">
+            <div class="form-group">
+              <label>Start Date (YYYY-MM-DD)</label>
+              <input type="date" id="adminEvtStartDate" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>End Date (YYYY-MM-DD)</label>
+              <input type="date" id="adminEvtEndDate" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Display Date (e.g. Nov 13–15, 2026)</label>
+              <input type="text" id="adminEvtDisplayDate" class="form-control" placeholder="e.g. Nov 13–15, 2026">
+            </div>
+          </div>
+
+          <div class="grid-3-col">
+            <div class="form-group">
+              <label>Capacity (Member Limit)</label>
+              <input type="number" id="adminEvtCapacity" class="form-control" value="30" min="1">
+            </div>
+            <div class="form-group">
+              <label>RSVP Deadline</label>
+              <input type="date" id="adminEvtRsvpDeadline" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Visibility Scope</label>
+              <select id="adminEvtVisibility" class="form-control">
+                <option value="all_members">All Admitted Members</option>
+                <option value="selected_invitees">Selected Invitees Only</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Cover Photo URL</label>
+            <input type="text" id="adminEvtCoverImage" class="form-control" value="/assets/events/london_gathering.jpg">
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-pill">
+              <input type="checkbox" id="adminEvtPublishNow" checked>
+              <span>Publish Event Immediately</span>
+            </label>
+          </div>
+
+          <div class="modal-footer" style="padding: 0; margin-top: 1.25rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+            <button type="button" class="btn btn-outline" onclick="closeModal('adminEventModal')">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="adminSaveEventBtn">Save Event</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Event Attendees & RSVP Status Modal -->
+  <div id="adminAttendeesModal" class="modal-backdrop">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <div>
+          <h3 id="adminAttendeesEventTitle">Event Attendees &amp; RSVPs</h3>
+          <p id="adminAttendeesEventSubtitle" class="modal-subtitle" style="margin: 0;"></p>
+        </div>
+        <button class="modal-close" onclick="closeModal('adminAttendeesModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="admin-attendees-stats-row" id="adminAttendeesStatsRow" style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
+          <!-- Stats badges -->
+        </div>
+        <div class="admin-table-container" style="max-height: 400px; overflow-y: auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Role / Company</th>
+                <th>RSVP Status</th>
+                <th>Responded At</th>
+                <th>Direct Contact</th>
+              </tr>
+            </thead>
+            <tbody id="adminAttendeesTableBody">
+              <!-- Attendees loaded dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Private Tech Companies Info Modal -->
+  <div id="privateTechModal" class="modal-backdrop" onclick="if(event.target === this) closeModal('privateTechModal')">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <div>
+          <span class="inv-badge-soon" style="font-size: 0.72rem; padding: 3px 8px; border-radius: 6px; display: inline-block; margin-bottom: 6px;">COMING SOON</span>
+          <h3 class="modal-title">Private Tech Companies</h3>
+        </div>
+        <button class="modal-close" onclick="closeModal('privateTechModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="tech-modal-visual">
+          <img src="/investments/tech_companies_card.jpg" alt="Private Tech" style="width: 100%; height: 190px; object-fit: cover; border-radius: 12px; margin-bottom: 1.25rem;" />
+        </div>
+        <p class="modal-subtitle" style="margin-bottom: 1.25rem; line-height: 1.5;">
+          Direct equity allocations, secondary share transactions, and founder-led syndicates in high-conviction deep tech, AI infrastructure, and frontier technology ventures.
+        </p>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
+          <div style="color: #e2e8f0; font-size: 0.85rem;">✓ Secondary liquidity for tier-1 late stage startups</div>
+          <div style="color: #e2e8f0; font-size: 0.85rem;">✓ Pre-IPO allocation tranches with institutional diligence</div>
+          <div style="color: #e2e8f0; font-size: 0.85rem;">✓ Co-investment syndicates with member lead investors</div>
+        </div>
+        <div style="color: var(--text-dim); font-size: 0.8rem; font-style: italic;">
+          No listings or transactions are active at this time. Club members will be notified upon tranche opening.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary-pill" onclick="closeModal('privateTechModal')">Close</button>
       </div>
     </div>
   </div>

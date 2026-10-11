@@ -15,6 +15,18 @@ export const OZARA_STORAGE_KEYS = {
   CURRENT_USER_ID: 'ozara_current_user_id',
   SIGNUP_STEP: 'ozara_signup_step',
   VERIFIED_PHONE: 'ozara_verified_phone',
+  INVITATION_CODE: 'ozara_invitation_code',
+  INVITATION_EMAIL: 'ozara_invitation_email',
+  INVITATION_FULL_NAME: 'ozara_invitation_full_name',
+  AUTH_MODE: 'ozara_auth_mode',
+  FACE_ID_ENABLED: 'ozara_face_id_enabled',
+  BIOMETRICS_ENABLED: 'ozara_biometrics_enabled',
+  TERMS_ACCEPTED_VERSION: 'ozara_terms_accepted_version',
+  ACCOUNT_FULL_NAME: 'ozara_account_full_name',
+  ACCOUNT_EMAIL: 'ozara_account_email',
+  WELCOME_SLIDE_INDEX: 'ozara_welcome_slide_index',
+  QUESTIONNAIRE_DRAFT_ANSWERS: 'ozara_questionnaire_draft_answers',
+  QUESTIONNAIRE_DRAFT_COUNTRIES: 'ozara_questionnaire_draft_countries',
 } as const;
 
 class StorageService {
