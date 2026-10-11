@@ -151,6 +151,18 @@
     - Automated nightly backups of SQLite database snapshots.
     - Staging data isolation (`NODE_ENV=staging`) with test email suppression: real member emails are never contacted during staging or testing.
     - Repeatable release process connected to git version control.
+  - **Canonical Mobile Frontend & Fast UI Development Invariant**:
+    - **Single Primary Application**: The React Native / Expo application in `mobile/` is the canonical, primary application for all UI development, browser previews, and future iOS builds.
+    - **Scope of Small UI Changes**:
+      - For UI changes, work exclusively in the relevant components under `mobile/` (`mobile/src/screens/`, `mobile/src/components/`, etc.) unless a backend API change is strictly necessary.
+      - Never touch or update the legacy vanilla web frontend (`public/index.html`, `public/app.js`, `public/styles.css`) unless the user explicitly requests changes to the legacy web interface.
+    - **Batched & Efficient Inspection**:
+      - Avoid inspecting small code slices or running dozens of sequential grep/view calls. Read relevant functions, styles, and components together in a single or batched read.
+      - Plan modifications before applying edits rather than performing iterative multi-file trial searches across unrelated codebases.
+    - **Hot-Reload Dev Workflow vs. Static Exports**:
+      - For local development and verification, run and rely on the Expo development server with hot reload / Fast Refresh (`npm run dev:mobile` / `npx expo start --web --port 8081`).
+      - Perform focused verification against the hot-reloading preview at `http://localhost:8081` (or LAN IP).
+      - Do NOT run full static exports (`expo export`) or deployment builds for incremental UI tweaks. Reserve full exports (`npm run export:mobile`) and staging pushes strictly for formal review preparation and production/staging deployments.
 - **Update Rule**: Only update `gemini.md` when:
   - A schema changes
   - A rule is added
