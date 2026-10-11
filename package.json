@@ -5,6 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "dev:mobile": "npm --prefix mobile run web",
+    "export:mobile": "npm --prefix mobile run export",
     "test": "python3 tools/test_full_platform_api.py"
   },
   "keywords": [],

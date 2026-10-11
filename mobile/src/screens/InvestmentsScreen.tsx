@@ -343,11 +343,16 @@ export const InvestmentsScreen: React.FC = () => {
   }, [selectedType, selectedCountry, selectedCity, selectedBedrooms, selectedSort, searchQuery]);
 
   const openCategoryResults = (catName: string) => {
-    setSelectedCategory(catName);
-    if (catName === 'All Properties' || catName === 'all') {
+    if (selectedCategory.toLowerCase() === catName.toLowerCase() && catName.toLowerCase() !== 'all properties' && catName.toLowerCase() !== 'all') {
+      setSelectedCategory('All Properties');
       setSelectedType('all');
     } else {
-      setSelectedType(catName);
+      setSelectedCategory(catName);
+      if (catName === 'All Properties' || catName === 'all') {
+        setSelectedType('all');
+      } else {
+        setSelectedType(catName);
+      }
     }
     setViewMode('results');
   };
@@ -749,8 +754,66 @@ export const InvestmentsScreen: React.FC = () => {
                   >
                     {selectedCountry !== 'all' ? selectedCountry : 'Filters'}
                   </Text>
-                  {hasActiveFilters && <View style={styles.activeDot} />}
+                  {selectedCountry !== 'all' ? (
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleCountrySelect('all');
+                      }}
+                      style={styles.pillClearBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={13} color={OzaraTheme.colors.accentGold} />
+                    </TouchableOpacity>
+                  ) : (
+                    hasActiveFilters && <View style={styles.activeDot} />
+                  )}
                 </TouchableOpacity>
+
+                {selectedCity !== 'all' && (
+                  <View style={[styles.filterPill, styles.filterPillActive]}>
+                    <Ionicons name="business-outline" size={13} color={OzaraTheme.colors.accentGold} />
+                    <Text style={[styles.filterPillText, styles.filterPillTextActive]}>{selectedCity}</Text>
+                    <TouchableOpacity
+                      onPress={() => setSelectedCity('all')}
+                      style={styles.pillClearBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={13} color={OzaraTheme.colors.accentGold} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {selectedBedrooms !== 'any' && (
+                  <View style={[styles.filterPill, styles.filterPillActive]}>
+                    <Ionicons name="bed-outline" size={13} color={OzaraTheme.colors.accentGold} />
+                    <Text style={[styles.filterPillText, styles.filterPillTextActive]}>{selectedBedrooms} bd</Text>
+                    <TouchableOpacity
+                      onPress={() => setSelectedBedrooms('any')}
+                      style={styles.pillClearBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={13} color={OzaraTheme.colors.accentGold} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {selectedType !== 'all' && (
+                  <View style={[styles.filterPill, styles.filterPillActive]}>
+                    <Ionicons name="home-outline" size={13} color={OzaraTheme.colors.accentGold} />
+                    <Text style={[styles.filterPillText, styles.filterPillTextActive]}>{selectedType}</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setSelectedType('all');
+                        setSelectedCategory('All Properties');
+                      }}
+                      style={styles.pillClearBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={13} color={OzaraTheme.colors.accentGold} />
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 <TouchableOpacity
                   style={[styles.filterPill, selectedSort !== 'newest' && styles.filterPillActive]}
@@ -775,6 +838,18 @@ export const InvestmentsScreen: React.FC = () => {
                       ? 'Title'
                       : 'Newest'}
                   </Text>
+                  {selectedSort !== 'newest' && (
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setSelectedSort('newest');
+                      }}
+                      style={styles.pillClearBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={13} color={OzaraTheme.colors.accentGold} />
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -979,17 +1054,23 @@ export const InvestmentsScreen: React.FC = () => {
                     All Countries
                   </Text>
                 </TouchableOpacity>
-                {filterOptions?.countries.map(c => (
-                  <TouchableOpacity
-                    key={c}
-                    style={[styles.filterOptionPill, selectedCountry === c && styles.filterOptionPillActive]}
-                    onPress={() => handleCountrySelect(c)}
-                  >
-                    <Text style={[styles.filterOptionText, selectedCountry === c && styles.filterOptionTextActive]}>
-                      {c}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {filterOptions?.countries.map(c => {
+                  const isSel = selectedCountry === c;
+                  return (
+                    <TouchableOpacity
+                      key={c}
+                      style={[styles.filterOptionPill, isSel && styles.filterOptionPillActive]}
+                      onPress={() => handleCountrySelect(isSel ? 'all' : c)}
+                    >
+                      <Text style={[styles.filterOptionText, isSel && styles.filterOptionTextActive]}>
+                        {c}
+                      </Text>
+                      {isSel && (
+                        <Ionicons name="close-circle" size={13} color={OzaraTheme.colors.accentGold} style={{ marginLeft: 4 }} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
 
               {/* Dependent City Selection */}
@@ -1005,17 +1086,23 @@ export const InvestmentsScreen: React.FC = () => {
                         All Cities
                       </Text>
                     </TouchableOpacity>
-                    {availableCities.map(ct => (
-                      <TouchableOpacity
-                        key={ct}
-                        style={[styles.filterOptionPill, selectedCity === ct && styles.filterOptionPillActive]}
-                        onPress={() => setSelectedCity(ct)}
-                      >
-                        <Text style={[styles.filterOptionText, selectedCity === ct && styles.filterOptionTextActive]}>
-                          {ct}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                    {availableCities.map(ct => {
+                      const isSel = selectedCity === ct;
+                      return (
+                        <TouchableOpacity
+                          key={ct}
+                          style={[styles.filterOptionPill, isSel && styles.filterOptionPillActive]}
+                          onPress={() => setSelectedCity(isSel ? 'all' : ct)}
+                        >
+                          <Text style={[styles.filterOptionText, isSel && styles.filterOptionTextActive]}>
+                            {ct}
+                          </Text>
+                          {isSel && (
+                            <Ionicons name="close-circle" size={13} color={OzaraTheme.colors.accentGold} style={{ marginLeft: 4 }} />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
                   </ScrollView>
                 </>
               )}
@@ -1023,17 +1110,23 @@ export const InvestmentsScreen: React.FC = () => {
               {/* Bedrooms Selection */}
               <Text style={styles.filterSectionTitle}>Bedrooms</Text>
               <View style={styles.bedroomsGrid}>
-                {['any', '1', '2', '3', '4', '5', '6+'].map(b => (
-                  <TouchableOpacity
-                    key={b}
-                    style={[styles.bedroomBtn, selectedBedrooms === b && styles.bedroomBtnActive]}
-                    onPress={() => setSelectedBedrooms(b)}
-                  >
-                    <Text style={[styles.bedroomBtnText, selectedBedrooms === b && styles.bedroomBtnTextActive]}>
-                      {b === 'any' ? 'Any' : `${b} bd`}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {['any', '1', '2', '3', '4', '5', '6+'].map(b => {
+                  const isSel = selectedBedrooms === b;
+                  return (
+                    <TouchableOpacity
+                      key={b}
+                      style={[styles.bedroomBtn, isSel && styles.bedroomBtnActive]}
+                      onPress={() => setSelectedBedrooms(isSel && b !== 'any' ? 'any' : b)}
+                    >
+                      <Text style={[styles.bedroomBtnText, isSel && styles.bedroomBtnTextActive]}>
+                        {b === 'any' ? 'Any' : `${b} bd`}
+                      </Text>
+                      {isSel && b !== 'any' && (
+                        <Ionicons name="close-circle" size={12} color={OzaraTheme.colors.accentGold} style={{ marginLeft: 4 }} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
               {/* Property Type */}
@@ -1048,20 +1141,27 @@ export const InvestmentsScreen: React.FC = () => {
                   'Countryside',
                   'Private Islands',
                   'Pools'
-                ] as PropertyCategory[]).map(t => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.bedroomBtn, selectedType === t && styles.bedroomBtnActive]}
-                    onPress={() => {
-                      setSelectedType(t);
-                      setSelectedCategory(t === 'all' ? 'All Properties' : t);
-                    }}
-                  >
-                    <Text style={[styles.bedroomBtnText, selectedType === t && styles.bedroomBtnTextActive]}>
-                      {t === 'all' ? 'All Types' : t}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                ] as PropertyCategory[]).map(t => {
+                  const isSel = selectedType === t;
+                  return (
+                    <TouchableOpacity
+                      key={t}
+                      style={[styles.bedroomBtn, isSel && styles.bedroomBtnActive]}
+                      onPress={() => {
+                        const newType = (isSel && t !== 'all') ? 'all' : t;
+                        setSelectedType(newType);
+                        setSelectedCategory(newType === 'all' ? 'All Properties' : newType);
+                      }}
+                    >
+                      <Text style={[styles.bedroomBtnText, isSel && styles.bedroomBtnTextActive]}>
+                        {t === 'all' ? 'All Types' : t}
+                      </Text>
+                      {isSel && t !== 'all' && (
+                        <Ionicons name="close-circle" size={12} color={OzaraTheme.colors.accentGold} style={{ marginLeft: 4 }} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </ScrollView>
 
@@ -1094,7 +1194,7 @@ export const InvestmentsScreen: React.FC = () => {
                 key={opt.key}
                 style={[styles.sortOptionRow, selectedSort === opt.key && styles.sortOptionRowActive]}
                 onPress={() => {
-                  setSelectedSort(opt.key as SortOption);
+                  setSelectedSort(selectedSort === opt.key ? 'newest' : (opt.key as SortOption));
                   setShowSortModal(false);
                 }}
               >
@@ -2198,6 +2298,10 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 2.5,
     backgroundColor: OzaraTheme.colors.accentGold,
+  },
+  pillClearBtn: {
+    marginLeft: 3,
+    padding: 1,
   },
   clearFiltersBtn: {
     paddingHorizontal: 8,

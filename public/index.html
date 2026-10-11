@@ -293,44 +293,53 @@
 
         <div class="filter-group">
           <span class="filter-label-text">Type:</span>
-          <select id="filterEventType" class="filter-select" onchange="filterEvents('type', this.value)">
-            <option value="all">All Types</option>
-            <option value="Summit">Summit</option>
-            <option value="Retreat">Retreat</option>
-            <option value="Trek">Trek</option>
-            <option value="Family">Family & Education</option>
-            <option value="Networking">Networking</option>
-          </select>
+          <div class="event-filter-select-wrap" id="wrapEventFilterType">
+            <select id="filterEventType" class="filter-select" onchange="filterEvents('type', this.value)">
+              <option value="all">All Types</option>
+              <option value="Summit">Summit</option>
+              <option value="Retreat">Retreat</option>
+              <option value="Trek">Trek</option>
+              <option value="Family">Family & Education</option>
+              <option value="Networking">Networking</option>
+            </select>
+            <button type="button" class="inv-dd-clear" id="clearFilterEventType" onclick="clearSpecificFilter('event_type', event)" title="Clear Type">✕</button>
+          </div>
         </div>
 
         <div class="filter-sep"></div>
 
         <div class="filter-group">
           <span class="filter-label-text">Destination:</span>
-          <select id="filterEventDest" class="filter-select" onchange="filterEvents('dest', this.value)">
-            <option value="all">All Destinations</option>
-            <option value="Miami">Miami</option>
-            <option value="Phuket">Phuket</option>
-            <option value="Silicon Valley">Silicon Valley</option>
-            <option value="Georgia">Georgia</option>
-            <option value="Barcelona">Barcelona</option>
-            <option value="Central Asia">Central Asia</option>
-            <option value="New York">New York & Boston</option>
-            <option value="Europe">Europe</option>
-          </select>
+          <div class="event-filter-select-wrap" id="wrapEventFilterDest">
+            <select id="filterEventDest" class="filter-select" onchange="filterEvents('dest', this.value)">
+              <option value="all">All Destinations</option>
+              <option value="Miami">Miami</option>
+              <option value="Phuket">Phuket</option>
+              <option value="Silicon Valley">Silicon Valley</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Barcelona">Barcelona</option>
+              <option value="Central Asia">Central Asia</option>
+              <option value="New York">New York & Boston</option>
+              <option value="Europe">Europe</option>
+            </select>
+            <button type="button" class="inv-dd-clear" id="clearFilterEventDest" onclick="clearSpecificFilter('event_dest', event)" title="Clear Destination">✕</button>
+          </div>
         </div>
 
         <div class="filter-sep"></div>
 
         <div class="filter-group">
           <span class="filter-label-text">Status:</span>
-          <select id="filterEventStatus" class="filter-select" onchange="filterEvents('status', this.value)">
-            <option value="all">All Statuses</option>
-            <option value="open">Open</option>
-            <option value="coming_soon">Coming Soon</option>
-            <option value="full">Full</option>
-            <option value="closed">Closed</option>
-          </select>
+          <div class="event-filter-select-wrap" id="wrapEventFilterStatus">
+            <select id="filterEventStatus" class="filter-select" onchange="filterEvents('status', this.value)">
+              <option value="all">All Statuses</option>
+              <option value="open">Open</option>
+              <option value="coming_soon">Coming Soon</option>
+              <option value="full">Full</option>
+              <option value="closed">Closed</option>
+            </select>
+            <button type="button" class="inv-dd-clear" id="clearFilterEventStatus" onclick="clearSpecificFilter('event_status', event)" title="Clear Status">✕</button>
+          </div>
         </div>
       </div>
 
@@ -482,7 +491,7 @@
           <div class="inv-filter-bar">
             <div class="inv-filter-group">
               <!-- Country -->
-              <div class="inv-dropdown-wrap">
+              <div class="inv-dropdown-wrap" id="wrapInvFilterCountry">
                 <span class="inv-dd-icon">📍</span>
                 <select id="invFilterCountry" class="inv-select" onchange="handleInvCountryChange(this.value)">
                   <option value="all">Country</option>
@@ -517,11 +526,12 @@
                   <option value="United States">United States</option>
                   <option value="Vietnam">Vietnam</option>
                 </select>
+                <button type="button" class="inv-dd-clear" id="clearInvFilterCountry" onclick="clearSpecificFilter('country', event)" title="Clear Country">✕</button>
                 <span class="inv-dd-chevron">⌄</span>
               </div>
 
               <!-- City (dependent on Country) -->
-              <div class="inv-dropdown-wrap">
+              <div class="inv-dropdown-wrap" id="wrapInvFilterCity">
                 <span class="inv-dd-icon">🏛</span>
                 <select id="invFilterCity" class="inv-select" onchange="handleInvFilterChange()">
                   <option value="all">City</option>
@@ -555,11 +565,12 @@
                   <option value="Yerevan">Yerevan</option>
                   <option value="Zanzibar">Zanzibar</option>
                 </select>
+                <button type="button" class="inv-dd-clear" id="clearInvFilterCity" onclick="clearSpecificFilter('city', event)" title="Clear City">✕</button>
                 <span class="inv-dd-chevron">⌄</span>
               </div>
 
               <!-- Budget -->
-              <div class="inv-dropdown-wrap">
+              <div class="inv-dropdown-wrap" id="wrapInvFilterBudget">
                 <span class="inv-dd-icon">💳</span>
                 <select id="invFilterBudget" class="inv-select" onchange="handleInvFilterChange()">
                   <option value="any">Budget</option>
@@ -569,11 +580,12 @@
                   <option value="1000000-3000000">$1M – $3M</option>
                   <option value="3000000-0">&gt; $3M</option>
                 </select>
+                <button type="button" class="inv-dd-clear" id="clearInvFilterBudget" onclick="clearSpecificFilter('budget', event)" title="Clear Budget">✕</button>
                 <span class="inv-dd-chevron">⌄</span>
               </div>
 
               <!-- Bedrooms -->
-              <div class="inv-dropdown-wrap">
+              <div class="inv-dropdown-wrap" id="wrapInvFilterBedrooms">
                 <span class="inv-dd-icon">🛏</span>
                 <select id="invFilterBedrooms" class="inv-select" onchange="handleInvFilterChange()">
                   <option value="any">Bedrooms</option>
@@ -584,11 +596,12 @@
                   <option value="5">5 bd</option>
                   <option value="6+">6+ bd</option>
                 </select>
+                <button type="button" class="inv-dd-clear" id="clearInvFilterBedrooms" onclick="clearSpecificFilter('bedrooms', event)" title="Clear Bedrooms">✕</button>
                 <span class="inv-dd-chevron">⌄</span>
               </div>
 
               <!-- Features (Canonical options: Ready, Instalments, Sea view, Furnished) -->
-              <div class="inv-dropdown-wrap">
+              <div class="inv-dropdown-wrap" id="wrapInvFilterFeatures">
                 <span class="inv-dd-icon">🎛</span>
                 <select id="invFilterFeatures" class="inv-select" onchange="handleInvFilterChange()">
                   <option value="">Features</option>
@@ -597,12 +610,13 @@
                   <option value="sea_view">Sea view</option>
                   <option value="furnished">Furnished</option>
                 </select>
+                <button type="button" class="inv-dd-clear" id="clearInvFilterFeatures" onclick="clearSpecificFilter('features', event)" title="Clear Features">✕</button>
                 <span class="inv-dd-chevron">⌄</span>
               </div>
             </div>
 
             <!-- Sorting on the right (Equal width, Best Match capitalized) -->
-            <div class="inv-sort-wrap">
+            <div class="inv-sort-wrap" id="wrapInvFilterSort">
               <span class="inv-dd-icon">⇅</span>
               <select id="invFilterSort" class="inv-select inv-select-sort" onchange="handleInvFilterChange()">
                 <option value="newest">Best Match</option>
@@ -610,6 +624,7 @@
                 <option value="price_desc">Price: High to Low</option>
                 <option value="title">Title: A to Z</option>
               </select>
+              <button type="button" class="inv-dd-clear" id="clearInvFilterSort" onclick="clearSpecificFilter('sort', event)" title="Reset to Best Match">✕</button>
               <span class="inv-dd-chevron">⌄</span>
             </div>
           </div>

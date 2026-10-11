@@ -901,6 +901,7 @@ function filterEvents(key, val, el) {
     el.classList.add('active');
   }
   renderCalendar();
+  if (typeof syncFilterClearButtons === 'function') syncFilterClearButtons();
 }
 
 function renderDateBlockHtml(e) {
@@ -1752,20 +1753,24 @@ function renderCompactCategoryStrip() {
 }
 
 function selectResultsCategory(categoryName) {
-  invSelectedCategory = categoryName;
+  if (invSelectedCategory === categoryName && categoryName !== 'All Properties' && categoryName !== 'all') {
+    invSelectedCategory = 'All Properties';
+  } else {
+    invSelectedCategory = categoryName;
+  }
 
   const typeSelect = document.getElementById('invFilterType');
   if (typeSelect) {
-    if (categoryName === 'All Properties' || categoryName === 'All Listings' || categoryName === 'all') {
+    if (invSelectedCategory === 'All Properties' || invSelectedCategory === 'All Listings' || invSelectedCategory === 'all') {
       typeSelect.value = 'all';
     } else {
-      typeSelect.value = categoryName;
+      typeSelect.value = invSelectedCategory;
     }
   }
 
   const breadcrumb = document.getElementById('activeCategoryBreadcrumb');
   if (breadcrumb) {
-    breadcrumb.textContent = (categoryName === 'All Properties' || categoryName === 'all') ? 'All Listings' : categoryName;
+    breadcrumb.textContent = (invSelectedCategory === 'All Properties' || invSelectedCategory === 'all') ? 'All Listings' : invSelectedCategory;
   }
 
   renderCompactCategoryStrip();
@@ -1820,7 +1825,8 @@ function updateCityOptions(countryVal, opts = invFilterOptions) {
   }
 
   if (cityList.length > 0) {
-    let optsHtml = '<option value="all">City</option>';
+    const isFiltered = curVal && curVal !== 'all';
+    let optsHtml = `<option value="all">${isFiltered ? '✕ Clear City' : 'City'}</option>`;
     cityList.forEach(c => {
       optsHtml += `<option value="${c}">${c}</option>`;
     });
@@ -1829,7 +1835,119 @@ function updateCityOptions(countryVal, opts = invFilterOptions) {
   }
 }
 
+function syncFilterClearButtons() {
+  const configs = [
+    { selId: 'invFilterCountry', wrapId: 'wrapInvFilterCountry', defaultVal: 'all', label: 'Country' },
+    { selId: 'invFilterCity', wrapId: 'wrapInvFilterCity', defaultVal: 'all', label: 'City' },
+    { selId: 'invFilterBudget', wrapId: 'wrapInvFilterBudget', defaultVal: 'any', label: 'Budget' },
+    { selId: 'invFilterBedrooms', wrapId: 'wrapInvFilterBedrooms', defaultVal: 'any', label: 'Bedrooms' },
+    { selId: 'invFilterFeatures', wrapId: 'wrapInvFilterFeatures', defaultVal: '', label: 'Features' },
+    { selId: 'invFilterSort', wrapId: 'wrapInvFilterSort', defaultVal: 'newest', label: 'Sort' },
+  ];
+
+  configs.forEach(cfg => {
+    const sel = document.getElementById(cfg.selId);
+    const wrap = document.getElementById(cfg.wrapId);
+    if (!sel || !wrap) return;
+    const isFiltered = sel.value && sel.value !== cfg.defaultVal;
+    if (isFiltered) {
+      wrap.classList.add('has-value');
+    } else {
+      wrap.classList.remove('has-value');
+    }
+
+    if (sel.options && sel.options.length > 0) {
+      const firstOpt = sel.options[0];
+      if (firstOpt.value === cfg.defaultVal) {
+        if (isFiltered) {
+          firstOpt.textContent = `✕ Clear ${cfg.label}`;
+        } else {
+          firstOpt.textContent = cfg.label === 'Sort' ? 'Best Match' : cfg.label;
+        }
+      }
+    }
+  });
+
+  const eventConfigs = [
+    { selId: 'filterEventType', wrapId: 'wrapEventFilterType', defaultVal: 'all', label: 'Type' },
+    { selId: 'filterEventDest', wrapId: 'wrapEventFilterDest', defaultVal: 'all', label: 'Destination' },
+    { selId: 'filterEventStatus', wrapId: 'wrapEventFilterStatus', defaultVal: 'all', label: 'Status' },
+  ];
+  eventConfigs.forEach(cfg => {
+    const sel = document.getElementById(cfg.selId);
+    const wrap = document.getElementById(cfg.wrapId);
+    if (!sel || !wrap) return;
+    const isFiltered = sel.value && sel.value !== cfg.defaultVal;
+    if (isFiltered) {
+      wrap.classList.add('has-value');
+    } else {
+      wrap.classList.remove('has-value');
+    }
+    if (sel.options && sel.options.length > 0) {
+      const firstOpt = sel.options[0];
+      if (firstOpt.value === cfg.defaultVal) {
+        if (isFiltered) {
+          firstOpt.textContent = `✕ Clear ${cfg.label}`;
+        } else {
+          firstOpt.textContent = `All ${cfg.label}s`;
+        }
+      }
+    }
+  });
+}
+
+function clearSpecificFilter(filterType, event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+
+  if (filterType === 'country') {
+    const el = document.getElementById('invFilterCountry');
+    if (el) el.value = 'all';
+    updateCityOptions('all', invFilterOptions);
+    const cityEl = document.getElementById('invFilterCity');
+    if (cityEl) cityEl.value = 'all';
+    handleInvFilterChange();
+  } else if (filterType === 'city') {
+    const el = document.getElementById('invFilterCity');
+    if (el) el.value = 'all';
+    handleInvFilterChange();
+  } else if (filterType === 'budget') {
+    const el = document.getElementById('invFilterBudget');
+    if (el) el.value = 'any';
+    handleInvFilterChange();
+  } else if (filterType === 'bedrooms') {
+    const el = document.getElementById('invFilterBedrooms');
+    if (el) el.value = 'any';
+    handleInvFilterChange();
+  } else if (filterType === 'features') {
+    const el = document.getElementById('invFilterFeatures');
+    if (el) el.value = '';
+    handleInvFilterChange();
+  } else if (filterType === 'sort') {
+    const el = document.getElementById('invFilterSort');
+    if (el) el.value = 'newest';
+    handleInvFilterChange();
+  } else if (filterType === 'event_type') {
+    const el = document.getElementById('filterEventType');
+    if (el) el.value = 'all';
+    filterEvents('type', 'all');
+  } else if (filterType === 'event_dest') {
+    const el = document.getElementById('filterEventDest');
+    if (el) el.value = 'all';
+    filterEvents('dest', 'all');
+  } else if (filterType === 'event_status') {
+    const el = document.getElementById('filterEventStatus');
+    if (el) el.value = 'all';
+    filterEvents('status', 'all');
+  }
+
+  syncFilterClearButtons();
+}
+
 function handleInvFilterChange() {
+  syncFilterClearButtons();
   fetchAndRenderCatalogListings();
   saveInvestmentState();
 }
@@ -1839,6 +1957,7 @@ function setupInvestmentDropdownClicks() {
     if (wrap.dataset.clicksBound) return;
     wrap.dataset.clicksBound = 'true';
     wrap.addEventListener('click', (e) => {
+      if (e.target.closest('.inv-dd-clear')) return;
       const sel = wrap.querySelector('select');
       if (sel && e.target !== sel) {
         if (typeof sel.showPicker === 'function') {
@@ -1876,11 +1995,14 @@ function clearAllInvestmentFilters() {
   renderCompactCategoryStrip();
   fetchAndRenderCatalogListings();
   saveInvestmentState();
+  syncFilterClearButtons();
 }
 
 window.handleInvCountryChange = handleInvCountryChange;
 window.handleInvFilterChange = handleInvFilterChange;
 window.clearAllInvestmentFilters = clearAllInvestmentFilters;
+window.clearSpecificFilter = clearSpecificFilter;
+window.syncFilterClearButtons = syncFilterClearButtons;
 window.updateCityOptions = updateCityOptions;
 window.setupInvestmentDropdownClicks = setupInvestmentDropdownClicks;
 
@@ -2018,7 +2140,8 @@ function populateFilterDropdownOptions(opts) {
   const countryEl = document.getElementById('invFilterCountry');
   if (countryEl && opts.countries && opts.countries.length) {
     const curVal = countryEl.value;
-    let html = '<option value="all">Country</option>';
+    const isFiltered = curVal && curVal !== 'all';
+    let html = `<option value="all">${isFiltered ? '✕ Clear Country' : 'Country'}</option>`;
     const uniqueCountries = Array.from(new Set(opts.countries.filter(Boolean))).sort();
     uniqueCountries.forEach(c => {
       html += `<option value="${c}">${c}</option>`;
@@ -2029,6 +2152,7 @@ function populateFilterDropdownOptions(opts) {
 
   updateCityOptions(countryEl ? countryEl.value : 'all', opts);
   setupInvestmentDropdownClicks();
+  syncFilterClearButtons();
 }
 
 function navigateCardPhoto(listingId, delta, event) {
