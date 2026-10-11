@@ -741,10 +741,9 @@ export const InvestmentsScreen: React.FC = () => {
                   style={[styles.filterPill, selectedCountry !== 'all' && styles.filterPillActive]}
                   onPress={() => setShowFilterModal(true)}
                 >
-                  <Ionicons
-                    name="options-outline"
-                    size={13}
-                    color={selectedCountry !== 'all' ? OzaraTheme.colors.accentGold : OzaraTheme.colors.textSecondary}
+                  <Image
+                    source={{ uri: `${API_BASE_URL}/investments/icons/filter_country.png` }}
+                    style={{ width: 16, height: 16, resizeMode: 'contain' }}
                   />
                   <Text
                     style={[
@@ -772,7 +771,10 @@ export const InvestmentsScreen: React.FC = () => {
 
                 {selectedCity !== 'all' && (
                   <View style={[styles.filterPill, styles.filterPillActive]}>
-                    <Ionicons name="business-outline" size={13} color={OzaraTheme.colors.accentGold} />
+                    <Image
+                      source={{ uri: `${API_BASE_URL}/investments/icons/filter_city.png` }}
+                      style={{ width: 16, height: 16, resizeMode: 'contain' }}
+                    />
                     <Text style={[styles.filterPillText, styles.filterPillTextActive]}>{selectedCity}</Text>
                     <TouchableOpacity
                       onPress={() => setSelectedCity('all')}
@@ -786,7 +788,10 @@ export const InvestmentsScreen: React.FC = () => {
 
                 {selectedBedrooms !== 'any' && (
                   <View style={[styles.filterPill, styles.filterPillActive]}>
-                    <Ionicons name="bed-outline" size={13} color={OzaraTheme.colors.accentGold} />
+                    <Image
+                      source={{ uri: `${API_BASE_URL}/investments/icons/filter_bedrooms.png` }}
+                      style={{ width: 16, height: 16, resizeMode: 'contain' }}
+                    />
                     <Text style={[styles.filterPillText, styles.filterPillTextActive]}>{selectedBedrooms} bd</Text>
                     <TouchableOpacity
                       onPress={() => setSelectedBedrooms('any')}
@@ -800,7 +805,10 @@ export const InvestmentsScreen: React.FC = () => {
 
                 {selectedType !== 'all' && (
                   <View style={[styles.filterPill, styles.filterPillActive]}>
-                    <Ionicons name="home-outline" size={13} color={OzaraTheme.colors.accentGold} />
+                    <Image
+                      source={{ uri: `${API_BASE_URL}/investments/icons/filter_features.png` }}
+                      style={{ width: 16, height: 16, resizeMode: 'contain' }}
+                    />
                     <Text style={[styles.filterPillText, styles.filterPillTextActive]}>{selectedType}</Text>
                     <TouchableOpacity
                       onPress={() => {
@@ -819,10 +827,9 @@ export const InvestmentsScreen: React.FC = () => {
                   style={[styles.filterPill, selectedSort !== 'newest' && styles.filterPillActive]}
                   onPress={() => setShowSortModal(true)}
                 >
-                  <Ionicons
-                    name="swap-vertical"
-                    size={13}
-                    color={selectedSort !== 'newest' ? OzaraTheme.colors.accentGold : OzaraTheme.colors.textSecondary}
+                  <Image
+                    source={{ uri: `${API_BASE_URL}/investments/icons/filter_sort.png` }}
+                    style={{ width: 16, height: 16, resizeMode: 'contain' }}
                   />
                   <Text
                     style={[
