@@ -1231,9 +1231,13 @@
         <!-- Main Image Gallery with Carousel Arrows & Thumbnails -->
         <div class="prop-gallery-wrapper">
           <div class="prop-main-photo-wrap">
-            <button class="gallery-nav-btn prev-btn" onclick="prevPropModalPhoto()">‹</button>
+            <button class="gallery-nav-btn prev-btn" onclick="prevPropModalPhoto()" title="Previous photo">
+              <img src="/investments/icons/arrow_left_glass.png" class="prop-carousel-arrow-glass" alt="‹">
+            </button>
             <img id="propModalMainPhoto" src="" alt="Property Photo">
-            <button class="gallery-nav-btn next-btn" onclick="nextPropModalPhoto()">›</button>
+            <button class="gallery-nav-btn next-btn" onclick="nextPropModalPhoto()" title="Next photo">
+              <img src="/investments/icons/arrow_right_glass.png" class="prop-carousel-arrow-glass" alt="›">
+            </button>
             <div id="propModalPhotoCount" class="photo-counter-badge">1 / 1</div>
           </div>
           <div id="propModalThumbnails" class="prop-thumbnails-row"></div>

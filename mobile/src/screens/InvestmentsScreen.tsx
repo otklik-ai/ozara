@@ -1276,6 +1276,38 @@ export const InvestmentsScreen: React.FC = () => {
                   cachePolicy="memory-disk"
                   priority="high"
                 />
+                {selectedListing.images && selectedListing.images.length > 1 && (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.carouselBtn, styles.carouselPrevBtn, { zIndex: 6 }]}
+                      onPress={() =>
+                        setActivePhotoIndex(
+                          (activePhotoIndex - 1 + selectedListing.images.length) % selectedListing.images.length
+                        )
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <Image
+                        source={{ uri: `${API_BASE_URL}/investments/icons/arrow_left_glass.png` }}
+                        style={{ width: 26, height: 26, resizeMode: 'contain' }}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.carouselBtn, styles.carouselNextBtn, { zIndex: 6 }]}
+                      onPress={() =>
+                        setActivePhotoIndex(
+                          (activePhotoIndex + 1) % selectedListing.images.length
+                        )
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <Image
+                        source={{ uri: `${API_BASE_URL}/investments/icons/arrow_right_glass.png` }}
+                        style={{ width: 26, height: 26, resizeMode: 'contain' }}
+                      />
+                    </TouchableOpacity>
+                  </>
+                )}
                 <View style={styles.galleryIndexBadge}>
                   <Text style={styles.galleryIndexText}>
                     {activePhotoIndex + 1} / {selectedListing.images ? selectedListing.images.length : 1}
@@ -2421,15 +2453,13 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(10, 14, 20, 0.32)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(10, 14, 20, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 5,
     shadowColor: '#00f2fe',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 5,
     elevation: 4,
   },
@@ -2880,7 +2910,7 @@ const styles = StyleSheet.create({
   },
   galleryPrimaryImage: {
     width: '100%',
-    height: 260,
+    height: 330,
     resizeMode: 'cover',
   },
   galleryIndexBadge: {

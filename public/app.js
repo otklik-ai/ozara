@@ -451,8 +451,8 @@ function renderCommunityFeed() {
                ontouchend="handleCarouselTouchEnd(event, '${post.id}')">
             <img src="${activePhoto.url}" alt="Post photo" class="community-carousel-img">
             ${hasMultiple ? `
-              <button type="button" class="carousel-arrow carousel-arrow-left" onclick="handleCommunityPhotoPrev('${post.id}')" title="Previous photo"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10H6M10 6l-4 4 4 4"/></svg></button>
-              <button type="button" class="carousel-arrow carousel-arrow-right" onclick="handleCommunityPhotoNext('${post.id}')" title="Next photo"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10h8M10 6l4 4-4 4"/></svg></button>
+              <button type="button" class="carousel-arrow carousel-arrow-left" onclick="handleCommunityPhotoPrev('${post.id}')" title="Previous photo"><img src="/investments/icons/arrow_left_glass.png" class="prop-carousel-arrow-glass" alt="‹"></button>
+              <button type="button" class="carousel-arrow carousel-arrow-right" onclick="handleCommunityPhotoNext('${post.id}')" title="Next photo"><img src="/investments/icons/arrow_right_glass.png" class="prop-carousel-arrow-glass" alt="›"></button>
               <div class="carousel-counter-badge">
                 <span>${curIdx + 1} / ${photoAttachments.length}</span>
               </div>
