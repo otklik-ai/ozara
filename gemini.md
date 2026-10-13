@@ -57,6 +57,22 @@
   - **Invitation Gate & 1:1 Email-Token Invariant**: Membership is strictly invite-only. Invitation tokens are bound 1:1 to a unique email address (`email TEXT UNIQUE`). Entering a valid token unlocks registration with that verified email pre-populated and locked. Prospective members without an invite may submit an Access Request routed to admins (`ermolov.elena@gmail.com`).
   - **Non-Blocking Access UX & Session Resumption**: Submitting an access request must never trap the user in an indefinite circling/waiting spinner. The app immediately redirects to the token insertion page (`check_token`) with a confirmation banner preserving their submitted email. User state (`appView`, `signup_step`, `conditions_agreed`, `pending_email`, `current_user_id`) is persisted cross-platform, allowing users to return directly to the exact spot where they left off without repeating intros or legal modals.
   - **Email-Delivered Token Entry Invariant**: Unique invitation tokens are delivered exclusively via email to approved applicants. When returning to the app, users must manually insert their token from their email into the token verification field; the app must never auto-reveal or bypass manual token entry.
+  - **Membership Request Review & Subscription Tier Invariant**:
+    - Admin notification emails are dispatched with subject format: `New request to join ÖZARA from ${cleanName || 'Candidate'}`.
+    - Approval emails link to the secure admin review page (`/api/admin/invitations/review?requestId=${id}&adminEmail=${adminEmail}`) where the admin selects the membership tier before approving.
+    - Two mutually exclusive radio buttons are presented:
+      - **Paid membership** — a subscription is required.
+      - **Complimentary membership** — free access, granted at the admin’s discretion.
+      Neither selected by default.
+    - Actions:
+      - **Approve**: Persists the selected membership option (`membership_tier = 'paid'` or `'complimentary'`), generates the official 1:1 token, and sends the invitation email. Approving without selecting a membership tier is strictly blocked.
+      - **Decline**: Declines the request without requiring a membership tier selection.
+    - **Onboarding Subscription Gate**:
+      - Paid members must complete subscription payment during onboarding before accessing member features (`tabs`).
+      - Complimentary members skip subscription payment and receive active access immediately after onboarding.
+    - **Admin-Only Visibility & Storage**:
+      - Membership tier is stored on the member's account (`membership_tier`, `subscription_status`).
+      - This setting is visible and editable strictly to administrators (`FOUNDER`, `ADMIN`) and never exposed to other members or non-admin profiles. Admins can adjust the tier via `PATCH /api/admin/members/:id/membership-tier`.
   - **Member Location Filtering Invariant**: Member directory searches and location filtering must strictly match members' saved residential locations (`m.city`, `m.country`, `m.state`, or Question 2 saved response). Filtering must never match chapter name or chapter affiliation. Members residing in Seattle (e.g. Elena Alexeeva `usr_muwksc1i`) must match Seattle/United States and never appear under Dubai.
   - **Community as Home Page & Unified Navigation Invariant**:
     - The top-level platform navigation across desktop and mobile is strictly ordered: **Community · Network · Events · Investments**.

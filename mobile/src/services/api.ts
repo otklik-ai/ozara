@@ -209,6 +209,8 @@ export interface UserProfile {
   zoom_link?: string | null;
   email?: string;
   phone?: string;
+  membership_tier?: 'paid' | 'complimentary';
+  subscription_status?: 'active' | 'pending_payment';
 }
 
 export type CommunityTopic = 'Question' | 'Introduction' | 'Expertise' | 'Opportunity';
@@ -1081,17 +1083,38 @@ export const ApiService = {
     requestId?: string;
     email?: string;
     approvedBy?: string;
+    membership_tier?: 'paid' | 'complimentary';
   }) =>
     request<{
       success: boolean;
       email: string;
       token: string;
       status: string;
+      membership_tier?: string;
       approvedBy: string;
       emailDispatched: boolean;
     }>('/api/admin/invitations/approve', {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+
+  updateMemberMembershipTier: (userId: string, tier: 'paid' | 'complimentary') =>
+    request<{
+      success: boolean;
+      member: any;
+    }>(`/api/admin/members/${encodeURIComponent(userId)}/membership-tier`, {
+      method: 'PATCH',
+      body: JSON.stringify({ membership_tier: tier }),
+    }),
+
+  activateMembershipSubscription: (userId?: string) =>
+    request<{
+      success: boolean;
+      user: any;
+      subscription_status: string;
+    }>('/api/membership/activate-subscription', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
     }),
 
   declineAccessRequest: (payload: {

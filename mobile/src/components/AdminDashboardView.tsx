@@ -20,6 +20,7 @@ import {
   Alert,
   Platform,
   Image,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { OzaraTheme } from '../constants/ozara-theme';
@@ -126,6 +127,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [revokingTokenId, setRevokingTokenId] = useState<string | null>(null);
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
   const [decliningRequestId, setDecliningRequestId] = useState<string | null>(null);
+  const [reviewingRequest, setReviewingRequest] = useState<any | null>(null);
+  const [reviewTier, setReviewTier] = useState<'paid' | 'complimentary' | null>(null);
+  const [reviewError, setReviewError] = useState<string>('');
 
   // -------------------------------------------------------------
   // 4. AUDIT LOGS STATE
@@ -154,12 +158,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const loadMembershipData = async () => {
     try {
       setLoading(true);
-      const [invites, requests] = await Promise.all([
+      const [invites, requests, membersRes] = await Promise.all([
         ApiService.getInvitations(),
         ApiService.getAccessRequests(),
+        ApiService.getMembers({ viewerId: adminId, limit: 150 }).catch(() => ({ members: [] })),
       ]);
       setInvitationsList(invites);
       setAccessRequestsList(requests);
+      if (membersRes && membersRes.members) {
+        setAllAdmittedMembers(membersRes.members);
+      }
     } catch (err: any) {
       console.warn('Error loading membership data:', err);
     } finally {
@@ -539,7 +547,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const handleApproveAccessRequest = async (requestId: string, email: string) => {
     try {
       setApprovingRequestId(requestId);
-      const res = await ApiService.approveAccessRequest({ requestId, email, approvedBy: adminId });
+      const res = await ApiService.approveAccessRequest({ requestId, email, approvedBy: adminId, membership_tier: 'paid' });
       loadMembershipData();
       const msg = `Request approved! Token ${res.token} generated and emailed to ${email}.`;
       if (Platform.OS === 'web') window.alert(msg);
@@ -548,6 +556,74 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       Alert.alert('Approval Error', err.message);
     } finally {
       setApprovingRequestId(null);
+    }
+  };
+
+  const handleConfirmApproval = async () => {
+    if (!reviewingRequest) return;
+    if (!reviewTier) {
+      setReviewError('Please select either Paid membership or Complimentary membership before approving.');
+      return;
+    }
+
+    try {
+      setApprovingRequestId(reviewingRequest.id);
+      const res = await ApiService.approveAccessRequest({
+        requestId: reviewingRequest.id,
+        email: reviewingRequest.email,
+        approvedBy: adminId,
+        membership_tier: reviewTier,
+      });
+      loadMembershipData();
+      const approvedEmail = reviewingRequest.email;
+      const approvedTier = reviewTier;
+      setReviewingRequest(null);
+      setReviewTier(null);
+      setReviewError('');
+      const msg = `Request approved as ${approvedTier.toUpperCase()} membership! Token ${res.token} generated and emailed to ${approvedEmail}.`;
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Approved', msg);
+    } catch (err: any) {
+      setReviewError(err.message || 'Approval failed.');
+      Alert.alert('Approval Error', err.message);
+    } finally {
+      setApprovingRequestId(null);
+    }
+  };
+
+  const handleModalDecline = async () => {
+    if (!reviewingRequest) return;
+    const req = reviewingRequest;
+    setReviewingRequest(null);
+    setReviewTier(null);
+    setReviewError('');
+    await handleDeclineAccessRequest(req.id, req.email);
+  };
+
+  const handleToggleMemberTier = async (member: any) => {
+    const currentTier = member.membership_tier === 'complimentary' ? 'complimentary' : 'paid';
+    const newTier: 'paid' | 'complimentary' = currentTier === 'complimentary' ? 'paid' : 'complimentary';
+    const confirmMsg = `Change ${member.full_name}'s membership from ${currentTier.toUpperCase()} to ${newTier.toUpperCase()}?`;
+
+    const doUpdate = async () => {
+      try {
+        await ApiService.updateMemberMembershipTier(member.id, newTier);
+        loadMembershipData();
+        const msg = `Updated ${member.full_name} to ${newTier} membership.`;
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Updated', msg);
+      } catch (e: any) {
+        Alert.alert('Error', e.message);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(confirmMsg)) doUpdate();
+    } else {
+      Alert.alert('Change Membership Tier', confirmMsg, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Change', onPress: doUpdate },
+      ]);
     }
   };
 
@@ -1351,11 +1427,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       <View style={styles.reqActionButtonsRow}>
                         <TouchableOpacity
                           style={styles.approveReqBtn}
-                          onPress={() => handleApproveAccessRequest(reqItem.id, reqItem.email)}
+                          onPress={() => {
+                            setReviewingRequest(reqItem);
+                            setReviewTier(null);
+                            setReviewError('');
+                          }}
                           disabled={approvingRequestId === reqItem.id}
                           activeOpacity={0.85}>
                           <Text style={styles.approveReqBtnText}>
-                            {approvingRequestId === reqItem.id ? 'Issuing...' : 'Approve & Issue Token'}
+                            {approvingRequestId === reqItem.id ? 'Issuing...' : 'Review & Approve'}
                           </Text>
                         </TouchableOpacity>
 
@@ -1372,6 +1452,53 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     )}
                   </View>
                 ))}
+              </View>
+            )}
+
+            {/* Admitted Members Directory & Subscription Tiers */}
+            {allAdmittedMembers.length > 0 && (
+              <View style={{ marginTop: 28 }}>
+                <Text style={styles.subSectionTitle}>
+                  Admitted Members &amp; Subscription Tiers ({allAdmittedMembers.length})
+                </Text>
+                <Text style={styles.subSectionDesc}>
+                  Setting is visible and editable strictly to administrators.
+                </Text>
+                {allAdmittedMembers.map((m) => {
+                  const isComplimentary = m.membership_tier === 'complimentary';
+                  return (
+                    <View key={m.id} style={styles.memberTierRow}>
+                      <Image source={{ uri: resolveImageUrl(m.avatar_url) }} style={styles.memberPickerAvatar} />
+                      <View style={{ flex: 1, marginHorizontal: 12 }}>
+                        <Text style={styles.memberPickerName}>{m.full_name}</Text>
+                        <Text style={styles.memberPickerHeadline} numberOfLines={1}>
+                          {m.headline || m.city || m.email}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.tierBadgeBtn,
+                          isComplimentary ? styles.tierBadgeComplimentary : styles.tierBadgePaid,
+                        ]}
+                        onPress={() => handleToggleMemberTier(m)}
+                        activeOpacity={0.8}>
+                        <Text
+                          style={[
+                            styles.tierBadgeText,
+                            isComplimentary ? styles.tierBadgeTextComplimentary : styles.tierBadgeTextPaid,
+                          ]}>
+                          {isComplimentary ? 'COMPLIMENTARY' : 'PAID'}
+                        </Text>
+                        <Ionicons
+                          name="swap-horizontal"
+                          size={13}
+                          color={isComplimentary ? '#34d399' : '#a78bfa'}
+                          style={{ marginLeft: 4 }}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -1740,6 +1867,146 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </View>
         </View>
       )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: REVIEW ACCESS REQUEST (PAID VS COMPLIMENTARY)                      */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={!!reviewingRequest}
+        animationType="fade"
+        transparent
+        onRequestClose={() => {
+          setReviewingRequest(null);
+          setReviewTier(null);
+          setReviewError('');
+        }}>
+        <View style={styles.reviewModalBackdrop}>
+          <View style={styles.reviewModalCard}>
+            <View style={styles.reviewModalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.reviewModalBadge}>ÖZARA MEMBERSHIP COMMITTEE</Text>
+                <Text style={styles.reviewModalTitle}>Review Membership Application</Text>
+                <Text style={styles.reviewModalSubtitle}>
+                  Configure membership terms and approve or decline the candidate.
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setReviewingRequest(null);
+                  setReviewTier(null);
+                  setReviewError('');
+                }}
+                style={styles.reviewModalCloseBtn}>
+                <Ionicons name="close" size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Candidate Details */}
+            <View style={styles.reviewCandidateBox}>
+              <Text style={styles.reviewCandidateName}>
+                {reviewingRequest?.full_name || 'Candidate'}
+              </Text>
+              <Text style={styles.reviewCandidateEmail}>
+                {reviewingRequest?.email}
+              </Text>
+              {!!reviewingRequest?.role_or_headline && (
+                <Text style={styles.reviewCandidateMeta}>
+                  {reviewingRequest?.role_or_headline}
+                </Text>
+              )}
+              {!!reviewingRequest?.what_brings_you && (
+                <Text style={styles.reviewCandidateNotes}>
+                  "{reviewingRequest?.what_brings_you}"
+                </Text>
+              )}
+            </View>
+
+            {/* Radio Buttons for Tier Selection */}
+            <Text style={styles.reviewTierLabel}>
+              SELECT MEMBERSHIP OPTION <Text style={{ color: '#ef4444' }}>*</Text>
+            </Text>
+            <Text style={styles.reviewTierHelp}>
+              Select one option before approving. Neither option is selected by default.
+            </Text>
+
+            {/* Radio 1: Paid membership */}
+            <TouchableOpacity
+              style={[
+                styles.reviewRadioCard,
+                reviewTier === 'paid' && styles.reviewRadioCardActive,
+              ]}
+              onPress={() => {
+                setReviewTier('paid');
+                setReviewError('');
+              }}
+              activeOpacity={0.85}>
+              <View style={[styles.radioCircle, reviewTier === 'paid' && styles.radioCircleActive]}>
+                {reviewTier === 'paid' && <View style={styles.radioDot} />}
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.radioOptionTitle}>Paid membership</Text>
+                <Text style={styles.radioOptionDesc}>A subscription is required.</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Radio 2: Complimentary membership */}
+            <TouchableOpacity
+              style={[
+                styles.reviewRadioCard,
+                reviewTier === 'complimentary' && styles.reviewRadioCardActive,
+              ]}
+              onPress={() => {
+                setReviewTier('complimentary');
+                setReviewError('');
+              }}
+              activeOpacity={0.85}>
+              <View style={[styles.radioCircle, reviewTier === 'complimentary' && styles.radioCircleActive]}>
+                {reviewTier === 'complimentary' && <View style={styles.radioDot} />}
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.radioOptionTitle}>Complimentary membership</Text>
+                <Text style={styles.radioOptionDesc}>
+                  Free access, granted at the admin’s discretion.
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {!!reviewError && (
+              <View style={styles.reviewErrorBanner}>
+                <Text style={styles.reviewErrorText}>{reviewError}</Text>
+              </View>
+            )}
+
+            {/* Actions: Approve & Decline */}
+            <View style={styles.reviewModalActionsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.reviewModalApproveBtn,
+                  approvingRequestId === reviewingRequest?.id && { opacity: 0.6 },
+                ]}
+                onPress={handleConfirmApproval}
+                disabled={approvingRequestId === reviewingRequest?.id}
+                activeOpacity={0.85}>
+                {approvingRequestId === reviewingRequest?.id ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.reviewModalApproveText}>
+                    ✓ Approve &amp; Send Invitation
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.reviewModalDeclineBtn}
+                onPress={handleModalDecline}
+                disabled={decliningRequestId === reviewingRequest?.id}
+                activeOpacity={0.85}>
+                <Text style={styles.reviewModalDeclineText}>Decline</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -2791,5 +3058,228 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 9.5,
     fontWeight: '800',
+  },
+  reviewModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(3, 7, 18, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  reviewModalCard: {
+    backgroundColor: '#0b1020',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    padding: 24,
+    maxWidth: 520,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+  },
+  reviewModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  reviewModalBadge: {
+    fontSize: 10,
+    letterSpacing: 2,
+    color: '#8b5cf6',
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  reviewModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  reviewModalSubtitle: {
+    fontSize: 12.5,
+    color: '#94a3b8',
+    lineHeight: 17,
+  },
+  reviewModalCloseBtn: {
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#111827',
+  },
+  reviewCandidateBox: {
+    backgroundColor: '#111827',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+    marginBottom: 18,
+  },
+  reviewCandidateName: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  reviewCandidateEmail: {
+    color: '#38bdf8',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  reviewCandidateMeta: {
+    color: '#94a3b8',
+    fontSize: 12.5,
+    marginTop: 4,
+  },
+  reviewCandidateNotes: {
+    color: '#cbd5e1',
+    fontSize: 12.5,
+    fontStyle: 'italic',
+    marginTop: 6,
+  },
+  reviewTierLabel: {
+    fontSize: 11,
+    letterSpacing: 1.5,
+    color: '#a78bfa',
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  reviewTierHelp: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginBottom: 12,
+    lineHeight: 16,
+  },
+  reviewRadioCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111827',
+    borderWidth: 1.5,
+    borderColor: '#1e293b',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  reviewRadioCardActive: {
+    borderColor: '#8b5cf6',
+    backgroundColor: 'rgba(139, 92, 246, 0.08)',
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#64748b',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioCircleActive: {
+    borderColor: '#8b5cf6',
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#8b5cf6',
+  },
+  radioOptionTitle: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  radioOptionDesc: {
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  reviewErrorBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: '#ef4444',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  reviewErrorText: {
+    color: '#fca5a5',
+    fontSize: 12,
+  },
+  reviewModalActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 16,
+  },
+  reviewModalApproveBtn: {
+    flex: 1,
+    backgroundColor: '#10b981',
+    borderRadius: 24,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewModalApproveText: {
+    color: '#ffffff',
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  reviewModalDeclineBtn: {
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewModalDeclineText: {
+    color: '#ef4444',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  memberTierRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#1e293b',
+  },
+  tierBadgeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  tierBadgePaid: {
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    borderColor: 'rgba(139, 92, 246, 0.4)',
+  },
+  tierBadgeComplimentary: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+  },
+  tierBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  tierBadgeTextPaid: {
+    color: '#c4b5fd',
+  },
+  tierBadgeTextComplimentary: {
+    color: '#34d399',
+  },
+  subSectionDesc: {
+    color: '#64748b',
+    fontSize: 12,
+    marginBottom: 12,
   },
 });

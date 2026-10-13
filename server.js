@@ -185,6 +185,20 @@ try {
   if (!userCols.includes('is_test')) {
     db.exec("ALTER TABLE users ADD COLUMN is_test BOOLEAN DEFAULT 0;");
   }
+  if (!userCols.includes('membership_tier')) {
+    db.exec("ALTER TABLE users ADD COLUMN membership_tier TEXT DEFAULT NULL;");
+    db.exec("UPDATE users SET membership_tier = 'complimentary' WHERE is_admitted = 1 AND membership_tier IS NULL;");
+  }
+  if (!userCols.includes('subscription_status')) {
+    db.exec("ALTER TABLE users ADD COLUMN subscription_status TEXT DEFAULT 'pending_payment';");
+    db.exec("UPDATE users SET subscription_status = 'active' WHERE is_admitted = 1;");
+  }
+
+  const inviteCols = db.prepare("PRAGMA table_info(invitation_tokens)").all().map(c => c.name);
+  if (!inviteCols.includes('membership_tier')) {
+    db.exec("ALTER TABLE invitation_tokens ADD COLUMN membership_tier TEXT DEFAULT NULL;");
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS member_connections (
       id TEXT PRIMARY KEY,
@@ -200,7 +214,7 @@ try {
     CREATE INDEX IF NOT EXISTS idx_connections_rec ON member_connections(recipient_id);
   `);
 } catch (e) {
-  console.warn('Error verifying columns on users/connections:', e.message);
+  console.warn('Error verifying columns on users/invitations/connections:', e.message);
 }
 
 app.use(cors());
@@ -2430,7 +2444,7 @@ app.get('/api/profile/:userId', (req, res) => {
 
   const user = db.prepare(`
     SELECT u.id, u.email, u.phone, u.zoom_link, u.full_name, u.headline, u.avatar_url, u.city, u.state, u.country, u.industry, u.contact_preference,
-           u.role, u.is_admitted, u.admitted_by, u.admitted_at, u.is_complete, c.name as chapter_name, c.id as chapter_id
+           u.role, u.is_admitted, u.admitted_by, u.admitted_at, u.is_complete, u.membership_tier, u.subscription_status, c.name as chapter_name, c.id as chapter_id
     FROM users u
     LEFT JOIN chapters c ON u.chapter_id = c.id
     WHERE u.id = ?
@@ -2539,6 +2553,8 @@ app.get('/api/profile/:userId', (req, res) => {
     email: canViewContact ? user.email : null,
     phone: canViewContact ? user.phone : null,
     zoom_link: canViewContact ? user.zoom_link : null,
+    membership_tier: (isFounder || isOwner) ? (user.membership_tier || 'paid') : undefined,
+    subscription_status: (isFounder || isOwner) ? (user.subscription_status || 'active') : undefined,
     connection_status,
     connection_id,
     can_view_contact: canViewContact,
@@ -4818,6 +4834,7 @@ app.post('/api/register', (req, res) => {
 
   // For new accounts, an approved invitation token is mandatory.
   // Validate and atomically claim it to prevent simultaneous race conditions or reuse.
+  let validatedInvite = null;
   if (token) {
     const cleanToken = token.trim();
     const invite = db.prepare("SELECT * FROM invitation_tokens WHERE UPPER(token) = UPPER(?) OR token = ?").get(cleanToken, cleanToken);
@@ -4850,6 +4867,7 @@ app.post('/api/register', (req, res) => {
     if (claimResult.changes === 0) {
       return res.status(400).json({ error: "This invitation code has already been claimed or is no longer valid." });
     }
+    validatedInvite = invite;
   } else {
     // If no token provided, check if user already exists
     const existingUserCheck = db.prepare("SELECT id FROM users WHERE LOWER(email) = ?").get(cleanEmail);
@@ -4857,6 +4875,9 @@ app.post('/api/register', (req, res) => {
       return res.status(400).json({ error: "A valid invitation code is required to create a new membership." });
     }
   }
+
+  const membershipTier = (validatedInvite && validatedInvite.membership_tier) ? validatedInvite.membership_tier : 'paid';
+  const subscriptionStatus = membershipTier === 'complimentary' ? 'active' : 'pending_payment';
 
   const finalAvatar = (avatar_url && avatar_url.trim()) ? avatar_url.trim() : null;
   const finalCountry = country || 'United Arab Emirates';
@@ -4880,11 +4901,16 @@ app.post('/api/register', (req, res) => {
           phone = COALESCE(?, phone),
           terms_accepted_version = COALESCE(?, terms_accepted_version),
           terms_accepted_at = COALESCE(?, terms_accepted_at),
-          biometrics_enabled = COALESCE(?, biometrics_enabled)
+          biometrics_enabled = COALESCE(?, biometrics_enabled),
+          membership_tier = COALESCE(?, membership_tier),
+          subscription_status = COALESCE(?, subscription_status)
       WHERE id = ?
     `).run(
       full_name, headline || existingUser.headline, finalAvatar, finalCountry, finalState, finalCity, finalIndustry, 
-      finalChapter, cleanPhone, termsVersion, termsAt, bioEnabled, existingUser.id
+      finalChapter, cleanPhone, termsVersion, termsAt, bioEnabled, 
+      validatedInvite ? membershipTier : null,
+      validatedInvite ? subscriptionStatus : null,
+      existingUser.id
     );
     const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(existingUser.id);
     const session = createSessionForUser(updated.id);
@@ -4906,13 +4932,15 @@ app.post('/api/register', (req, res) => {
         id, email, full_name, headline, avatar_url, chapter_id, city, state, country, industry, 
         contact_preference, role, is_admitted, admitted_by, is_complete, 
         accepted_access_conditions_version, accepted_access_conditions_at, 
-        terms_accepted_version, terms_accepted_at, biometrics_enabled, phone
+        terms_accepted_version, terms_accepted_at, biometrics_enabled, phone,
+        membership_tier, subscription_status
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'direct_contact', 'MEMBER', 1, 'Invitation-Token-Verified', 0, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'direct_contact', 'MEMBER', 1, 'Invitation-Token-Verified', 0, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       newId, cleanEmail, full_name, headline || '', finalAvatar, finalChapter, 
       finalCity, finalState, finalCountry, finalIndustry, conditionsVersion, now, 
-      termsVersion, termsAt, bioEnabled, cleanPhone
+      termsVersion, termsAt, bioEnabled, cleanPhone,
+      membershipTier, subscriptionStatus
     );
 
     // Seed 30 canonical question rows for newly registered user
@@ -4936,7 +4964,7 @@ app.post('/api/register', (req, res) => {
     recordAdminActivity({
       activityType: 'completed_onboarding',
       title: 'New Member Registered',
-      description: `${created.full_name} completed account registration.`,
+      description: `${created.full_name} completed account registration (${membershipTier} tier).`,
       actorId: created.id,
       entityType: 'user',
       entityId: created.id
@@ -4953,6 +4981,71 @@ app.post('/api/register', (req, res) => {
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+});
+
+// Admin-Only: Update Member Membership Tier (Paid vs Complimentary)
+app.patch('/api/admin/members/:id/membership-tier', requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const { membership_tier } = req.body;
+  if (!['paid', 'complimentary'].includes(membership_tier)) {
+    return res.status(400).json({ error: "Invalid membership tier. Must be 'paid' or 'complimentary'." });
+  }
+
+  const member = db.prepare("SELECT * FROM users WHERE id = ?").get(id);
+  if (!member) {
+    return res.status(404).json({ error: "Member not found." });
+  }
+
+  // If set to complimentary, activate immediately. If set to paid and not yet paid, set to pending_payment
+  const newSubStatus = (membership_tier === 'complimentary') 
+    ? 'active' 
+    : (member.subscription_status === 'active' ? 'active' : 'pending_payment');
+
+  db.prepare(`
+    UPDATE users 
+    SET membership_tier = ?, subscription_status = ? 
+    WHERE id = ?
+  `).run(membership_tier, newSubStatus, id);
+
+  const logId = 'audit_' + Math.random().toString(36).substring(2, 10);
+  db.prepare(`
+    INSERT INTO audit_logs (id, actor_id, action, target_member_id, question_id, ip_address, metadata_json)
+    VALUES (?, ?, 'update_membership_tier', ?, NULL, '127.0.0.1', ?)
+  `).run(logId, req.adminUser.id, id, JSON.stringify({
+    old_tier: member.membership_tier,
+    new_tier: membership_tier,
+    subscription_status: newSubStatus
+  }));
+
+  const updated = db.prepare("SELECT id, full_name, email, membership_tier, subscription_status FROM users WHERE id = ?").get(id);
+  res.json({ success: true, member: updated });
+});
+
+// Member Subscription Activation (During onboarding or subscription payment)
+app.post('/api/membership/activate-subscription', (req, res) => {
+  const viewerId = req.body.userId || req.body.user_id || req.headers['x-user-id'] || req.headers['authorization'];
+  if (!viewerId) return res.status(401).json({ error: "Authentication required to activate subscription." });
+  const cleanViewer = String(viewerId).startsWith('Bearer ') ? String(viewerId).slice(7).trim() : String(viewerId).trim();
+  const user = db.prepare("SELECT * FROM users WHERE id = ? OR LOWER(email) = ?").get(cleanViewer, cleanViewer.toLowerCase());
+  if (!user) return res.status(404).json({ error: "Member not found." });
+
+  db.prepare(`
+    UPDATE users
+    SET subscription_status = 'active'
+    WHERE id = ?
+  `).run(user.id);
+
+  recordAdminActivity({
+    activityType: 'subscription_payment',
+    title: 'Membership Subscription Activated',
+    description: `${user.full_name} (${user.email}) activated membership subscription.`,
+    actorId: user.id,
+    entityType: 'user',
+    entityId: user.id
+  });
+
+  const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+  res.json({ success: true, user: updated, subscription_status: 'active' });
 });
 
 // Configurable ÖZARA Legal Documents
@@ -5289,12 +5382,13 @@ app.post('/api/invitations/request-access', (req, res) => {
   console.log(`\n======================================================`);
   console.log(`[EMAIL DISPATCH TO ADMINS]`);
   console.log(`To: ermolov.elena@gmail.com`);
-  console.log(`Subject: [ÖZARA Access Request] New application from ${cleanName || 'Candidate'} (${cleanEmail})`);
+  console.log(`Subject: New request to join ÖZARA from ${cleanName || 'Candidate'}`);
   console.log(`LinkedIn / Background: ${cleanLinkedin || 'Not specified'}`);
   console.log(`What brings you to ÖZARA: ${cleanWhatBringsYou || 'Not specified'}`);
   console.log(`======================================================\n`);
 
-  const magicApprovalUrl = `http://localhost:3000/api/admin/invitations/magic-approve?requestId=${id}&adminEmail=ermolov.elena@gmail.com`;
+  const baseUrl = process.env.PUBLIC_APP_URL || process.env.BASE_URL || `${req.protocol}://${req.get('host') || 'localhost:3000'}`;
+  const reviewUrl = `${baseUrl}/api/admin/invitations/review?requestId=${id}&adminEmail=ermolov.elena@gmail.com`;
 
   const isNewRequest = !existingInvite;
   const isTestCandidate = req.headers['x-test-suite'] === 'true' ||
@@ -5307,8 +5401,8 @@ app.post('/api/invitations/request-access', (req, res) => {
     for (const adminEmail of adminRecipients) {
       sendEmailNotification({
         to: adminEmail,
-        subject: `[ÖZARA Access Request] New application from ${cleanName || 'Candidate'} (${cleanEmail})`,
-        text: `New membership application received for ÖZARA.\n\nApplicant: ${cleanName}\nEmail: ${cleanEmail}\nLinkedIn / Background: ${cleanLinkedin || 'Not specified'}\nWhat brings them: ${cleanWhatBringsYou || 'Not specified'}\n\nTo approve this applicant and issue their 1:1 invitation token, click:\n${magicApprovalUrl}`,
+        subject: `New request to join ÖZARA from ${cleanName || 'Candidate'}`,
+        text: `New membership application received for ÖZARA.\n\nApplicant: ${cleanName || 'Not specified'}\nEmail: ${cleanEmail}\nLinkedIn / Background: ${cleanLinkedin || 'Not specified'}\nWhat brings them: ${cleanWhatBringsYou || 'Not specified'}\n\nTo review this applicant and select their membership tier (Paid vs. Complimentary), click:\n${reviewUrl}`,
         html: `
           <div style="font-family: Arial, sans-serif; background: #0b1020; color: #ffffff; padding: 28px; border-radius: 12px; max-width: 520px;">
             <h2 style="color: #ffffff; letter-spacing: 3px; margin-top: 0;">ÖZARA MEMBERSHIP COMMITTEE</h2>
@@ -5320,8 +5414,8 @@ app.post('/api/invitations/request-access', (req, res) => {
               <p style="margin: 6px 0; font-size: 14px;"><strong>What brings them:</strong> ${cleanWhatBringsYou || 'Not specified'}</p>
             </div>
             <div style="margin-top: 24px;">
-              <a href="${magicApprovalUrl}" style="display: inline-block; background: #10b981; color: #ffffff; font-weight: bold; text-decoration: none; padding: 14px 28px; border-radius: 28px; font-size: 14px;">
-                ✓ Approve Request & Issue Token
+              <a href="${reviewUrl}" style="display: inline-block; background: #8b5cf6; color: #ffffff; font-weight: bold; text-decoration: none; padding: 14px 28px; border-radius: 28px; font-size: 14px; letter-spacing: 0.5px;">
+                Review Membership Application →
               </a>
             </div>
           </div>
@@ -5483,7 +5577,7 @@ app.post('/api/admin/invitations/revoke', (req, res) => {
 
 // Admin approval of access request -> generates official token & notifies applicant
 // Core Access Approval Execution Logic
-function executeAccessApproval({ requestId, email, approvedBy }) {
+function executeAccessApproval({ requestId, email, approvedBy, membershipTier }) {
   if (!approvedBy) {
     return { success: false, status: 401, message: "Authentication required: Missing approving administrator." };
   }
@@ -5532,13 +5626,22 @@ function executeAccessApproval({ requestId, email, approvedBy }) {
     };
   }
 
+  const finalTier = (membershipTier === 'complimentary' || membershipTier === 'paid')
+    ? membershipTier
+    : (record.membership_tier || 'paid');
+
   // If already approved, return current token
   if (record.status === 'approved' && record.token && !record.token.startsWith('PENDING-')) {
+    if (membershipTier && membershipTier !== record.membership_tier) {
+      db.prepare("UPDATE invitation_tokens SET membership_tier = ? WHERE id = ?").run(finalTier, record.id);
+      db.prepare("UPDATE users SET membership_tier = ? WHERE LOWER(email) = ?").run(finalTier, record.email.toLowerCase());
+    }
     return {
       success: true,
       alreadyApproved: true,
       record,
       token: record.token,
+      membership_tier: finalTier,
       approverEmail: record.approved_by || cleanApprover
     };
   }
@@ -5550,9 +5653,9 @@ function executeAccessApproval({ requestId, email, approvedBy }) {
 
   db.prepare(`
     UPDATE invitation_tokens
-    SET token = ?, status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP, expires_at = ?
+    SET token = ?, status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP, expires_at = ?, membership_tier = ?
     WHERE id = ?
-  `).run(officialToken, approverEmail, expiresAt, record.id);
+  `).run(officialToken, approverEmail, expiresAt, finalTier, record.id);
 
   // Log to immutable audit log
   const logId = 'audit_' + Math.random().toString(36).substring(2, 10);
@@ -5562,6 +5665,7 @@ function executeAccessApproval({ requestId, email, approvedBy }) {
   `).run(logId, adminUser ? adminUser.id : approverEmail, record.id, JSON.stringify({ 
     applicant_email: record.email, 
     token: officialToken,
+    membership_tier: finalTier,
     approved_by: approverEmail 
   }));
 
@@ -5570,18 +5674,31 @@ function executeAccessApproval({ requestId, email, approvedBy }) {
   console.log(`To: ${record.email}`);
   console.log(`From: ermolov.elena@gmail.com (ÖZARA Membership Committee)`);
   console.log(`Subject: Your ÖZARA Membership Invitation Token: ${officialToken}`);
-  console.log(`Body: Dear ${record.full_name || 'Member'}, your request for ÖZARA membership has been approved by Elena Ermolov.`);
+  console.log(`Membership Option: ${finalTier === 'complimentary' ? 'Complimentary Membership' : 'Paid Membership'}`);
+  console.log(`Body: Dear ${record.full_name || 'Member'}, your request for ÖZARA membership has been approved.`);
   console.log(`Your invitation token is: ${officialToken}`);
   console.log(`Open the ÖZARA mobile app and insert this token to complete your registration.`);
   console.log(`======================================================\n`);
 
   const isTestCandidate = isSuppressedEmail(record.email);
 
+  const tierEmailHighlight = finalTier === 'complimentary'
+    ? `<div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 12px 16px; margin: 16px 0; font-size: 13px; color: #34d399;">
+        <strong>Complimentary Membership Granted:</strong> You have been invited with full complimentary access. You will skip subscription payment during onboarding.
+       </div>`
+    : `<div style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 12px 16px; margin: 16px 0; font-size: 13px; color: #c4b5fd;">
+        <strong>Paid Membership:</strong> Your membership requires an active subscription, which you will complete during onboarding in the app before accessing member features.
+       </div>`;
+
+  const tierTextHighlight = finalTier === 'complimentary'
+    ? 'You have been granted Complimentary Membership (free access).'
+    : 'Your membership requires an annual subscription, which you will complete during onboarding.';
+
   if (!isTestCandidate) {
     sendEmailNotification({
       to: record.email,
       subject: `Your ÖZARA Membership Invitation Token: ${officialToken}`,
-      text: `Dear ${record.full_name || 'Member'},\n\nYour request for ÖZARA membership has been approved.\n\nYour unique 1:1 invitation token is: ${officialToken}\n\nPlease open the ÖZARA mobile app and insert this token to complete your registration.`,
+      text: `Dear ${record.full_name || 'Member'},\n\nYour request for ÖZARA membership has been approved.\n\n${tierTextHighlight}\n\nYour unique 1:1 invitation token is: ${officialToken}\n\nPlease open the ÖZARA mobile app and insert this token to complete your registration.`,
       html: `
         <div style="font-family: Arial, sans-serif; background: #0b1020; color: #ffffff; padding: 32px 28px; border-radius: 14px; max-width: 520px; border: 1px solid rgba(255,255,255,0.08);">
           <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px; margin-bottom: 20px;">
@@ -5589,7 +5706,8 @@ function executeAccessApproval({ requestId, email, approvedBy }) {
             <span style="font-size: 10px; color: #a78bfa; letter-spacing: 2px; font-weight: 700; text-transform: uppercase;">PRIVATE CLUB</span>
           </div>
           <p style="color: #10b981; font-weight: bold; font-size: 16px; margin: 0 0 10px 0;">Membership Approved</p>
-          <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">Dear ${record.full_name || 'Member'}, your request for ÖZARA membership has been approved.</p>
+          <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6; margin: 0 0 16px 0;">Dear ${record.full_name || 'Member'}, your request for ÖZARA membership has been approved.</p>
+          ${tierEmailHighlight}
           <div style="background: #111827; padding: 22px; border-radius: 10px; margin: 20px 0; border: 1.5px solid #7c3aed; text-align: center;">
             <p style="color: #a78bfa; font-size: 11px; margin: 0 0 8px 0; letter-spacing: 2px; font-weight: bold; text-transform: uppercase;">YOUR INVITATION TOKEN</p>
             <p style="font-size: 28px; font-weight: 900; margin: 0; color: #ffffff; letter-spacing: 4px; font-family: monospace;">${officialToken}</p>
@@ -5613,6 +5731,7 @@ function executeAccessApproval({ requestId, email, approvedBy }) {
     email: record.email,
     record,
     token: officialToken,
+    membership_tier: finalTier,
     approverEmail,
     emailDispatched: true
   };
@@ -5620,21 +5739,475 @@ function executeAccessApproval({ requestId, email, approvedBy }) {
 
 // Admin approval of access request -> generates official token & notifies applicant
 app.post(['/api/admin/invitations/approve', '/api/admin/access-requests/approve'], (req, res) => {
-  const { requestId, email, approvedBy, adminEmail, admin_email } = req.body;
+  const { requestId, email, approvedBy, adminEmail, admin_email, membership_tier, membershipTier } = req.body;
   const approver = approvedBy || adminEmail || admin_email;
-  const result = executeAccessApproval({ requestId, email, approvedBy: approver });
+  const tier = membership_tier || membershipTier;
+  const result = executeAccessApproval({ requestId, email, approvedBy: approver, membershipTier: tier });
   if (!result.success) {
     return res.status(result.status || 400).json(result);
   }
   return res.json(result);
 });
 
-// One-Click Magic Approval Link (from Elena's notification email or browser tab)
-app.get('/api/admin/invitations/magic-approve', (req, res) => {
-  const { requestId, adminEmail } = req.query;
+// Secure Admin Membership Request Review Page (Linked from approval emails)
+app.get('/api/admin/invitations/review', (req, res) => {
+  const { requestId, id, email, adminEmail } = req.query;
+  const targetId = requestId || id;
   const approver = adminEmail || 'ermolov.elena@gmail.com';
-  const result = executeAccessApproval({ requestId, approvedBy: approver });
 
+  let record = null;
+  if (targetId) {
+    record = db.prepare("SELECT * FROM invitation_tokens WHERE id = ?").get(targetId);
+  } else if (email) {
+    record = db.prepare("SELECT * FROM invitation_tokens WHERE LOWER(email) = ? ORDER BY created_at DESC LIMIT 1").get(email.trim().toLowerCase());
+  }
+
+  if (!record) {
+    return res.status(404).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>ÖZARA — Application Not Found</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+      </head>
+      <body style="background: #060913; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;">
+        <div style="background: #0b1020; border: 1px solid #ef4444; border-radius: 16px; max-width: 480px; width: 100%; padding: 36px 30px; text-align: center;">
+          <h2 style="color: #ef4444; margin: 0 0 12px 0;">Application Not Found</h2>
+          <p style="color: #94a3b8; font-size: 14px; margin: 0 0 24px 0;">The requested membership application could not be located.</p>
+          <a href="http://localhost:8081" style="color: #a78bfa; text-decoration: none; font-size: 14px; font-weight: 600;">← Return to App</a>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+
+  const isApproved = record.status === 'approved';
+  const isDeclined = record.status === 'declined';
+  const isPending = !isApproved && !isDeclined;
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <title>ÖZARA — Membership Request Review</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+        * { box-sizing: border-box; }
+        body {
+          background: #060913;
+          color: #ffffff;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          margin: 0;
+          padding: 24px 16px;
+        }
+        .review-card {
+          background: #0b1020;
+          border: 1px solid #1e293b;
+          border-radius: 20px;
+          max-width: 540px;
+          width: 100%;
+          padding: 36px 32px;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+        }
+        .badge {
+          font-size: 11px;
+          letter-spacing: 3px;
+          color: #8b5cf6;
+          font-weight: 800;
+          text-transform: uppercase;
+          margin-bottom: 8px;
+        }
+        .title {
+          font-size: 22px;
+          font-weight: 800;
+          margin: 0 0 8px 0;
+          color: #ffffff;
+        }
+        .subtitle {
+          color: #94a3b8;
+          font-size: 14px;
+          margin: 0 0 22px 0;
+          line-height: 1.5;
+        }
+        .info-box {
+          background: #111827;
+          border-radius: 12px;
+          padding: 18px 20px;
+          text-align: left;
+          margin-bottom: 24px;
+          border: 1px solid #1e293b;
+        }
+        .info-row {
+          margin-bottom: 8px;
+          font-size: 14px;
+          color: #94a3b8;
+        }
+        .info-row:last-child {
+          margin-bottom: 0;
+        }
+        .info-val {
+          color: #ffffff;
+          font-weight: 600;
+        }
+        .radio-option {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+          background: #111827;
+          border: 1.5px solid #1e293b;
+          border-radius: 12px;
+          padding: 16px 18px;
+          margin-bottom: 12px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .radio-option:hover {
+          border-color: #3b82f6;
+          background: #131d33;
+        }
+        .radio-option.selected {
+          border-color: #8b5cf6;
+          background: rgba(139, 92, 246, 0.08);
+        }
+        .radio-input {
+          margin-top: 3px;
+          accent-color: #8b5cf6;
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+        }
+        .radio-title {
+          font-weight: 700;
+          color: #ffffff;
+          font-size: 14.5px;
+        }
+        .radio-desc {
+          color: #94a3b8;
+          font-size: 13px;
+          margin-top: 3px;
+          line-height: 1.4;
+        }
+        .btn-approve {
+          background: #10b981;
+          color: #ffffff;
+          font-weight: 700;
+          border: none;
+          padding: 14px 26px;
+          border-radius: 28px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          flex: 1;
+          min-width: 180px;
+        }
+        .btn-approve:hover {
+          background: #059669;
+        }
+        .btn-decline {
+          background: transparent;
+          color: #ef4444;
+          border: 1.5px solid rgba(239, 68, 68, 0.45);
+          padding: 14px 22px;
+          border-radius: 28px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .btn-decline:hover {
+          background: rgba(239, 68, 68, 0.1);
+          border-color: #ef4444;
+        }
+        .error-banner {
+          display: none;
+          background: rgba(239, 68, 68, 0.12);
+          border: 1px solid #ef4444;
+          color: #fca5a5;
+          padding: 12px 16px;
+          border-radius: 10px;
+          font-size: 13px;
+          margin-bottom: 18px;
+          text-align: left;
+          line-height: 1.4;
+        }
+        .status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 14px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+        .status-pill.approved {
+          background: rgba(16, 185, 129, 0.15);
+          color: #10b981;
+          border: 1px solid #10b981;
+        }
+        .status-pill.declined {
+          background: rgba(239, 68, 68, 0.15);
+          color: #ef4444;
+          border: 1px solid #ef4444;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="review-card">
+        <div class="badge">ÖZARA MEMBERSHIP COMMITTEE</div>
+        <h1 class="title">${isApproved ? 'Request Approved' : isDeclined ? 'Request Declined' : 'Membership Request Review'}</h1>
+        <p class="subtitle">
+          ${isApproved 
+            ? 'This applicant has been approved and issued an official invitation token.' 
+            : isDeclined 
+              ? 'This applicant was reviewed and declined.' 
+              : 'Review applicant details and select their membership terms before approving.'}
+        </p>
+
+        <!-- Candidate Details -->
+        <div class="info-box">
+          <div class="info-row">
+            Applicant: <span class="info-val">${record.full_name || 'Not specified'}</span>
+          </div>
+          <div class="info-row">
+            Business Email: <span class="info-val" style="color: #38bdf8;">${record.email}</span>
+          </div>
+          <div class="info-row">
+            LinkedIn / Background: <span class="info-val">${record.linkedin_or_background || 'Not specified'}</span>
+          </div>
+          <div class="info-row">
+            What brings them: <span class="info-val">${record.what_brings_you || 'Not specified'}</span>
+          </div>
+          ${record.created_at ? `<div class="info-row" style="color: #64748b; font-size: 12px; margin-top: 8px;">Submitted: ${new Date(record.created_at).toLocaleString()}</div>` : ''}
+        </div>
+
+        ${isApproved ? `
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 20px; text-align: left; margin-bottom: 22px;">
+            <div style="margin-bottom: 8px; font-size: 13.5px; color: #94a3b8;">
+              Status: <span class="status-pill approved">✓ Approved</span>
+            </div>
+            <div style="margin-bottom: 8px; font-size: 13.5px; color: #94a3b8;">
+              Membership Tier: <strong style="color: #ffffff;">${record.membership_tier === 'complimentary' ? 'Complimentary Membership (Free Access)' : 'Paid Membership (Subscription Required)'}</strong>
+            </div>
+            <div style="margin-bottom: 8px; font-size: 13.5px; color: #94a3b8;">
+              Official Token: <span style="color: #c4b5fd; font-family: monospace; font-weight: 700; letter-spacing: 1px;">${record.token}</span>
+            </div>
+            <div style="font-size: 12.5px; color: #64748b;">
+              Approved by: ${record.approved_by || approver} ${record.approved_at ? 'on ' + new Date(record.approved_at).toLocaleString() : ''}
+            </div>
+          </div>
+          <p style="color: #64748b; font-size: 13px; margin: 0; text-align: center;">
+            The applicant has received their invitation code via email. You may close this window.
+          </p>
+        ` : isDeclined ? `
+          <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 20px; text-align: left; margin-bottom: 22px;">
+            <div style="font-size: 13.5px; color: #94a3b8;">
+              Status: <span class="status-pill declined">✕ Declined</span>
+            </div>
+          </div>
+          <p style="color: #64748b; font-size: 13px; margin: 0; text-align: center;">
+            This request has been declined. You may close this window.
+          </p>
+        ` : `
+          <!-- Pending Review Form -->
+          <div style="text-align: left; margin-bottom: 20px;">
+            <div style="font-size: 12px; font-weight: 700; color: #a78bfa; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;">
+              Select Membership Option <span style="color: #ef4444;">*</span>
+            </div>
+
+            <!-- Radio 1: Paid membership -->
+            <label class="radio-option" id="opt-paid">
+              <input type="radio" name="membership_tier" value="paid" class="radio-input" onchange="updateRadioSelection()">
+              <div>
+                <div class="radio-title">Paid membership</div>
+                <div class="radio-desc">A subscription is required.</div>
+              </div>
+            </label>
+
+            <!-- Radio 2: Complimentary membership -->
+            <label class="radio-option" id="opt-complimentary">
+              <input type="radio" name="membership_tier" value="complimentary" class="radio-input" onchange="updateRadioSelection()">
+              <div>
+                <div class="radio-title">Complimentary membership</div>
+                <div class="radio-desc">Free access, granted at the admin’s discretion.</div>
+              </div>
+            </label>
+          </div>
+
+          <div id="errorBanner" class="error-banner"></div>
+
+          <div style="display: flex; gap: 12px; justify-content: center; align-items: center; margin-top: 24px; flex-wrap: wrap;">
+            <button id="approveBtn" type="button" class="btn-approve" onclick="submitDecision('approve')">
+              ✓ Approve &amp; Send Invitation
+            </button>
+            <button id="declineBtn" type="button" class="btn-decline" onclick="submitDecision('decline')">
+              Decline Request
+            </button>
+          </div>
+
+          <script>
+            function updateRadioSelection() {
+              const radios = document.querySelectorAll('input[name="membership_tier"]');
+              radios.forEach(r => {
+                const label = document.getElementById('opt-' + r.value);
+                if (label) {
+                  if (r.checked) {
+                    label.classList.add('selected');
+                  } else {
+                    label.classList.remove('selected');
+                  }
+                }
+              });
+              const banner = document.getElementById('errorBanner');
+              if (banner) banner.style.display = 'none';
+            }
+
+            function submitDecision(action) {
+              const banner = document.getElementById('errorBanner');
+              banner.style.display = 'none';
+
+              let selectedTier = null;
+              if (action === 'approve') {
+                const checked = document.querySelector('input[name="membership_tier"]:checked');
+                if (!checked) {
+                  banner.textContent = 'Please select either Paid membership or Complimentary membership before approving.';
+                  banner.style.display = 'block';
+                  return;
+                }
+                selectedTier = checked.value;
+              } else if (action === 'decline') {
+                if (!confirm('Are you sure you want to decline this applicant?')) {
+                  return;
+                }
+              }
+
+              const approveBtn = document.getElementById('approveBtn');
+              const declineBtn = document.getElementById('declineBtn');
+              approveBtn.disabled = true;
+              declineBtn.disabled = true;
+              approveBtn.style.opacity = '0.5';
+              declineBtn.style.opacity = '0.5';
+              approveBtn.textContent = action === 'approve' ? 'Approving...' : '✓ Approve & Send Invitation';
+              declineBtn.textContent = action === 'decline' ? 'Declining...' : 'Decline Request';
+
+              fetch('/api/admin/invitations/review/decision', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  requestId: '${record.id}',
+                  adminEmail: '${approver}',
+                  action: action,
+                  membership_tier: selectedTier
+                })
+              })
+              .then(res => res.json())
+              .then(data => {
+                if (!data.success) {
+                  banner.textContent = data.message || 'Operation could not be completed.';
+                  banner.style.display = 'block';
+                  approveBtn.disabled = false;
+                  declineBtn.disabled = false;
+                  approveBtn.style.opacity = '1';
+                  declineBtn.style.opacity = '1';
+                  approveBtn.textContent = '✓ Approve & Send Invitation';
+                  declineBtn.textContent = 'Decline Request';
+                } else {
+                  window.location.reload();
+                }
+              })
+              .catch(err => {
+                banner.textContent = 'Network or server error. Please try again.';
+                banner.style.display = 'block';
+                approveBtn.disabled = false;
+                declineBtn.disabled = false;
+                approveBtn.style.opacity = '1';
+                declineBtn.style.opacity = '1';
+                approveBtn.textContent = '✓ Approve & Send Invitation';
+                declineBtn.textContent = 'Decline Request';
+              });
+            }
+          </script>
+        `}
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+// Admin Review Decision Submission (Approve with tier, or Decline without tier)
+app.post('/api/admin/invitations/review/decision', (req, res) => {
+  const { requestId, email, adminEmail, approvedBy, action, membership_tier, reason } = req.body;
+  const approver = approvedBy || adminEmail || 'ermolov.elena@gmail.com';
+
+  if (action === 'decline') {
+    let record = null;
+    if (requestId) {
+      record = db.prepare("SELECT * FROM invitation_tokens WHERE id = ?").get(requestId);
+    } else if (email) {
+      record = db.prepare("SELECT * FROM invitation_tokens WHERE LOWER(email) = ?").get(email.trim().toLowerCase());
+    }
+
+    if (!record) {
+      return res.status(404).json({ success: false, message: "Access request not found." });
+    }
+
+    db.prepare("UPDATE invitation_tokens SET status = 'declined' WHERE id = ?").run(record.id);
+
+    const logId = 'audit_' + Math.random().toString(36).substring(2, 10);
+    db.prepare(`
+      INSERT INTO audit_logs (id, actor_id, action, target_member_id, question_id, ip_address, metadata_json)
+      VALUES (?, ?, 'decline_access_request', ?, NULL, '127.0.0.1', ?)
+    `).run(logId, approver, record.id, JSON.stringify({ 
+      applicant_email: record.email, 
+      declined_by: approver,
+      reason: reason || 'Declined during review'
+    }));
+
+    return res.json({ success: true, status: 'declined', message: "Access request declined." });
+  }
+
+  if (action === 'approve') {
+    if (!membership_tier || !['paid', 'complimentary'].includes(membership_tier)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Please select either Paid membership or Complimentary membership before approving." 
+      });
+    }
+
+    const result = executeAccessApproval({ 
+      requestId, 
+      email, 
+      approvedBy: approver,
+      membershipTier: membership_tier
+    });
+
+    if (!result.success) {
+      return res.status(result.status || 400).json(result);
+    }
+    return res.json(result);
+  }
+
+  return res.status(400).json({ success: false, message: "Invalid action specified." });
+});
+
+// One-Click Magic Approval Link (Redirects to Review Page or processes if tier provided)
+app.get('/api/admin/invitations/magic-approve', (req, res) => {
+  const { requestId, adminEmail, membership_tier } = req.query;
+  const approver = adminEmail || 'ermolov.elena@gmail.com';
+
+  if (!membership_tier) {
+    // Redirect to review page so admin selects the membership tier
+    return res.redirect(`/api/admin/invitations/review?requestId=${encodeURIComponent(requestId || '')}&adminEmail=${encodeURIComponent(approver)}`);
+  }
+
+  const result = executeAccessApproval({ requestId, approvedBy: approver, membershipTier: membership_tier });
   if (!result.success) {
     return res.status(result.status || 400).send(`
       <!DOCTYPE html>
@@ -5647,60 +6220,14 @@ app.get('/api/admin/invitations/magic-approve', (req, res) => {
         <div style="background: #111827; border: 1px solid #ef4444; border-radius: 16px; max-width: 480px; width: 100%; padding: 32px; text-align: center;">
           <h2 style="color: #ef4444; margin-top: 0;">Approval Error</h2>
           <p style="color: #94a3b8; font-size: 14px; margin-bottom: 24px;">${result.message || 'Unable to process approval.'}</p>
-          <a href="http://localhost:8081" style="color: #a78bfa; text-decoration: none; font-size: 14px;">← Return to App</a>
+          <a href="/api/admin/invitations/review?requestId=${encodeURIComponent(requestId || '')}&adminEmail=${encodeURIComponent(approver)}" style="color: #a78bfa; text-decoration: none; font-size: 14px;">← Go to Review Page</a>
         </div>
       </body>
       </html>
     `);
   }
 
-  const record = result.record;
-  return res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>ÖZARA — Request Approved</title>
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-    </head>
-    <body style="background: #060913; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;">
-      <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 20px; max-width: 500px; width: 100%; padding: 36px 30px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);">
-        
-        <div style="width: 60px; height: 60px; border-radius: 30px; background: rgba(16, 185, 129, 0.12); border: 1.5px solid #10b981; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 18px;">
-          <span style="font-size: 30px; color: #10b981; line-height: 1;">✓</span>
-        </div>
-
-        <div style="font-size: 11px; letter-spacing: 3px; color: #8b5cf6; font-weight: 800; text-transform: uppercase; margin-bottom: 8px;">
-          ÖZARA MEMBERSHIP COMMITTEE
-        </div>
-
-        <h1 style="font-size: 22px; font-weight: 800; margin: 0 0 12px 0; color: #ffffff;">
-          ${result.alreadyApproved ? 'Request Already Approved' : 'Request Approved'}
-        </h1>
-
-        <p style="color: #94a3b8; font-size: 14px; margin: 0 0 22px 0; line-height: 1.6;">
-          An invitation token has been dispatched via email to <strong style="color: #38bdf8;">${record.email}</strong>.
-        </p>
-        
-        <div style="background: #111827; border-radius: 12px; padding: 18px 20px; text-align: left; margin-bottom: 22px; border: 1px solid #1e293b;">
-          <div style="margin-bottom: 8px; font-size: 14px; color: #94a3b8;">
-            Candidate: <strong style="color: #ffffff;">${record.full_name || 'Candidate'}</strong>
-          </div>
-          <div style="margin-bottom: 8px; font-size: 14px; color: #94a3b8;">
-            Email: <strong style="color: #38bdf8;">${record.email}</strong>
-          </div>
-          <div style="font-size: 14px; color: #94a3b8;">
-            Token Issued: <span style="color: #c4b5fd; font-family: monospace; font-weight: 700; letter-spacing: 1px;">${result.token}</span>
-          </div>
-        </div>
-
-        <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin: 0;">
-          The applicant has received their invitation code to register in the ÖZARA app. You may now close this tab.
-        </p>
-      </div>
-    </body>
-    </html>
-  `);
+  return res.redirect(`/api/admin/invitations/review?requestId=${encodeURIComponent(requestId || '')}&adminEmail=${encodeURIComponent(approver)}`);
 });
 
 // Real-time access status check by email (used by app to transition screen when approved)

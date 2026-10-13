@@ -728,6 +728,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
   // Face ID post-onboarding modal
   const [showFaceIdModal, setShowFaceIdModal] = useState(false);
 
+  // Subscription payment post-onboarding modal for paid members
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [isActivatingSubscription, setIsActivatingSubscription] = useState(false);
+
   // Sync token when context loads
   useEffect(() => {
     if (invitationCode) {
@@ -1462,7 +1466,18 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
       await refreshUserData();
       switchPersona(targetUserId);
 
-      // Clear onboarding storage and set main view to tabs
+      // Check whether applicant was approved as Paid vs. Complimentary membership
+      const profileRes = await ApiService.getProfile(targetUserId, targetUserId).catch(() => null);
+      const isPaid = profileRes?.membership_tier === 'paid';
+      const isSubActive = profileRes?.subscription_status === 'active';
+
+      if (isPaid && !isSubActive) {
+        // Paid members must complete subscription payment during onboarding before accessing member features
+        setShowSubscriptionModal(true);
+        return;
+      }
+
+      // Complimentary members skip payment and receive access after completing onboarding
       setPendingAccessEmail('');
       OzaraStorage.removeItem(OZARA_STORAGE_KEYS.PENDING_EMAIL);
       OzaraStorage.removeItem(OZARA_STORAGE_KEYS.PENDING_TOKEN);
@@ -1473,7 +1488,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
       OzaraStorage.setItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID, targetUserId);
       setAppView('tabs');
 
-      const welcomeMsg = `Welcome to ÖZARA, ${fullName || 'Member'}! Your membership profile is activated.`;
+      const welcomeMsg = `Welcome to ÖZARA, ${fullName || 'Member'}! Your complimentary membership is activated.`;
       if (Platform.OS === 'web') {
         // Continue to optional Face ID setup
         setShowFaceIdModal(true);
@@ -1488,6 +1503,44 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
       onCompleteSignUp();
     } finally {
       setIsSavingAnswers(false);
+    }
+  };
+
+  const handleActivateSubscription = async () => {
+    const targetUserId =
+      registeredUserId || OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID);
+    if (!targetUserId) return;
+
+    try {
+      setIsActivatingSubscription(true);
+      await ApiService.activateMembershipSubscription(targetUserId);
+      await refreshUserData();
+      setShowSubscriptionModal(false);
+
+      setPendingAccessEmail('');
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.PENDING_EMAIL);
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.PENDING_TOKEN);
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.SIGNUP_STEP);
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_DRAFT_ANSWERS);
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_DRAFT_COUNTRIES);
+      OzaraStorage.setItem(OZARA_STORAGE_KEYS.APP_VIEW, 'tabs');
+      OzaraStorage.setItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID, targetUserId);
+      setAppView('tabs');
+
+      const welcomeMsg = `Welcome to ÖZARA, ${fullName || 'Member'}! Your membership subscription is activated.`;
+      if (Platform.OS === 'web') {
+        setShowFaceIdModal(true);
+      } else {
+        Alert.alert('Welcome to ÖZARA', welcomeMsg, [
+          { text: 'Continue', onPress: () => setShowFaceIdModal(true) },
+        ]);
+      }
+    } catch (err: any) {
+      const msg = err.message || 'Unable to process subscription payment. Please try again.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Subscription Notice', msg);
+    } finally {
+      setIsActivatingSubscription(false);
     }
   };
 
@@ -3817,6 +3870,71 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Subscription Dues Payment Modal for Paid Members */}
+      <Modal
+        visible={showSubscriptionModal}
+        transparent
+        animationType="fade">
+        <View style={styles.subModalBackdrop}>
+          <View style={styles.subModalCard}>
+            <View style={styles.subModalBadge}>
+              <Ionicons name="card-outline" size={20} color={OzaraTheme.colors.accentGold} />
+              <Text style={styles.subModalBadgeText}>ANNUAL MEMBERSHIP</Text>
+            </View>
+
+            <Text style={styles.subModalTitle}>Activate Your Membership</Text>
+            <Text style={styles.subModalDesc}>
+              Welcome to ÖZARA. To activate your account and access the private network, please complete your annual membership dues.
+            </Text>
+
+            <View style={styles.subPricingCard}>
+              <View style={styles.subPricingHeader}>
+                <Text style={styles.subPricingTier}>Full Membership</Text>
+                <Text style={styles.subPricingAmount}>$1,200 <Text style={styles.subPricingCadence}>/ year</Text></Text>
+              </View>
+              <Text style={styles.subPricingSub}>
+                Flat annual membership dues. No transaction fees or commission percentages.
+              </Text>
+              
+              <View style={styles.subFeatureList}>
+                <View style={styles.subFeatureRow}>
+                  <Ionicons name="checkmark-circle" size={16} color={OzaraTheme.colors.accentCyan} />
+                  <Text style={styles.subFeatureText}>Verified private directory and global network</Text>
+                </View>
+                <View style={styles.subFeatureRow}>
+                  <Ionicons name="checkmark-circle" size={16} color={OzaraTheme.colors.accentCyan} />
+                  <Text style={styles.subFeatureText}>Invitations to curated gatherings & summits</Text>
+                </View>
+                <View style={styles.subFeatureRow}>
+                  <Ionicons name="checkmark-circle" size={16} color={OzaraTheme.colors.accentCyan} />
+                  <Text style={styles.subFeatureText}>Direct introductions & peer-to-peer messaging</Text>
+                </View>
+                <View style={styles.subFeatureRow}>
+                  <Ionicons name="checkmark-circle" size={16} color={OzaraTheme.colors.accentCyan} />
+                  <Text style={styles.subFeatureText}>Exclusive real estate & international opportunities</Text>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.subPayBtn, isActivatingSubscription && styles.subPayBtnDisabled]}
+              onPress={handleActivateSubscription}
+              disabled={isActivatingSubscription}
+              activeOpacity={0.85}>
+              {isActivatingSubscription ? (
+                <ActivityIndicator size="small" color="#030712" />
+              ) : (
+                <Text style={styles.subPayBtnText}>Pay $1,200 & Activate Membership</Text>
+              )}
+            </TouchableOpacity>
+
+            <Text style={styles.subSecureNote}>
+              🔒 Secure payment. Membership is billed annually and can be managed directly in your settings.
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* Face ID Sign-In Convenience Modal */}
       <Modal
         visible={showFaceIdModal}
@@ -5567,6 +5685,135 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
+  },
+  subModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(3, 7, 18, 0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  subModalCard: {
+    width: '100%',
+    maxWidth: 480,
+    backgroundColor: '#0c1222',
+    borderRadius: 20,
+    padding: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 119, 6, 0.3)',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  subModalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(217, 119, 6, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 119, 6, 0.25)',
+    marginBottom: 16,
+  },
+  subModalBadgeText: {
+    color: OzaraTheme.colors.accentGold,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
+  subModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#f8fafc',
+    textAlign: 'center',
+    marginBottom: 8,
+    fontFamily: OzaraTheme.typography.fontFamily,
+  },
+  subModalDesc: {
+    fontSize: 13,
+    color: '#94a3b8',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  subPricingCard: {
+    width: '100%',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 20,
+  },
+  subPricingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 6,
+  },
+  subPricingTier: {
+    color: '#f1f5f9',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  subPricingAmount: {
+    color: OzaraTheme.colors.accentGold,
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  subPricingCadence: {
+    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '400',
+  },
+  subPricingSub: {
+    color: '#64748b',
+    fontSize: 12,
+    marginBottom: 14,
+    lineHeight: 16,
+  },
+  subFeatureList: {
+    gap: 8,
+  },
+  subFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  subFeatureText: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    lineHeight: 16,
+    flex: 1,
+  },
+  subPayBtn: {
+    width: '100%',
+    backgroundColor: OzaraTheme.colors.accentGold,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  subPayBtnDisabled: {
+    opacity: 0.6,
+  },
+  subPayBtnText: {
+    color: '#0a0f1d',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  subSecureNote: {
+    color: '#64748b',
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 16,
   },
 });
 

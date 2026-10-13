@@ -83,10 +83,28 @@ Defines the private club onboarding and invitation protocol for ÖZARA. Membersh
      - If the status check fails (network/server error), a retry message is shown; the email is never treated as new.
      - New emails continue the standard flow and show confirmation: *"Your request has been received. Our team will review it and contact you by email if approved."*
    - Stored in admin dashboard for Alexandra and Julia to review.
-6. **Admin Invitation Management**:
+6. **Admin Invitation Management & Membership Tier Selection**:
    - Admins can generate unique, single-use invitations with configurable expiration dates.
-   - Admins can review access requests and either **Approve** (generating and emailing an official token) or **Decline**.
+   - **Membership Request Review Flow**:
+     - Admin notification emails are sent with subject format: `New request to join ÖZARA from ${cleanName || 'Candidate'}`.
+     - The email contains a link to the secure admin review page (`/api/admin/invitations/review?requestId=${id}&adminEmail=${adminEmail}`).
+     - On the review page (and in the mobile admin dashboard), before approving, the admin must choose between two mutually exclusive options:
+       - **Paid membership** — a subscription is required.
+       - **Complimentary membership** — free access, granted at the admin’s discretion.
+     - Neither option is selected by default.
+     - Actions:
+       - **Approve**: Persists the selected `membership_tier` ('paid' or 'complimentary'), generates the official 1:1 token (`OZARA-xxxx-xxxx`), and emails the applicant. Approving is disabled/prevented until one of the two options is explicitly selected.
+       - **Decline**: Declines the request (`status = 'declined'`) without requiring a membership option selection.
+   - **Member Account Storage & Admin-Only Visibility/Editing**:
+     - The membership tier is persisted on the member's account (`users.membership_tier` and `users.subscription_status`).
+     - This setting is strictly visible and editable to administrators only (`FOUNDER` or `ADMIN` roles). Non-admin members cannot view or modify membership tier metadata.
+     - Admins can update a member's tier via `PATCH /api/admin/members/:id/membership-tier`.
+   - **Onboarding Subscription Enforcement**:
+     - **Paid members**: Must complete subscription payment during onboarding before accessing member features (`tabs`). Their `subscription_status` starts as `'pending_payment'` and changes to `'active'` upon completing subscription payment.
+     - **Complimentary members**: Skip subscription payment completely and receive active access (`subscription_status = 'active'`) immediately upon completing onboarding.
    - Admins can **Revoke** unused invitations.
+
 7. **Access Control & Investment Separation**:
    - Unapproved visitors cannot access private profiles, posts, member event details, or investment documents through direct links or API calls.
    - Community membership and investment eligibility are strictly separated: accredited investor verification and regulatory checks are enforced independently.
+
