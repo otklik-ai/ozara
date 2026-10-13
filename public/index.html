@@ -46,17 +46,14 @@
 
       <!-- Top Navigation Inbox Button with Unread Badge -->
       <button id="inboxNavBtn" class="inbox-nav-btn" onclick="openInboxModal()" title="Inbox, Messages & Notifications">
-        <svg class="inbox-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-          <polyline points="22,6 12,13 2,6"/>
-        </svg>
+        <img src="/icons/nav_inbox_envelope.png" class="nav-luxury-icon nav-luxury-envelope" alt="Inbox">
         <span id="inboxUnreadBadge" class="inbox-unread-badge" style="display: none;">0</span>
       </button>
 
       <!-- In-App Event & Invitation Notifications Bell -->
       <div class="notif-bell-container" id="notifBellContainer">
         <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleWebNotificationsDropdown(event)" title="Notifications & Event Invitations">
-          🔔
+          <img src="/icons/nav_notification_bell.png" class="nav-luxury-icon nav-luxury-bell" alt="Notifications">
           <span id="webNotifBadge" class="notif-badge" style="display: none;">0</span>
         </button>
         <div id="webNotifDropdown" class="notif-dropdown-panel" style="display: none;">
@@ -477,191 +474,110 @@
         <!-- View 2: Real Estate Browsing Page -->
         <div id="investmentsResultsView" class="investments-results-view" style="display: none;">
           
-          <!-- Top Navigation: Back button to Investments & Breadcrumbs -->
+          <!-- Top Navigation: Back button to Investments, Breadcrumbs & Favorites button -->
           <div class="results-top-nav">
-            <button class="btn-back-link" onclick="backToInvestmentsLanding()">
-              ← Back to Investments
-            </button>
-            <div class="results-breadcrumbs">
-              <span>Investments</span> / <span>Real Estate</span> / <strong id="activeCategoryBreadcrumb">All Listings</strong>
+            <div class="results-top-nav-left">
+              <button class="btn-back-link" onclick="backToInvestmentsLanding()">
+                ← Back to Investments
+              </button>
+              <div class="results-breadcrumbs">
+                <span>Investments</span> / <span>Real Estate</span> / <strong id="activeCategoryBreadcrumb">All Listings</strong>
+              </div>
             </div>
           </div>
 
-          <!-- Compact Filter Controls Bar (Visible Dropdowns with 3D Multicolored Illustrated Icons and Chevrons) -->
+          <!-- Filter Controls Bar (Bigger Multi-Choice Interactive Pills matching source) -->
           <div class="inv-filter-bar">
             <div class="inv-filter-group">
               <!-- Country -->
-              <div class="inv-dropdown-wrap" id="wrapInvFilterCountry">
+              <div class="inv-dropdown-wrap" id="wrapInvFilterCountry" onclick="toggleFilterPopover('country', event)">
                 <span class="inv-dd-icon" title="Country">
                   <img src="/investments/icons/filter_country.png" class="inv-filter-3d-img" alt="Country">
                 </span>
-                <select id="invFilterCountry" class="inv-select" onchange="handleInvCountryChange(this.value)">
-                  <option value="all">Country</option>
-                  <option value="Albania">Albania</option>
-                  <option value="Armenia">Armenia</option>
-                  <option value="Australia">Australia</option>
-                  <option value="Azerbaijan">Azerbaijan</option>
-                  <option value="Brazil">Brazil</option>
-                  <option value="Cambodia">Cambodia</option>
-                  <option value="Croatia">Croatia</option>
-                  <option value="Cyprus">Cyprus</option>
-                  <option value="Dominican Republic">Dominican Republic</option>
-                  <option value="Georgia">Georgia</option>
-                  <option value="Indonesia">Indonesia</option>
-                  <option value="Kenya">Kenya</option>
-                  <option value="Maldives">Maldives</option>
-                  <option value="Mauritius">Mauritius</option>
-                  <option value="Mexico">Mexico</option>
-                  <option value="Montenegro">Montenegro</option>
-                  <option value="Oman">Oman</option>
-                  <option value="Panama">Panama</option>
-                  <option value="Philippines">Philippines</option>
-                  <option value="Portugal">Portugal</option>
-                  <option value="Qatar">Qatar</option>
-                  <option value="Saudi Arabia">Saudi Arabia</option>
-                  <option value="Spain">Spain</option>
-                  <option value="Tanzania">Tanzania</option>
-                  <option value="Thailand">Thailand</option>
-                  <option value="Turkey">Turkey</option>
-                  <option value="United Arab Emirates">United Arab Emirates</option>
-                  <option value="United Kingdom">United Kingdom</option>
-                  <option value="United States">United States</option>
-                  <option value="Vietnam">Vietnam</option>
-                </select>
-                <button type="button" class="inv-dd-clear" id="clearInvFilterCountry" onclick="clearSpecificFilter('country', event)" title="Clear Country">✕</button>
+                <span class="inv-filter-label" id="labelInvFilterCountry">Country</span>
+                <button type="button" class="inv-dd-clear" id="clearInvFilterCountry" onclick="clearSpecificMultiFilter('country', event)" title="Clear Country">✕</button>
                 <span class="inv-dd-chevron">
-                  <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2 3.5L5 6.5L8 3.5"/>
                   </svg>
                 </span>
+                <div class="inv-popover" id="popoverInvFilterCountry" onclick="event.stopPropagation()"></div>
               </div>
 
-              <!-- City (dependent on Country) -->
-              <div class="inv-dropdown-wrap" id="wrapInvFilterCity">
+              <!-- City -->
+              <div class="inv-dropdown-wrap" id="wrapInvFilterCity" onclick="toggleFilterPopover('city', event)">
                 <span class="inv-dd-icon" title="City">
                   <img src="/investments/icons/filter_city.png" class="inv-filter-3d-img" alt="City">
                 </span>
-                <select id="invFilterCity" class="inv-select" onchange="handleInvFilterChange()">
-                  <option value="all">City</option>
-                  <option value="Alanya">Alanya</option>
-                  <option value="Baku">Baku</option>
-                  <option value="Bali Island">Bali Island</option>
-                  <option value="Batumi">Batumi</option>
-                  <option value="Budva">Budva</option>
-                  <option value="Cascais">Cascais</option>
-                  <option value="Costa Blanca">Costa Blanca</option>
-                  <option value="Doha">Doha</option>
-                  <option value="Dubai">Dubai</option>
-                  <option value="Ho Chi Minh City">Ho Chi Minh City</option>
-                  <option value="Krabi">Krabi</option>
-                  <option value="Lisbon">Lisbon</option>
-                  <option value="London">London</option>
-                  <option value="Melbourne">Melbourne</option>
-                  <option value="Muscat">Muscat</option>
-                  <option value="Nairobi">Nairobi</option>
-                  <option value="New York">New York</option>
-                  <option value="Palawan">Palawan</option>
-                  <option value="Panama City">Panama City</option>
-                  <option value="Paphos">Paphos</option>
-                  <option value="Phuket">Phuket</option>
-                  <option value="Porto">Porto</option>
-                  <option value="Punta Cana">Punta Cana</option>
-                  <option value="Ras Al Khaimah">Ras Al Khaimah</option>
-                  <option value="Riyadh">Riyadh</option>
-                  <option value="Tbilisi">Tbilisi</option>
-                  <option value="Tivat">Tivat</option>
-                  <option value="Yerevan">Yerevan</option>
-                  <option value="Zanzibar">Zanzibar</option>
-                </select>
-                <button type="button" class="inv-dd-clear" id="clearInvFilterCity" onclick="clearSpecificFilter('city', event)" title="Clear City">✕</button>
+                <span class="inv-filter-label" id="labelInvFilterCity">City</span>
+                <button type="button" class="inv-dd-clear" id="clearInvFilterCity" onclick="clearSpecificMultiFilter('city', event)" title="Clear City">✕</button>
                 <span class="inv-dd-chevron">
-                  <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2 3.5L5 6.5L8 3.5"/>
                   </svg>
                 </span>
+                <div class="inv-popover" id="popoverInvFilterCity" onclick="event.stopPropagation()"></div>
               </div>
 
               <!-- Budget -->
-              <div class="inv-dropdown-wrap" id="wrapInvFilterBudget">
+              <div class="inv-dropdown-wrap" id="wrapInvFilterBudget" onclick="toggleFilterPopover('budget', event)">
                 <span class="inv-dd-icon" title="Budget">
                   <img src="/investments/icons/filter_budget.png" class="inv-filter-3d-img" alt="Budget">
                 </span>
-                <select id="invFilterBudget" class="inv-select" onchange="handleInvFilterChange()">
-                  <option value="any">Budget</option>
-                  <option value="0-150000">Up to $150K</option>
-                  <option value="150000-300000">$150K – $300K</option>
-                  <option value="300000-1000000">$300K – $1M</option>
-                  <option value="1000000-3000000">$1M – $3M</option>
-                  <option value="3000000-0">&gt; $3M</option>
-                </select>
-                <button type="button" class="inv-dd-clear" id="clearInvFilterBudget" onclick="clearSpecificFilter('budget', event)" title="Clear Budget">✕</button>
+                <span class="inv-filter-label" id="labelInvFilterBudget">Budget</span>
+                <button type="button" class="inv-dd-clear" id="clearInvFilterBudget" onclick="clearSpecificMultiFilter('budget', event)" title="Clear Budget">✕</button>
                 <span class="inv-dd-chevron">
-                  <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2 3.5L5 6.5L8 3.5"/>
                   </svg>
                 </span>
+                <div class="inv-popover" id="popoverInvFilterBudget" onclick="event.stopPropagation()"></div>
               </div>
 
               <!-- Bedrooms -->
-              <div class="inv-dropdown-wrap" id="wrapInvFilterBedrooms">
+              <div class="inv-dropdown-wrap" id="wrapInvFilterBedrooms" onclick="toggleFilterPopover('bedrooms', event)">
                 <span class="inv-dd-icon" title="Bedrooms">
                   <img src="/investments/icons/filter_bedrooms.png" class="inv-filter-3d-img" alt="Bedrooms">
                 </span>
-                <select id="invFilterBedrooms" class="inv-select" onchange="handleInvFilterChange()">
-                  <option value="any">Bedrooms</option>
-                  <option value="1">1 bd</option>
-                  <option value="2">2 bd</option>
-                  <option value="3">3 bd</option>
-                  <option value="4">4 bd</option>
-                  <option value="5">5 bd</option>
-                  <option value="6+">6+ bd</option>
-                </select>
-                <button type="button" class="inv-dd-clear" id="clearInvFilterBedrooms" onclick="clearSpecificFilter('bedrooms', event)" title="Clear Bedrooms">✕</button>
+                <span class="inv-filter-label" id="labelInvFilterBedrooms">Bedrooms</span>
+                <button type="button" class="inv-dd-clear" id="clearInvFilterBedrooms" onclick="clearSpecificMultiFilter('bedrooms', event)" title="Clear Bedrooms">✕</button>
                 <span class="inv-dd-chevron">
-                  <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2 3.5L5 6.5L8 3.5"/>
                   </svg>
                 </span>
+                <div class="inv-popover" id="popoverInvFilterBedrooms" onclick="event.stopPropagation()"></div>
               </div>
 
-              <!-- Features (Canonical options: Ready, Instalments, Sea view, Furnished) -->
-              <div class="inv-dropdown-wrap" id="wrapInvFilterFeatures">
+              <!-- Features -->
+              <div class="inv-dropdown-wrap" id="wrapInvFilterFeatures" onclick="toggleFilterPopover('features', event)">
                 <span class="inv-dd-icon" title="Features">
                   <img src="/investments/icons/filter_features.png" class="inv-filter-3d-img" alt="Features">
                 </span>
-                <select id="invFilterFeatures" class="inv-select" onchange="handleInvFilterChange()">
-                  <option value="">Features</option>
-                  <option value="ready">Ready</option>
-                  <option value="instalments">Instalments</option>
-                  <option value="sea_view">Sea view</option>
-                  <option value="furnished">Furnished</option>
-                </select>
-                <button type="button" class="inv-dd-clear" id="clearInvFilterFeatures" onclick="clearSpecificFilter('features', event)" title="Clear Features">✕</button>
+                <span class="inv-filter-label" id="labelInvFilterFeatures">Features</span>
+                <button type="button" class="inv-dd-clear" id="clearInvFilterFeatures" onclick="clearSpecificMultiFilter('features', event)" title="Clear Features">✕</button>
                 <span class="inv-dd-chevron">
-                  <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2 3.5L5 6.5L8 3.5"/>
                   </svg>
                 </span>
+                <div class="inv-popover" id="popoverInvFilterFeatures" onclick="event.stopPropagation()"></div>
               </div>
             </div>
 
             <!-- Sorting on the right (Equal width, Sort: Newest) -->
-            <div class="inv-sort-wrap" id="wrapInvFilterSort">
+            <div class="inv-sort-wrap" id="wrapInvFilterSort" onclick="toggleFilterPopover('sort', event)">
               <span class="inv-dd-icon" title="Sort">
                 <img src="/investments/icons/filter_sort.png" class="inv-filter-3d-img" alt="Sort">
               </span>
-              <select id="invFilterSort" class="inv-select inv-select-sort" onchange="handleInvFilterChange()">
-                <option value="newest">Sort: Newest</option>
-                <option value="price_asc">Price: Low to High</option>
-                <option value="price_desc">Price: High to Low</option>
-                <option value="title">Title: A to Z</option>
-              </select>
-              <button type="button" class="inv-dd-clear" id="clearInvFilterSort" onclick="clearSpecificFilter('sort', event)" title="Reset to Sort: Newest">✕</button>
+              <span class="inv-filter-label" id="labelInvFilterSort">Sort: Newest</span>
+              <button type="button" class="inv-dd-clear" id="clearInvFilterSort" onclick="clearSpecificMultiFilter('sort', event)" title="Reset to Sort: Newest">✕</button>
               <span class="inv-dd-chevron">
-                <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <svg class="inv-chevron-svg" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M2 3.5L5 6.5L8 3.5"/>
                 </svg>
               </span>
+              <div class="inv-popover inv-popover-right" id="popoverInvFilterSort" onclick="event.stopPropagation()"></div>
             </div>
           </div>
 
@@ -684,8 +600,10 @@
               <span id="investmentsResultsCount" class="results-count-text">239 properties found</span>
             </div>
             <div class="results-actions-wrap">
-              <button id="investmentsClearFiltersBtn" class="btn-clear-filters" onclick="clearAllInvestmentFilters()">
-                Clear filters
+              <button id="btnRealEstateFavoritesMeta" class="btn-realestate-favorites btn-realestate-favorites-sm" onclick="openFavoritesView()" title="View your favorite properties">
+                <img src="/investments/icons/fav_flower_active.png" class="btn-fav-flower-icon" alt="">
+                <span>Favorites</span>
+                <span class="fav-count-badge">0</span>
               </button>
             </div>
           </div>
@@ -701,6 +619,40 @@
             <p><strong>Regulatory Compliance Notice:</strong> ÖZARA is a private community directory and informational showcase. The opportunities displayed do not constitute investment advice, a financial promotion, or an offer of securities. Price and availability subject to confirmation.</p>
           </div>
 
+        </div>
+
+        <!-- View 3: Dedicated Real Estate Favorites Page -->
+        <div id="investmentsFavoritesView" class="investments-favorites-view" style="display: none;">
+          <!-- Top Navigation: Back button to Real Estate -->
+          <div class="results-top-nav">
+            <div class="results-top-nav-left">
+              <button class="btn-back-link" onclick="backToRealEstateResults()">
+                ← Back to Real Estate
+              </button>
+              <div class="results-breadcrumbs">
+                <span>Investments</span> / <span>Real Estate</span> / <strong>Favorites</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Favorites Page Header -->
+          <div class="favorites-page-header">
+            <div class="favorites-title-row">
+              <img src="/investments/icons/fav_flower_active.png" class="fav-header-flower-img" alt="">
+              <div>
+                <h1 class="inv-page-title" style="margin-bottom: 0.25rem;">My Favorite Properties</h1>
+                <p class="inv-page-subtitle" style="margin-bottom: 0;">Your personal watchlist of curated luxury developments and prime portfolios.</p>
+              </div>
+            </div>
+            <div class="favorites-meta-pill" id="favPageCountPill">
+              0 properties saved
+            </div>
+          </div>
+
+          <!-- Favorites Listings Grid -->
+          <div id="favoritesListingsGrid" class="listings-grid-3col">
+            <!-- Dynamically populated from saved listings -->
+          </div>
         </div>
 
       </div>
@@ -1225,7 +1177,12 @@
           <h3 id="propModalTitle" style="margin-top: 0.35rem; font-size: 1.25rem;">Property Title</h3>
           <span id="propModalLocation" class="muted-text" style="font-size: 0.85rem;">📍 Location</span>
         </div>
-        <button class="modal-close" onclick="closeModal('propertyDetailModal')">✕</button>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button id="propModalFavoriteBtn" class="prop-card-save-btn" style="position: static;" onclick="toggleSaveActivePropDetail(event)" title="Add to favorites">
+            <img id="propModalFavIcon" src="/investments/icons/fav_star_inactive.png" class="prop-fav-icon-img" alt="Favorite">
+          </button>
+          <button class="modal-close" onclick="closeModal('propertyDetailModal')">✕</button>
+        </div>
       </div>
       <div class="modal-body" style="padding: 1.5rem 1.75rem; max-height: 75vh; overflow-y: auto;">
         <!-- Main Image Gallery with Carousel Arrows & Thumbnails -->
@@ -1416,10 +1373,12 @@
           <h3 class="modal-title">ÖZARA Inbox</h3>
           <div class="inbox-nav-tabs">
             <button id="inboxTabBtnMessages" class="inbox-tab-btn active" onclick="switchInboxTab('messages')">
+              <img src="/icons/nav_inbox_envelope.png" class="tab-luxury-icon" alt="">
               Messages
               <span id="tabBadgeMessages" class="tab-badge" style="display:none;">0</span>
             </button>
             <button id="inboxTabBtnNotifications" class="inbox-tab-btn" onclick="switchInboxTab('notifications')">
+              <img src="/icons/nav_notification_bell.png" class="tab-luxury-icon" alt="">
               Notifications
               <span id="tabBadgeNotifications" class="tab-badge" style="display:none;">0</span>
             </button>

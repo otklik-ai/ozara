@@ -449,15 +449,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                   <Text style={styles.description}>
                     {slide.description}
                   </Text>
-
-                  {/* Discreet Have an invitation? link on each intro screen */}
-                  <TouchableOpacity
-                    style={styles.copyInlineInviteTouch}
-                    onPress={() => onGoToInvitation?.(sIdx)}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}>
-                    <Text style={styles.copyInlineInviteText}>Have an invitation?</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
             );
@@ -487,12 +478,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Discreet Have an invitation? Link */}
+          {/* Join the circle Link */}
           <TouchableOpacity
             style={styles.haveInviteBtn}
             onPress={() => onGoToInvitation?.(currentIndex)}
             activeOpacity={0.75}>
-            <Text style={styles.haveInviteBtnText}>Have an invitation?</Text>
+            <Text style={styles.haveInviteBtnText}>Join the circle</Text>
           </TouchableOpacity>
 
           {/* Member Sign In Link (Separate route for existing members) */}
@@ -830,23 +821,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.2,
     textDecorationLine: 'underline',
-  },
-  copyInlineInviteTouch: {
-    marginTop: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    ...Platform.select({
-      web: {
-        cursor: 'pointer',
-      },
-    }),
-  },
-  copyInlineInviteText: {
-    color: '#a78bfa',
-    fontSize: 12,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-    letterSpacing: 0.2,
   },
   secondaryBtn: {
     paddingVertical: 4,

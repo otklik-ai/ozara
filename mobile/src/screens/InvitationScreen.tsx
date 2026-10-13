@@ -10,7 +10,6 @@
  * - Full name
  * - Email
  * - LinkedIn URL or short professional background
- * - "What brings you to ÖZARA?"
  * Submissions route to Alexandra & Julia without SMS, Face ID, or identity checks.
  */
 
@@ -38,11 +37,13 @@ import { OzaraStorage, OZARA_STORAGE_KEYS } from '../services/storage';
 interface InvitationScreenProps {
   onBack: () => void;
   onValidInvitation: () => void;
+  onGoToSignIn?: (prefilledEmail?: string, prefilledPhone?: string) => void;
 }
 
 export const InvitationScreen: React.FC<InvitationScreenProps> = ({
   onBack,
   onValidInvitation,
+  onGoToSignIn,
 }) => {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -54,6 +55,8 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
     setInvitationEmail,
     setInvitationFullName,
     setAuthMode,
+    setAppView,
+    setPendingAccessEmail,
   } = useClub();
 
   const [inputCode, setInputCode] = useState<string>(() => {
@@ -76,14 +79,16 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
   const [errorType, setErrorType] = useState<string | null>(null);
 
   // Request Access Modal State
+  type RequestModalState = 'form' | 'success' | 'pending_request' | 'existing_account' | 'declined_request';
   const [showRequestModal, setShowRequestModal] = useState<boolean>(false);
+  const [modalState, setModalState] = useState<RequestModalState>('form');
   const [reqFullName, setReqFullName] = useState<string>('');
   const [reqEmail, setReqEmail] = useState<string>('');
   const [reqLinkedin, setReqLinkedin] = useState<string>('');
-  const [reqWhatBringsYou, setReqWhatBringsYou] = useState<string>('');
   const [reqIsSubmitting, setReqIsSubmitting] = useState<boolean>(false);
   const [reqErrorMessage, setReqErrorMessage] = useState<string | null>(null);
-  const [reqSuccess, setReqSuccess] = useState<boolean>(false);
+  const [matchedEmail, setMatchedEmail] = useState<string>('');
+  const [matchedPhone, setMatchedPhone] = useState<string | null>(null);
 
   // Auto-sync input code if passed in props or storage
   useEffect(() => {
@@ -144,26 +149,43 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
 
   const handleOpenRequestModal = () => {
     setReqErrorMessage(null);
-    setReqSuccess(false);
+    setModalState('form');
     setShowRequestModal(true);
   };
 
   const handleCloseRequestModal = () => {
     setShowRequestModal(false);
     setReqErrorMessage(null);
+    setModalState('form');
+  };
+
+  const handleSignInExisting = () => {
+    const emailToUse = matchedEmail || reqEmail.trim().toLowerCase();
+    const phoneToUse = matchedPhone;
+    setShowRequestModal(false);
+    setModalState('form');
+    setAuthMode('sign_in');
+    if (emailToUse) {
+      setPendingAccessEmail?.(emailToUse);
+      OzaraStorage.setItem(OZARA_STORAGE_KEYS.ACCOUNT_EMAIL, emailToUse);
+    }
+    if (onGoToSignIn) {
+      onGoToSignIn(emailToUse, phoneToUse || undefined);
+    } else {
+      setAppView('phone_auth');
+    }
   };
 
   const handleSubmitRequestAccess = async () => {
-    if (!reqFullName.trim()) {
+    const trimmedName = reqFullName.trim();
+    const cleanEmail = reqEmail.trim().toLowerCase();
+
+    if (!trimmedName) {
       setReqErrorMessage('Please enter your full name.');
       return;
     }
-    if (!reqEmail.trim() || !reqEmail.includes('@')) {
+    if (!cleanEmail || !cleanEmail.includes('@')) {
       setReqErrorMessage('Please enter a valid business email.');
-      return;
-    }
-    if (!reqWhatBringsYou.trim()) {
-      setReqErrorMessage('Please tell us what brings you to ÖZARA.');
       return;
     }
 
@@ -171,20 +193,60 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
     setReqIsSubmitting(true);
 
     try {
+      // 1. Check existing account and request status through backend before creating a new request
+      const statusRes = await ApiService.checkEmailStatus(cleanEmail);
+
+      if (statusRes.status === 'pending_request') {
+        // State 1: Pending request
+        // Title: “Your request is received”
+        // Message: “Our hosts will be in touch by email.”
+        // Button: “Got it”
+        setMatchedEmail(cleanEmail);
+        setModalState('pending_request');
+        return;
+      }
+
+      if (statusRes.status === 'existing_account') {
+        // State 2: Existing account
+        // Title: “You’re already in the circle”
+        // Message: “Sign in to your ÖZARA account.”
+        // Button: “Sign in”
+        setMatchedEmail(cleanEmail);
+        setMatchedPhone(statusRes.phone || null);
+        setModalState('existing_account');
+        return;
+      }
+
+      if (statusRes.status === 'declined_request') {
+        // State 3: Declined request
+        // Title: “Not this time”
+        // Message: “We’re unable to offer an invitation at this time.”
+        // Button: “Close”
+        setMatchedEmail(cleanEmail);
+        setModalState('declined_request');
+        return;
+      }
+
+      // If email is new, continue the normal request flow
       const res = await ApiService.requestAccess({
-        fullName: reqFullName.trim(),
-        email: reqEmail.trim(),
+        fullName: trimmedName,
+        email: cleanEmail,
         linkedin_or_background: reqLinkedin.trim(),
-        what_brings_you: reqWhatBringsYou.trim(),
       });
 
       if (res && res.success) {
-        setReqSuccess(true);
+        setModalState('success');
       } else {
+        if (res?.status === 'pending_request' || res?.status === 'existing_account' || res?.status === 'declined_request') {
+          setMatchedEmail(cleanEmail);
+          setModalState(res.status as RequestModalState);
+          return;
+        }
         setReqErrorMessage(res?.message || 'Unable to submit request. Please try again.');
       }
     } catch (err: any) {
-      setReqErrorMessage(err.message || 'Submission error. Please check your connection and try again.');
+      // If check fails, show retry message; do not treat email as new
+      setReqErrorMessage(err.message || 'Unable to verify request status. Please check your connection and try again.');
     } finally {
       setReqIsSubmitting(false);
     }
@@ -330,9 +392,48 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
               style={[
                 styles.modalCard,
                 { width: containerWidth - 32 },
-                reqSuccess && styles.modalCardSuccess,
+                modalState !== 'form' && styles.modalCardSuccess,
               ]}>
-              {reqSuccess ? (
+              {modalState === 'pending_request' || modalState === 'existing_account' || modalState === 'declined_request' ? (
+                /* Existing-Email Minimal Modal States (No extra icons or illustrations) */
+                <View style={styles.statusModalContent}>
+                  <TouchableOpacity
+                    style={styles.modalCloseBtnAbsolute}
+                    onPress={handleCloseRequestModal}
+                    activeOpacity={0.7}>
+                    <Ionicons name="close" size={18} color="#94a3b8" />
+                  </TouchableOpacity>
+
+                  <Text style={styles.statusModalTitle}>
+                    {modalState === 'pending_request' && 'Your request is received'}
+                    {modalState === 'existing_account' && 'You’re already in the circle'}
+                    {modalState === 'declined_request' && 'Not this time'}
+                  </Text>
+
+                  <Text style={styles.statusModalMessage}>
+                    {modalState === 'pending_request' && 'Our hosts will be in touch by email.'}
+                    {modalState === 'existing_account' && 'Sign in to your ÖZARA account.'}
+                    {modalState === 'declined_request' && 'We’re unable to offer an invitation at this time.'}
+                  </Text>
+
+                  <TouchableOpacity
+                    style={styles.statusModalActionBtn}
+                    onPress={() => {
+                      if (modalState === 'existing_account') {
+                        handleSignInExisting();
+                      } else {
+                        handleCloseRequestModal();
+                      }
+                    }}
+                    activeOpacity={0.85}>
+                    <Text style={styles.statusModalActionBtnText}>
+                      {modalState === 'pending_request' && 'Got it'}
+                      {modalState === 'existing_account' && 'Sign in'}
+                      {modalState === 'declined_request' && 'Close'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : modalState === 'success' ? (
                 /* Success Confirmation State: Clean & Minimalistic (No top bar) */
                 <View style={styles.reqSuccessContainer}>
                   <View style={styles.successCheckCircle}>
@@ -424,24 +525,6 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
                         multiline
                         numberOfLines={2}
                         autoCapitalize="none"
-                        editable={!reqIsSubmitting}
-                      />
-                    </View>
-
-                    {/* Field 4: What brings you to ÖZARA */}
-                    <View style={styles.fieldGroup}>
-                      <Text style={styles.fieldLabel}>
-                        What brings you to ÖZARA? <Text style={styles.reqAsterisk}>*</Text>
-                      </Text>
-                      <TextInput
-                        style={[styles.modalInput, styles.modalInputMulti, { minHeight: 62 }]}
-                        value={reqWhatBringsYou}
-                        onChangeText={(t) => {
-                          setReqWhatBringsYou(t);
-                          if (reqErrorMessage) setReqErrorMessage(null);
-                        }}
-                        multiline
-                        numberOfLines={3}
                         editable={!reqIsSubmitting}
                       />
                     </View>
@@ -916,6 +999,53 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     paddingHorizontal: 24,
     maxWidth: 440,
+  },
+
+  /* Existing-Email Minimal Modal States (No extra icons or illustrations) */
+  statusModalContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    width: '100%',
+  },
+  statusModalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: -0.3,
+    marginBottom: 12,
+    textAlign: 'center',
+    fontFamily: OzaraTheme.typography.fontFamily,
+  },
+  statusModalMessage: {
+    fontSize: 14.5,
+    color: '#cbd5e1',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 28,
+    maxWidth: 320,
+    fontFamily: OzaraTheme.typography.fontFamily,
+  },
+  statusModalActionBtn: {
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: OzaraTheme.colors.accentViolet,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+      } as any,
+    }),
+  },
+  statusModalActionBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 0.3,
+    fontFamily: OzaraTheme.typography.fontFamily,
   },
 
   /* Request Success Confirmation */

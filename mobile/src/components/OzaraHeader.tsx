@@ -23,15 +23,18 @@ export const OzaraHeader: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { currentUser, openProfile } = useClub();
 
-  const [unreadTotalCount, setUnreadTotalCount] = useState<number>(0);
+  const [unreadMsgCount, setUnreadMsgCount] = useState<number>(0);
+  const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
   const [showInbox, setShowInbox] = useState<boolean>(false);
+  const [inboxTab, setInboxTab] = useState<'messages' | 'notifications'>('messages');
 
   const fetchUnreadCount = async () => {
     const uid = currentUser?.id;
     if (!uid) return;
     try {
       const summary = await ApiService.getInboxSummary(uid);
-      setUnreadTotalCount(summary.total_unread || 0);
+      setUnreadMsgCount(summary.unread_messages || 0);
+      setUnreadNotifCount(summary.unread_notifications || 0);
     } catch {
       // ignore
     }
@@ -54,21 +57,51 @@ export const OzaraHeader: React.FC = () => {
           <Text style={styles.brandSub}>PRIVATE CLUB</Text>
         </View>
 
-        {/* Right Controls: Inbox & Messages + Authenticated Member Avatar */}
+        {/* Right Controls: Notifications Bell, Inbox Envelope & Authenticated Member Avatar */}
         <View style={styles.controlsRow}>
-          {/* Top Navigation Inbox Button */}
+          {/* Top Navigation Notifications Bell Button */}
           <TouchableOpacity
             style={styles.bellTouchWrapper}
-            onPress={() => setShowInbox(true)}
+            onPress={() => {
+              setInboxTab('notifications');
+              setShowInbox(true);
+            }}
+            activeOpacity={0.75}
+            accessibilityLabel="Notifications">
+            <View style={styles.bellIconBox}>
+              <Image
+                source={require('../../assets/icons/nav_notification_bell.png')}
+                style={styles.luxuryHeaderIcon}
+              />
+            </View>
+            {unreadNotifCount > 0 && (
+              <View style={[styles.unreadBadge, styles.unreadNotifBadge]}>
+                <Text style={styles.unreadBadgeText}>
+                  {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Top Navigation Inbox Envelope Button */}
+          <TouchableOpacity
+            style={styles.bellTouchWrapper}
+            onPress={() => {
+              setInboxTab('messages');
+              setShowInbox(true);
+            }}
             activeOpacity={0.75}
             accessibilityLabel="Inbox & Messages">
             <View style={styles.bellIconBox}>
-              <Ionicons name="mail-outline" size={19} color="#ffffff" />
+              <Image
+                source={require('../../assets/icons/nav_inbox_envelope.png')}
+                style={styles.luxuryHeaderIcon}
+              />
             </View>
-            {unreadTotalCount > 0 && (
-              <View style={styles.unreadBadge}>
+            {unreadMsgCount > 0 && (
+              <View style={[styles.unreadBadge, styles.unreadMsgBadge]}>
                 <Text style={styles.unreadBadgeText}>
-                  {unreadTotalCount > 9 ? '9+' : unreadTotalCount}
+                  {unreadMsgCount > 9 ? '9+' : unreadMsgCount}
                 </Text>
               </View>
             )}
@@ -111,6 +144,7 @@ export const OzaraHeader: React.FC = () => {
       {/* In-App Inbox & Messaging Modal */}
       <InboxModal
         visible={showInbox}
+        initialTab={inboxTab}
         onClose={() => {
           setShowInbox(false);
           fetchUnreadCount();
@@ -174,6 +208,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  luxuryHeaderIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
+  },
   unreadBadge: {
     position: 'absolute',
     top: 0,
@@ -187,6 +226,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
     borderWidth: 1.5,
     borderColor: '#000000',
+  },
+  unreadMsgBadge: {
+    backgroundColor: '#ff3366',
+  },
+  unreadNotifBadge: {
+    backgroundColor: '#38bdf8',
   },
   unreadBadgeText: {
     fontSize: 9,

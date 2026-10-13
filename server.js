@@ -3408,9 +3408,9 @@ function formatCatalogItem(row, isSaved = false) {
   let paymentTerms = {};
   try { paymentTerms = JSON.parse(row.payment_terms_json || '{}'); } catch (e) {}
 
-  // Normalize images to reliable durable delivery routes
-  if (!images || images.length === 0) {
-    images = [`/api/media/catalog/${row.id}/cards/${row.id}_0.webp`];
+  // Preserve reliable durable delivery routes; never fabricate fake photos
+  if (!images || !Array.isArray(images) || images.length === 0) {
+    images = [];
   } else {
     images = images.map((img, idx) => {
       if (typeof img === 'string' && (img.includes('developer.edex.estate') || img.includes('edex.estate'))) {
@@ -3626,6 +3626,32 @@ app.get('/api/investments/catalog', (req, res) => {
   const allFeaturesSet = new Set();
   const categoryCounts = {};
 
+
+
+  const countryCounts = {};
+  const cityCounts = {};
+  const bedroomCounts = {
+    'studio': 0,
+    '1': 0,
+    '2': 0,
+    '3': 0,
+    '4': 0,
+    '5+': 0
+  };
+  const budgetCounts = {
+    '0-500000': 0,
+    '500000-1000000': 0,
+    '1000000-2500000': 0,
+    '2500000-5000000': 0,
+    '5000000-999999999': 0
+  };
+  const featureCounts = {
+    'ready': 0,
+    'instalments': 0,
+    'sea_view': 0,
+    'furnished': 0
+  };
+
   rows.forEach(r => {
     const normType = normalizeCategoryName(r.property_type);
     categoryCounts[normType] = (categoryCounts[normType] || 0) + 1;
@@ -3635,11 +3661,63 @@ app.get('/api/investments/catalog', (req, res) => {
 
     if (normCountry) {
       countrySet.add(normCountry);
+      countryCounts[normCountry] = (countryCounts[normCountry] || 0) + 1;
       if (!citiesByCountry[normCountry]) citiesByCountry[normCountry] = [];
       if (normCity && !citiesByCountry[normCountry].includes(normCity)) {
         citiesByCountry[normCountry].push(normCity);
       }
     }
+    if (normCity) {
+      cityCounts[normCity] = (cityCounts[normCity] || 0) + 1;
+    }
+
+    // Bedrooms counts
+    const beds = r.beds !== null ? r.beds : null;
+    const bMin = r.beds_min;
+    const bMax = r.beds_max;
+    if (beds === 0 || bMin === 0) bedroomCounts['studio']++;
+    if (beds === 1 || (bMin <= 1 && bMax >= 1)) bedroomCounts['1']++;
+    if (beds === 2 || (bMin <= 2 && bMax >= 2)) bedroomCounts['2']++;
+    if (beds === 3 || (bMin <= 3 && bMax >= 3)) bedroomCounts['3']++;
+    if (beds === 4 || (bMin <= 4 && bMax >= 4)) bedroomCounts['4']++;
+    if ((beds !== null && beds >= 5) || (bMax !== null && bMax >= 5)) bedroomCounts['5+']++;
+
+    // Budget counts
+    const p = r.price_min_num || r.price_max_num || 0;
+    if (p > 0 && p <= 500000) budgetCounts['0-500000']++;
+    if (p >= 500000 && p <= 1000000) budgetCounts['500000-1000000']++;
+    if (p >= 1000000 && p <= 2500000) budgetCounts['1000000-2500000']++;
+    if (p >= 2500000 && p <= 5000000) budgetCounts['2500000-5000000']++;
+    if (p >= 5000000) budgetCounts['5000000-999999999']++;
+
+    // Features counts
+    const featStr = (r.features_json || '').toLowerCase();
+    const descStr = (r.description || '').toLowerCase();
+    const compStr = (r.completion_status || '').toLowerCase();
+    const hoStr = (r.handover || '').toLowerCase();
+    if (compStr.includes('ready') || compStr.includes('completed') || compStr.includes('100%') ||
+        hoStr.includes('ready') || hoStr.includes('completed') ||
+        featStr.includes('ready') || featStr.includes('completed') ||
+        descStr.includes('ready') || descStr.includes('completed')) {
+      featureCounts['ready']++;
+    }
+    let hasPlan = false;
+    try {
+      const pt = JSON.parse(r.payment_terms_json || '{}');
+      if (pt.installment_plan && String(pt.installment_plan).trim()) hasPlan = true;
+    } catch (e) {}
+    if (hasPlan || featStr.includes('instalment') || featStr.includes('installment') ||
+        featStr.includes('payment plan') || descStr.includes('instalment')) {
+      featureCounts['instalments']++;
+    }
+    if (featStr.includes('sea') || featStr.includes('ocean') || featStr.includes('waterfront') ||
+        descStr.includes('sea view') || descStr.includes('seaview') || descStr.includes('ocean view')) {
+      featureCounts['sea_view']++;
+    }
+    if (featStr.includes('furnish') || featStr.includes('furniture') || descStr.includes('furnished')) {
+      featureCounts['furnished']++;
+    }
+
     if (r.currency) currenciesSet.add(r.currency);
     try {
       const feats = JSON.parse(r.features_json || '[]');
@@ -3660,16 +3738,34 @@ app.get('/api/investments/catalog', (req, res) => {
     }));
 
   const filterOptions = {
+    total_count: rows.length,
     countries: Array.from(countrySet).sort(),
+    country_counts: countryCounts,
     cities_by_country: citiesByCountry,
+    city_counts: cityCounts,
+    bedroom_counts: bedroomCounts,
+    budget_counts: budgetCounts,
+    feature_counts: featureCounts,
     types: dynamicCategories.map(c => c.name),
     categories: dynamicCategories,
     currencies: Array.from(currenciesSet).sort(),
     features: Array.from(allFeaturesSet).slice(0, 30)
   };
 
-  const targetCountry = normalizeCountryName(countryFilter).toLowerCase();
-  const targetCity = normalizeCityName(cityFilter).toLowerCase();
+  // Multi-choice target arrays
+  const targetCountries = countryFilter !== 'all' 
+    ? countryFilter.split(',').map(c => normalizeCountryName(c).toLowerCase().trim()).filter(c => c && c !== 'all') 
+    : [];
+  const targetCities = cityFilter !== 'all' 
+    ? cityFilter.split(',').map(c => normalizeCityName(c).toLowerCase().trim()).filter(c => c && c !== 'all') 
+    : [];
+  const targetBeds = bedroomsFilter !== 'any' 
+    ? bedroomsFilter.split(',').map(b => b.trim().toLowerCase()).filter(b => b && b !== 'any') 
+    : [];
+  const budgetBrackets = (req.query.budgetBrackets || req.query.budget || '')
+    .split(',')
+    .map(b => b.trim())
+    .filter(b => b && b !== 'any');
 
   // Apply Filters
   let filtered = rows.filter(r => {
@@ -3681,18 +3777,18 @@ app.get('/api/investments/catalog', (req, res) => {
       }
     }
 
-    // Country filter (normalized comparison)
-    if (countryFilter !== 'all' && targetCountry !== 'all') {
+    // Country filter (multi-choice OR match)
+    if (targetCountries.length > 0) {
       const rowCountry = normalizeCountryName(r.country).toLowerCase();
-      if (rowCountry !== targetCountry) {
+      if (!targetCountries.includes(rowCountry)) {
         return false;
       }
     }
 
-    // City filter (normalized comparison)
-    if (cityFilter !== 'all' && targetCity !== 'all') {
+    // City filter (multi-choice OR match)
+    if (targetCities.length > 0) {
       const rowCity = normalizeCityName(r.city).toLowerCase();
-      if (rowCity !== targetCity) {
+      if (!targetCities.includes(rowCity)) {
         return false;
       }
     }
@@ -3707,40 +3803,57 @@ app.get('/api/investments/catalog', (req, res) => {
       if (!matchTitle && !matchDesc && !matchLoc && !matchCity && !matchCountry) return false;
     }
 
-    // Budget Min
-    if (budgetMin > 0) {
+    // Multi-choice Budget Brackets
+    if (budgetBrackets.length > 0) {
       const p = r.price_min_num || r.price_max_num || 0;
-      if (p < budgetMin) return false;
+      const inAnyBracket = budgetBrackets.some(br => {
+        const parts = br.split('-').map(Number);
+        const minB = parts[0] || 0;
+        const maxB = parts[1] || 0;
+        if (minB > 0 && maxB > 0) return p >= minB && p <= maxB;
+        if (minB > 0 && maxB === 0) return p >= minB;
+        if (minB === 0 && maxB > 0) return p <= maxB;
+        return false;
+      });
+      if (!inAnyBracket) return false;
+    } else {
+      // Single Budget Min / Max fallback
+      if (budgetMin > 0) {
+        const p = r.price_min_num || r.price_max_num || 0;
+        if (p < budgetMin) return false;
+      }
+      if (budgetMax > 0) {
+        const p = r.price_min_num || r.price_max_num || 0;
+        if (p > budgetMax) return false;
+      }
     }
 
-    // Budget Max
-    if (budgetMax > 0) {
-      const p = r.price_min_num || r.price_max_num || 0;
-      if (p > budgetMax) return false;
-    }
-
-    // Bedrooms
-    if (bedroomsFilter !== 'any') {
+    // Bedrooms (multi-choice OR match)
+    if (targetBeds.length > 0) {
       const beds = r.beds !== null ? r.beds : null;
       const bMin = r.beds_min;
       const bMax = r.beds_max;
-      if (bedroomsFilter === 'studio' || bedroomsFilter === '0') {
-        if (beds !== 0 && bMin !== 0) return false;
-      } else if (bedroomsFilter === '1' || bedroomsFilter === '1 bd') {
-        if (beds !== 1 && !(bMin <= 1 && bMax >= 1)) return false;
-      } else if (bedroomsFilter === '2' || bedroomsFilter === '2 bd') {
-        if (beds !== 2 && !(bMin <= 2 && bMax >= 2)) return false;
-      } else if (bedroomsFilter === '3' || bedroomsFilter === '3 bd') {
-        if (beds !== 3 && !(bMin <= 3 && bMax >= 3)) return false;
-      } else if (bedroomsFilter === '4' || bedroomsFilter === '4 bd') {
-        if (beds !== 4 && !(bMin <= 4 && bMax >= 4)) return false;
-      } else if (bedroomsFilter === '5' || bedroomsFilter === '5 bd') {
-        if (beds !== 5 && !(bMin <= 5 && bMax >= 5)) return false;
-      } else if (bedroomsFilter === '6+' || bedroomsFilter === '6+ bd' || bedroomsFilter === '6') {
-        if ((beds === null || beds < 6) && (bMax === null || bMax < 6)) return false;
-      } else if (bedroomsFilter === '4+') {
-        if ((beds === null || beds < 4) && (bMax === null || bMax < 4)) return false;
-      }
+      const matchAnyBed = targetBeds.some(bedChoice => {
+        if (bedChoice === 'studio' || bedChoice === '0') {
+          return beds === 0 || bMin === 0;
+        } else if (bedChoice === '1' || bedChoice === '1 bd') {
+          return beds === 1 || (bMin <= 1 && bMax >= 1);
+        } else if (bedChoice === '2' || bedChoice === '2 bd') {
+          return beds === 2 || (bMin <= 2 && bMax >= 2);
+        } else if (bedChoice === '3' || bedChoice === '3 bd') {
+          return beds === 3 || (bMin <= 3 && bMax >= 3);
+        } else if (bedChoice === '4' || bedChoice === '4 bd') {
+          return beds === 4 || (bMin <= 4 && bMax >= 4);
+        } else if (bedChoice === '5' || bedChoice === '5 bd') {
+          return beds === 5 || (bMin <= 5 && bMax >= 5);
+        } else if (bedChoice === '6+' || bedChoice === '6+ bd' || bedChoice === '6') {
+          return (beds !== null && beds >= 6) || (bMax !== null && bMax >= 6);
+        } else if (bedChoice === '4+') {
+          return (beds !== null && beds >= 4) || (bMax !== null && bMax >= 4);
+        }
+        return false;
+      });
+      if (!matchAnyBed) return false;
     }
 
     // Features (Supports canonical features: ready, instalments, sea_view, furnished)
@@ -3875,7 +3988,7 @@ app.get('/api/investments/catalog/:id/units', (req, res) => {
 
 // 4. Toggle saved listing
 app.post('/api/investments/saved/:id', (req, res) => {
-  const viewerId = req.body.viewerId || req.body.userId || req.headers['x-user-id'];
+  const viewerId = req.body?.viewerId || req.body?.userId || req.headers['x-user-id'];
   if (!viewerId) return res.status(401).json({ error: "Authentication required to bookmark listings." });
   
   const listing = db.prepare('SELECT id FROM real_estate_catalog WHERE id = ? OR source_id = ?').get(req.params.id, req.params.id);
@@ -3909,7 +4022,7 @@ app.get('/api/investments/saved', (req, res) => {
 
 // 6. Request Details primary action
 app.post('/api/investments/request-details', (req, res) => {
-  const { listingId, memberId, unitId, notes } = req.body;
+  const { listingId, memberId, unitId, notes } = req.body || {};
   if (!listingId || !memberId) {
     return res.status(400).json({ error: "Missing required fields: listingId and memberId are required." });
   }
@@ -5014,6 +5127,83 @@ app.post('/api/invitations/verify', (req, res) => {
   });
 });
 
+// Check email status for membership request flow
+app.all('/api/invitations/check-email-status', (req, res) => {
+  const rawEmail = (req.body?.email || req.query?.email || '').trim();
+  if (!rawEmail || !rawEmail.includes('@')) {
+    return res.status(400).json({ error: 'invalid', message: 'Valid business email is required.' });
+  }
+
+  const cleanEmail = rawEmail.toLowerCase();
+
+  // Priority 1: Active Member Account (takes priority over older request statuses)
+  const existingUser = db.prepare(`
+    SELECT id, email, full_name, phone, role, is_admitted
+    FROM users
+    WHERE LOWER(email) = ? AND is_admitted = 1
+  `).get(cleanEmail);
+
+  if (existingUser) {
+    return res.json({
+      status: 'existing_account',
+      email: existingUser.email,
+      fullName: existingUser.full_name,
+      phone: existingUser.phone || null,
+      message: 'Sign in to your ÖZARA account.'
+    });
+  }
+
+  // Priority 2: Membership Request / Invitation Tokens
+  const invite = db.prepare(`
+    SELECT id, email, token, full_name, status, is_claimed, phone
+    FROM invitation_tokens
+    WHERE LOWER(email) = ?
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).get(cleanEmail);
+
+  if (invite) {
+    if (invite.status === 'declined') {
+      return res.json({
+        status: 'declined_request',
+        email: invite.email,
+        message: 'We’re unable to offer an invitation at this time.'
+      });
+    }
+
+    if (invite.status === 'pending_admin_approval' || (invite.status === 'pending' && !invite.is_claimed)) {
+      return res.json({
+        status: 'pending_request',
+        email: invite.email,
+        message: 'Our hosts will be in touch by email.'
+      });
+    }
+
+    if (invite.is_claimed === 1 || invite.status === 'claimed') {
+      return res.json({
+        status: 'existing_account',
+        email: invite.email,
+        message: 'Sign in to your ÖZARA account.'
+      });
+    }
+
+    if (invite.status === 'approved' && !invite.is_claimed) {
+      return res.json({
+        status: 'pending_request',
+        email: invite.email,
+        token: invite.token,
+        message: 'Our hosts will be in touch by email.'
+      });
+    }
+  }
+
+  // Priority 3: New Email
+  return res.json({
+    status: 'new',
+    email: cleanEmail
+  });
+});
+
 // Request access (Uninvited prospective members)
 app.post('/api/invitations/request-access', (req, res) => {
   const { email, fullName, full_name, role, notes, phone, linkedin_or_background, what_brings_you } = req.body;
@@ -5029,16 +5219,53 @@ app.post('/api/invitations/request-access', (req, res) => {
   const cleanLinkedin = (linkedin_or_background || '').trim();
   const cleanWhatBringsYou = (what_brings_you || '').trim();
 
-  // Check if already registered
-  const existingUser = db.prepare("SELECT id, full_name FROM users WHERE LOWER(email) = ?").get(cleanEmail);
+  // Priority 1: Check active member (takes priority over older request status)
+  const existingUser = db.prepare("SELECT id, full_name, phone FROM users WHERE LOWER(email) = ? AND is_admitted = 1").get(cleanEmail);
   if (existingUser) {
-    return res.status(400).json({ success: false, message: "An account with this email address already exists. Please sign in." });
+    return res.status(409).json({
+      success: false,
+      status: "existing_account",
+      email: cleanEmail,
+      message: "Sign in to your ÖZARA account."
+    });
   }
 
-  // Check if an invitation/request already exists for this 1:1 email
-  const existingInvite = db.prepare("SELECT * FROM invitation_tokens WHERE LOWER(email) = ?").get(cleanEmail);
-  let id;
+  // Priority 2: Check existing request/invite
+  const existingInvite = db.prepare(`
+    SELECT * FROM invitation_tokens
+    WHERE LOWER(email) = ?
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).get(cleanEmail);
+
   if (existingInvite) {
+    if (existingInvite.status === 'declined') {
+      return res.status(409).json({
+        success: false,
+        status: "declined_request",
+        email: cleanEmail,
+        message: "We’re unable to offer an invitation at this time."
+      });
+    }
+
+    if (existingInvite.status === 'pending_admin_approval' || (existingInvite.status === 'pending' && !existingInvite.is_claimed)) {
+      return res.status(409).json({
+        success: false,
+        status: "pending_request",
+        email: cleanEmail,
+        message: "Our hosts will be in touch by email."
+      });
+    }
+
+    if (existingInvite.is_claimed === 1 || existingInvite.status === 'claimed') {
+      return res.status(409).json({
+        success: false,
+        status: "existing_account",
+        email: cleanEmail,
+        message: "Sign in to your ÖZARA account."
+      });
+    }
+
     if (existingInvite.status === 'approved' && !existingInvite.is_claimed) {
       return res.json({
         success: true,
@@ -5048,31 +5275,16 @@ app.post('/api/invitations/request-access', (req, res) => {
         message: "You already have an approved invitation code: " + existingInvite.token
       });
     }
-    if (existingInvite.is_claimed === 1 || existingInvite.status === 'claimed') {
-      return res.status(400).json({ success: false, message: "This email has already completed registration." });
-    }
-    // If pending, update metadata and resend emails
-    id = existingInvite.id;
-    db.prepare(`
-      UPDATE invitation_tokens
-      SET full_name = COALESCE(NULLIF(?, ''), full_name),
-          role_or_headline = COALESCE(NULLIF(?, ''), role_or_headline),
-          notes = COALESCE(NULLIF(?, ''), notes),
-          phone = COALESCE(?, phone),
-          linkedin_or_background = COALESCE(NULLIF(?, ''), linkedin_or_background),
-          what_brings_you = COALESCE(NULLIF(?, ''), what_brings_you)
-      WHERE id = ?
-    `).run(cleanName, cleanRole, cleanNotes, cleanPhone, cleanLinkedin, cleanWhatBringsYou, id);
-  } else {
-    id = 'req_acc_' + Math.random().toString(36).substring(2, 9);
-    const tempToken = 'PENDING-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-    db.prepare(`
-      INSERT INTO invitation_tokens (id, email, token, full_name, role_or_headline, notes, status, created_by, expires_at, phone, linkedin_or_background, what_brings_you)
-      VALUES (?, ?, ?, ?, ?, ?, 'pending_admin_approval', 'self_applicant', ?, ?, ?, ?)
-    `).run(id, cleanEmail, tempToken, cleanName, cleanRole, cleanNotes, expiresAt, cleanPhone, cleanLinkedin, cleanWhatBringsYou);
   }
+
+  const id = 'req_acc_' + Math.random().toString(36).substring(2, 9);
+  const tempToken = 'PENDING-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  db.prepare(`
+    INSERT INTO invitation_tokens (id, email, token, full_name, role_or_headline, notes, status, created_by, expires_at, phone, linkedin_or_background, what_brings_you)
+    VALUES (?, ?, ?, ?, ?, ?, 'pending_admin_approval', 'self_applicant', ?, ?, ?, ?)
+  `).run(id, cleanEmail, tempToken, cleanName, cleanRole, cleanNotes, expiresAt, cleanPhone, cleanLinkedin, cleanWhatBringsYou);
 
   console.log(`\n======================================================`);
   console.log(`[EMAIL DISPATCH TO ADMINS]`);

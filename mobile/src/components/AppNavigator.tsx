@@ -22,7 +22,15 @@ import { OzaraTheme } from '../constants/ozara-theme';
 let introAlreadyShownInSession = false;
 
 export const AppNavigator: React.FC = () => {
-  const { appView, setAppView, closeConditions, authMode, setAuthMode } = useClub();
+  const {
+    appView,
+    setAppView,
+    closeConditions,
+    authMode,
+    setAuthMode,
+    setPendingAccessEmail,
+    setVerifiedPhone,
+  } = useClub();
   const [welcomeInitialSlide, setWelcomeInitialSlide] = useState<number>(0);
   
   // Always show the opening purple screen with appearing logo on initial app load / refresh
@@ -60,6 +68,16 @@ export const AppNavigator: React.FC = () => {
           }}
           onValidInvitation={() => {
             setAuthMode('new_member');
+            setAppView('phone_auth');
+          }}
+          onGoToSignIn={(prefilledEmail?: string, prefilledPhone?: string) => {
+            setAuthMode('sign_in');
+            if (prefilledEmail) {
+              setPendingAccessEmail(prefilledEmail);
+            }
+            if (prefilledPhone) {
+              setVerifiedPhone(prefilledPhone);
+            }
             setAppView('phone_auth');
           }}
         />

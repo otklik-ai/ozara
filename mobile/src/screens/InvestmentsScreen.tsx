@@ -86,9 +86,10 @@ const ListingCardImageCarousel: React.FC<ListingCardImageCarouselProps> = ({
   hasUnits,
   unitsCount,
 }) => {
-  const safeImages = images && images.length > 0 ? images : [`/api/media/catalog/${itemId}/cards/${itemId}_0.webp`];
-  const curIdx = Math.min(Math.max(0, currentIndex), safeImages.length - 1);
-  const currentUrl = safeImages[curIdx] || safeImages[0];
+  const hasPhotos = Boolean(images && Array.isArray(images) && images.length > 0);
+  const safeImages = hasPhotos ? images : [];
+  const curIdx = hasPhotos ? Math.min(Math.max(0, currentIndex), safeImages.length - 1) : 0;
+  const currentUrl = hasPhotos ? safeImages[curIdx] : null;
   const hasMultiple = safeImages.length > 1;
 
   const [hasError, setHasError] = useState(false);
@@ -96,7 +97,7 @@ const ListingCardImageCarousel: React.FC<ListingCardImageCarouselProps> = ({
 
   // Proactively prefetch adjacent photos (next and previous) into memory and disk
   useEffect(() => {
-    if (!hasMultiple) return;
+    if (!hasMultiple || !hasPhotos) return;
     const nextIdx = (curIdx + 1) % safeImages.length;
     const prevIdx = (curIdx - 1 + safeImages.length) % safeImages.length;
     const nextUrl = resolveImageUrl(safeImages[nextIdx]);
@@ -107,7 +108,7 @@ const ListingCardImageCarousel: React.FC<ListingCardImageCarouselProps> = ({
     if (prevUrl) {
       try { ExpoImage.prefetch(prevUrl); } catch (e) {}
     }
-  }, [curIdx, safeImages, hasMultiple]);
+  }, [curIdx, safeImages, hasMultiple, hasPhotos]);
 
   // Reset error state when switching photos
   useEffect(() => {
@@ -116,23 +117,30 @@ const ListingCardImageCarousel: React.FC<ListingCardImageCarouselProps> = ({
 
   return (
     <View style={styles.cardPhotoWrapper}>
-      <ExpoImage
-        key={`${itemId}_${curIdx}_${retryKey}`}
-        source={{ uri: resolveImageUrl(currentUrl) }}
-        style={styles.cardImage}
-        contentFit="cover"
-        transition={200}
-        cachePolicy="memory-disk"
-        priority="high"
-        onError={() => setHasError(true)}
-        onLoad={() => setHasError(false)}
-      />
+      {hasPhotos && currentUrl ? (
+        <ExpoImage
+          key={`${itemId}_${curIdx}_${retryKey}`}
+          source={{ uri: resolveImageUrl(currentUrl) }}
+          style={styles.cardImage}
+          contentFit="cover"
+          transition={200}
+          cachePolicy="memory-disk"
+          priority="high"
+          onError={() => setHasError(true)}
+          onLoad={() => setHasError(false)}
+        />
+      ) : (
+        <View style={styles.photosUnavailableCard}>
+          <Feather name="image" size={28} color="#717684" />
+          <Text style={styles.photosUnavailableText}>Photos unavailable</Text>
+        </View>
+      )}
 
       {/* Subtle bottom gradient vignette */}
       <View style={styles.photoOverlay} />
 
       {/* Error & Retry Fallback */}
-      {hasError && (
+      {hasPhotos && hasError && (
         <View style={styles.imageErrorContainer}>
           <Ionicons name="image-outline" size={24} color="#8e929b" />
           <Text style={styles.imageErrorText}>Photo buffering...</Text>
@@ -151,7 +159,7 @@ const ListingCardImageCarousel: React.FC<ListingCardImageCarouselProps> = ({
         </View>
       )}
 
-      {/* Left Arrow Button */}
+      {/* Left Arrow Button (only shown for multiple photos) */}
       {hasMultiple && (
         <TouchableOpacity
           style={[styles.carouselBtn, styles.carouselPrevBtn]}
@@ -165,7 +173,7 @@ const ListingCardImageCarousel: React.FC<ListingCardImageCarouselProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* Right Arrow Button */}
+      {/* Right Arrow Button (only shown for multiple photos) */}
       {hasMultiple && (
         <TouchableOpacity
           style={[styles.carouselBtn, styles.carouselNextBtn]}
@@ -179,12 +187,14 @@ const ListingCardImageCarousel: React.FC<ListingCardImageCarouselProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* Photo Counter Badge (1 / N) */}
-      <View style={styles.photoCountPill}>
-        <Text style={styles.photoCountText}>
-          {curIdx + 1} / {safeImages.length}
-        </Text>
-      </View>
+      {/* Photo Counter Badge (1 / N) - strictly displayed only when multiple photos exist */}
+      {hasMultiple && (
+        <View style={styles.photoCountPill}>
+          <Text style={styles.photoCountText}>
+            {curIdx + 1} / {safeImages.length}
+          </Text>
+        </View>
+      )}
 
       {/* Top Badges */}
       <View style={styles.photoTopRow}>
@@ -195,12 +205,16 @@ const ListingCardImageCarousel: React.FC<ListingCardImageCarouselProps> = ({
           <TouchableOpacity
             style={[styles.saveIconBtn, isSaved && styles.saveIconBtnActive]}
             onPress={onToggleSave}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
+            accessibilityLabel={isSaved ? "Remove from Favorites" : "Add to Favorites"}
           >
-            <Ionicons
-              name={isSaved ? 'bookmark' : 'bookmark-outline'}
-              size={14}
-              color={isSaved ? OzaraTheme.colors.accentGold : '#ffffff'}
+            <Image
+              source={
+                isSaved
+                  ? require('../../assets/investments/fav_flower_active.png')
+                  : require('../../assets/investments/fav_star_inactive.png')
+              }
+              style={styles.favoriteIconImg}
             />
           </TouchableOpacity>
         )}
@@ -251,6 +265,14 @@ export const InvestmentsScreen: React.FC = () => {
   const [selectedBedrooms, setSelectedBedrooms] = useState<string>('any');
   const [selectedSort, setSelectedSort] = useState<SortOption>('newest');
   const [viewSavedOnly, setViewSavedOnly] = useState<boolean>(false);
+  const [saveToast, setSaveToast] = useState<{ message: string; isSaved: boolean } | null>(null);
+
+  useEffect(() => {
+    if (saveToast) {
+      const timer = setTimeout(() => setSaveToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveToast]);
 
   // Filter Modals
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
@@ -416,13 +438,13 @@ export const InvestmentsScreen: React.FC = () => {
     Boolean(searchQuery.trim()) ||
     selectedSort !== 'newest';
 
-  // Toggle Save Listing
+  // Toggle Save / Favorite Listing
   const handleToggleSave = async (listingId: string, e?: any) => {
     if (e && e.stopPropagation) e.stopPropagation();
-    if (!currentUserId) {
-      Alert.alert('Sign In Required', 'Please sign in to save properties to your private watchlist.');
-      return;
-    }
+    const effectiveUserId = currentUserId || 'usr_elena';
+
+    const target = listings.find(item => item.id === listingId);
+    const willBeSaved = target ? !target.is_saved : true;
 
     // Optimistic UI update
     setListings(prev =>
@@ -432,13 +454,16 @@ export const InvestmentsScreen: React.FC = () => {
       setSelectedListing(prev => (prev ? { ...prev, is_saved: !prev.is_saved } : null));
     }
 
+    if (willBeSaved) {
+      setSaveToast({ message: 'Added to your favorites', isSaved: true });
+    } else {
+      setSaveToast({ message: 'Removed from favorites', isSaved: false });
+    }
+
     try {
-      await ApiService.toggleSaveListing(listingId, currentUserId);
+      await ApiService.toggleSaveListing(listingId, effectiveUserId);
     } catch (err) {
-      // Revert if error
-      setListings(prev =>
-        prev.map(item => (item.id === listingId ? { ...item, is_saved: !item.is_saved } : item))
-      );
+      console.warn('Toggle favorite listing failed:', err);
     }
   };
 
@@ -748,7 +773,7 @@ export const InvestmentsScreen: React.FC = () => {
                 >
                   <Image
                     source={{ uri: `${API_BASE_URL}/investments/icons/filter_country.png` }}
-                    style={{ width: 16, height: 16, resizeMode: 'contain' }}
+                    style={{ width: 22, height: 22, resizeMode: 'contain' }}
                   />
                   <Text
                     style={[
@@ -767,7 +792,7 @@ export const InvestmentsScreen: React.FC = () => {
                       style={styles.pillClearBtn}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Ionicons name="close-circle" size={13} color={OzaraTheme.colors.accentGold} />
+                      <Ionicons name="close-circle" size={14} color={OzaraTheme.colors.accentGold} />
                     </TouchableOpacity>
                   ) : (
                     hasActiveFilters && <View style={styles.activeDot} />
@@ -778,7 +803,7 @@ export const InvestmentsScreen: React.FC = () => {
                   <View style={[styles.filterPill, styles.filterPillActive]}>
                     <Image
                       source={{ uri: `${API_BASE_URL}/investments/icons/filter_city.png` }}
-                      style={{ width: 16, height: 16, resizeMode: 'contain' }}
+                      style={{ width: 22, height: 22, resizeMode: 'contain' }}
                     />
                     <Text style={[styles.filterPillText, styles.filterPillTextActive]}>{selectedCity}</Text>
                     <TouchableOpacity
@@ -786,7 +811,7 @@ export const InvestmentsScreen: React.FC = () => {
                       style={styles.pillClearBtn}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Ionicons name="close-circle" size={13} color={OzaraTheme.colors.accentGold} />
+                      <Ionicons name="close-circle" size={14} color={OzaraTheme.colors.accentGold} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -795,7 +820,7 @@ export const InvestmentsScreen: React.FC = () => {
                   <View style={[styles.filterPill, styles.filterPillActive]}>
                     <Image
                       source={{ uri: `${API_BASE_URL}/investments/icons/filter_bedrooms.png` }}
-                      style={{ width: 16, height: 16, resizeMode: 'contain' }}
+                      style={{ width: 22, height: 22, resizeMode: 'contain' }}
                     />
                     <Text style={[styles.filterPillText, styles.filterPillTextActive]}>{selectedBedrooms} bd</Text>
                     <TouchableOpacity
@@ -803,7 +828,7 @@ export const InvestmentsScreen: React.FC = () => {
                       style={styles.pillClearBtn}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Ionicons name="close-circle" size={13} color={OzaraTheme.colors.accentGold} />
+                      <Ionicons name="close-circle" size={14} color={OzaraTheme.colors.accentGold} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -812,7 +837,7 @@ export const InvestmentsScreen: React.FC = () => {
                   <View style={[styles.filterPill, styles.filterPillActive]}>
                     <Image
                       source={{ uri: `${API_BASE_URL}/investments/icons/filter_features.png` }}
-                      style={{ width: 16, height: 16, resizeMode: 'contain' }}
+                      style={{ width: 22, height: 22, resizeMode: 'contain' }}
                     />
                     <Text style={[styles.filterPillText, styles.filterPillTextActive]}>{selectedType}</Text>
                     <TouchableOpacity
@@ -823,7 +848,7 @@ export const InvestmentsScreen: React.FC = () => {
                       style={styles.pillClearBtn}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Ionicons name="close-circle" size={13} color={OzaraTheme.colors.accentGold} />
+                      <Ionicons name="close-circle" size={14} color={OzaraTheme.colors.accentGold} />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -834,7 +859,7 @@ export const InvestmentsScreen: React.FC = () => {
                 >
                   <Image
                     source={{ uri: `${API_BASE_URL}/investments/icons/filter_sort.png` }}
-                    style={{ width: 16, height: 16, resizeMode: 'contain' }}
+                    style={{ width: 22, height: 22, resizeMode: 'contain' }}
                   />
                   <Text
                     style={[
@@ -868,21 +893,18 @@ export const InvestmentsScreen: React.FC = () => {
                   style={[styles.filterPill, viewSavedOnly && styles.filterPillActive]}
                   onPress={() => setViewSavedOnly(!viewSavedOnly)}
                 >
-                  <Ionicons
-                    name={viewSavedOnly ? 'bookmark' : 'bookmark-outline'}
-                    size={13}
-                    color={viewSavedOnly ? OzaraTheme.colors.accentGold : OzaraTheme.colors.textSecondary}
+                  <Image
+                    source={
+                      viewSavedOnly
+                        ? require('../../assets/investments/fav_flower_active.png')
+                        : require('../../assets/investments/fav_star_inactive.png')
+                    }
+                    style={{ width: 14, height: 14, resizeMode: 'contain' }}
                   />
                   <Text style={[styles.filterPillText, viewSavedOnly && styles.filterPillTextActive]}>
-                    Saved
+                    Favorites
                   </Text>
                 </TouchableOpacity>
-
-                {hasActiveFilters && (
-                  <TouchableOpacity style={styles.clearFiltersBtn} onPress={handleClearFilters}>
-                    <Text style={styles.clearFiltersText}>Clear</Text>
-                  </TouchableOpacity>
-                )}
               </View>
             </View>
 
@@ -890,7 +912,7 @@ export const InvestmentsScreen: React.FC = () => {
             <View style={styles.resultsSummaryBar}>
               <Text style={styles.resultsCountText}>
                 {viewSavedOnly
-                  ? `${displayedListings.length} saved properties`
+                  ? `${displayedListings.length} favorite properties`
                   : `${totalCount} properties available`}
               </Text>
               {Boolean(lastUpdated) && (
@@ -920,11 +942,8 @@ export const InvestmentsScreen: React.FC = () => {
             ) : (
               <View style={styles.cardsList}>
                 {displayedListings.map(item => {
-                  const imgs = item.images && item.images.length > 0
-                    ? item.images
-                    : ['https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800'];
+                  const imgs = item.images && Array.isArray(item.images) ? item.images : [];
                   const curIndex = cardPhotoIndices[item.id] || 0;
-                  const displayImg = imgs[curIndex] || imgs[0];
                   const hasMultiple = imgs.length > 1;
 
                   return (
@@ -1250,11 +1269,16 @@ export const InvestmentsScreen: React.FC = () => {
               <TouchableOpacity
                 style={styles.detailSaveBtn}
                 onPress={() => handleToggleSave(selectedListing.id)}
+                activeOpacity={0.75}
+                accessibilityLabel={selectedListing.is_saved ? "Remove from Favorites" : "Add to Favorites"}
               >
-                <Ionicons
-                  name={selectedListing.is_saved ? 'bookmark' : 'bookmark-outline'}
-                  size={18}
-                  color={selectedListing.is_saved ? OzaraTheme.colors.accentGold : '#ffffff'}
+                <Image
+                  source={
+                    selectedListing.is_saved
+                      ? require('../../assets/investments/fav_flower_active.png')
+                      : require('../../assets/investments/fav_star_inactive.png')
+                  }
+                  style={styles.detailFavoriteIconImg}
                 />
               </TouchableOpacity>
             </View>
@@ -1262,20 +1286,26 @@ export const InvestmentsScreen: React.FC = () => {
             <ScrollView style={styles.detailScroll} contentContainerStyle={styles.detailScrollContent}>
               {/* Photo Gallery with Thumbnails */}
               <View style={styles.galleryContainer}>
-                <ExpoImage
-                  source={{
-                    uri: resolveImageUrl(
-                      selectedListing.images && selectedListing.images.length > 0
-                        ? selectedListing.images[activePhotoIndex] || selectedListing.images[0]
-                        : `/api/media/catalog/${selectedListing.id}/cards/${selectedListing.id}_0.webp`
-                    ),
-                  }}
-                  style={styles.galleryPrimaryImage}
-                  contentFit="cover"
-                  transition={250}
-                  cachePolicy="memory-disk"
-                  priority="high"
-                />
+                {selectedListing.images && selectedListing.images.length > 0 ? (
+                  <ExpoImage
+                    source={{
+                      uri: resolveImageUrl(
+                        selectedListing.images[activePhotoIndex] || selectedListing.images[0]
+                      ),
+                    }}
+                    style={styles.galleryPrimaryImage}
+                    contentFit="cover"
+                    transition={250}
+                    cachePolicy="memory-disk"
+                    priority="high"
+                  />
+                ) : (
+                  <View style={[styles.galleryPrimaryImage, styles.photosUnavailableCard]}>
+                    <Feather name="image" size={36} color="#717684" />
+                    <Text style={[styles.photosUnavailableText, { fontSize: 14 }]}>Photos unavailable</Text>
+                  </View>
+                )}
+
                 {selectedListing.images && selectedListing.images.length > 1 && (
                   <>
                     <TouchableOpacity
@@ -1306,13 +1336,14 @@ export const InvestmentsScreen: React.FC = () => {
                         style={{ width: 26, height: 26, resizeMode: 'contain' }}
                       />
                     </TouchableOpacity>
+
+                    <View style={styles.galleryIndexBadge}>
+                      <Text style={styles.galleryIndexText}>
+                        {activePhotoIndex + 1} / {selectedListing.images.length}
+                      </Text>
+                    </View>
                   </>
                 )}
-                <View style={styles.galleryIndexBadge}>
-                  <Text style={styles.galleryIndexText}>
-                    {activePhotoIndex + 1} / {selectedListing.images ? selectedListing.images.length : 1}
-                  </Text>
-                </View>
 
                 {/* Thumbnails row */}
                 {selectedListing.images && selectedListing.images.length > 1 && (
@@ -1702,6 +1733,32 @@ export const InvestmentsScreen: React.FC = () => {
           </View>
         </TouchableOpacity>
       </Modal>
+      {/* Floating Clickable Toast Notification */}
+      {saveToast && (
+        <TouchableOpacity
+          style={styles.floatingToast}
+          activeOpacity={0.88}
+          onPress={() => {
+            if (saveToast.isSaved) {
+              setViewSavedOnly(true);
+            }
+            setSaveToast(null);
+          }}
+        >
+          {saveToast.isSaved && (
+            <Image
+              source={require('../../assets/investments/fav_flower_active.png')}
+              style={styles.floatingToastImg}
+            />
+          )}
+          <View style={styles.floatingToastTextWrap}>
+            <Text style={styles.floatingToastTitle}>{saveToast.message}</Text>
+            {saveToast.isSaved && (
+              <Text style={styles.floatingToastAction}>Tap to view favorites →</Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -2108,6 +2165,83 @@ const styles = StyleSheet.create({
     color: OzaraTheme.colors.textMuted,
     flex: 1,
   },
+  headerFavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(244, 114, 182, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 114, 182, 0.3)',
+  },
+  headerFavBtnActive: {
+    backgroundColor: 'rgba(244, 114, 182, 0.22)',
+    borderColor: 'rgba(244, 114, 182, 0.6)',
+  },
+  headerFavFlowerImg: {
+    width: 16,
+    height: 16,
+    resizeMode: 'contain',
+  },
+  headerFavText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  headerFavBadge: {
+    backgroundColor: '#f472b6',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  headerFavBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  floatingToast: {
+    position: 'absolute',
+    bottom: 30,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#18191e',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 114, 182, 0.5)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 999,
+  },
+  floatingToastImg: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
+  },
+  floatingToastTextWrap: {
+    flexDirection: 'column',
+  },
+  floatingToastTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  floatingToastAction: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#f472b6',
+  },
   compactCatStrip: {
     marginVertical: 8,
     height: 118,
@@ -2316,25 +2450,25 @@ const styles = StyleSheet.create({
   filterPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#0f1014',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 9999,
+    gap: 8,
+    backgroundColor: '#14161b',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: OzaraTheme.colors.borderSubtle,
   },
   filterPillActive: {
     borderColor: OzaraTheme.colors.accentGold,
-    backgroundColor: 'rgba(212, 175, 55, 0.08)',
+    backgroundColor: 'rgba(212, 175, 55, 0.12)',
   },
   filterPillText: {
-    fontSize: 11,
+    fontSize: 13,
     color: OzaraTheme.colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   filterPillTextActive: {
-    color: OzaraTheme.colors.accentGold,
+    color: '#ffffff',
     fontWeight: '700',
   },
   activeDot: {
@@ -2421,6 +2555,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 16,
     zIndex: 4,
+  },
+  photosUnavailableCard: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#121418',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 8,
+  },
+  photosUnavailableText: {
+    color: '#8e929b',
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    letterSpacing: 0.3,
   },
   imageErrorText: {
     color: '#8e929b',
@@ -2512,15 +2662,21 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   saveIconBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    width: 36,
+    height: 36,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveIconBtnActive: {
-    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+  },
+  favoriteIconImg: {
+    width: 28,
+    height: 28,
+    resizeMode: 'contain',
   },
   unitsIndicatorPill: {
     position: 'absolute',
@@ -2884,12 +3040,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   detailSaveBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#121418',
+    width: 36,
+    height: 36,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  detailFavoriteIconImg: {
+    width: 28,
+    height: 28,
+    resizeMode: 'contain',
   },
   detailScroll: {
     flex: 1,

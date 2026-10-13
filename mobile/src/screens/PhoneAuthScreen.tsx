@@ -101,11 +101,19 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
     openConditions,
     authMode,
     setAuthMode,
+    pendingAccessEmail,
+    verifiedPhone,
   } = useClub();
 
   const [step, setStep] = useState<AuthStep>('enter_phone');
   const [selectedCountry, setSelectedCountry] = useState<CountryItem>(COUNTRIES_LIST[0]);
-  const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [phoneNumber, setPhoneNumber] = useState<string>(() => {
+    if (verifiedPhone) {
+      const cleaned = verifiedPhone.replace(/^\+?[0-9]{1,4}/, '').trim();
+      return cleaned || verifiedPhone.replace(/\D/g, '');
+    }
+    return '';
+  });
   const [code, setCode] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -336,9 +344,13 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
               <View style={styles.stepContent}>
                 {/* Headline & Description */}
                 <View style={styles.copyHeader}>
-                  <Text style={styles.headline}>Enter your phone number</Text>
+                  <Text style={styles.headline}>
+                    {authMode === 'sign_in' ? 'Sign in to ÖZARA' : 'Enter your phone number'}
+                  </Text>
                   <Text style={styles.description}>
-                    We’ll send you a verification code via SMS.
+                    {authMode === 'sign_in' && pendingAccessEmail
+                      ? `Signing in as ${pendingAccessEmail}. We’ll send you a verification code via SMS.`
+                      : 'We’ll send you a verification code via SMS.'}
                   </Text>
                 </View>
 

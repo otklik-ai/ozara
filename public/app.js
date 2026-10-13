@@ -21,13 +21,24 @@ function debounce(func, wait) {
 }
 
 // Toast helper
-function showToast(message, type = 'info') {
+// Toast helper (supports optional click handler)
+function showToast(message, type = 'info', onClickAction = null) {
   const container = document.getElementById('toastContainer');
+  if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
-  toast.textContent = message;
+  if (onClickAction) {
+    toast.classList.add('toast-clickable');
+    toast.onclick = (e) => {
+      onClickAction();
+      toast.remove();
+    };
+  }
+  toast.innerHTML = message;
   container.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
+  setTimeout(() => {
+    if (toast.parentElement) toast.remove();
+  }, 4500);
 }
 
 // Modal helper
@@ -142,7 +153,10 @@ function setupNavigation() {
 
   // URL hash support on initial load
   const initialHash = (window.location.hash || '').replace('#', '').trim();
-  if (initialHash && ['community', 'network', 'networking', 'events', 'investments', 'team', 'admin'].includes(initialHash)) {
+  if (initialHash === 'investments/favorites' || initialHash === 'favorites') {
+    switchTab('investments');
+    setTimeout(() => openFavoritesView(), 150);
+  } else if (initialHash && ['community', 'network', 'networking', 'events', 'investments', 'team', 'admin'].includes(initialHash)) {
     const target = (initialHash === 'network') ? 'networking' : initialHash;
     switchTab(target);
   } else {
@@ -151,6 +165,11 @@ function setupNavigation() {
 
   window.addEventListener('hashchange', () => {
     const hash = (window.location.hash || '').replace('#', '').trim();
+    if (hash === 'investments/favorites' || hash === 'favorites') {
+      if (activeTab !== 'investments') switchTab('investments');
+      openFavoritesView();
+      return;
+    }
     if (hash && ['community', 'network', 'networking', 'events', 'investments', 'team', 'admin'].includes(hash)) {
       const target = (hash === 'network') ? 'networking' : hash;
       if (target !== activeTab) {
@@ -1459,34 +1478,41 @@ let invSelectedCategory = 'All Properties';
 let invCategories = [];
 let invFilterOptions = null;
 let invListings = [];
+let allCatalogItems = [];
 let invCardPhotoIndices = {};        // listingId -> photo index
 let activePropDetail = null;
 let activePropModalPhotoIndex = 0;
 let invTouchStartX = 0;
 
+let invFilterState = {
+  country: [],
+  city: [],
+  budget: [],
+  bedrooms: [],
+  features: [],
+  sort: 'newest'
+};
+let invCandidateState = {
+  country: [],
+  city: [],
+  budget: [],
+  bedrooms: [],
+  features: [],
+  sort: 'newest'
+};
+let activeFilterPopover = null;
+
 const INV_STATE_KEY = 'ozara_investments_state_v1';
 
 function saveInvestmentState() {
   try {
-    const countryEl = document.getElementById('invFilterCountry');
-    const cityEl = document.getElementById('invFilterCity');
-    const budgetEl = document.getElementById('invFilterBudget');
-    const bedroomsEl = document.getElementById('invFilterBedrooms');
     const typeEl = document.getElementById('invFilterType');
-    const featEl = document.getElementById('invFilterFeatures');
-    const sortEl = document.getElementById('invFilterSort');
-
     const state = {
       topTab: invTopTab,
       viewMode: invViewMode,
       category: invSelectedCategory,
-      country: countryEl ? countryEl.value : 'all',
-      city: cityEl ? cityEl.value : 'all',
-      budget: budgetEl ? budgetEl.value : 'any',
-      bedrooms: bedroomsEl ? bedroomsEl.value : 'any',
+      filterState: invFilterState,
       type: typeEl ? typeEl.value : 'all',
-      features: featEl ? featEl.value : '',
-      sort: sortEl ? sortEl.value : 'newest',
       scrollY: window.scrollY || 0
     };
     sessionStorage.setItem(INV_STATE_KEY, JSON.stringify(state));
@@ -1671,10 +1697,16 @@ async function openCategoryResults(categoryName, isRestoring = false, savedState
 
   // Restore filter values if restoring
   if (isRestoring && savedState) {
-    if (savedState.country && document.getElementById('invFilterCountry')) document.getElementById('invFilterCountry').value = savedState.country;
-    if (savedState.budget && document.getElementById('invFilterBudget')) document.getElementById('invFilterBudget').value = savedState.budget;
-    if (savedState.bedrooms && document.getElementById('invFilterBedrooms')) document.getElementById('invFilterBedrooms').value = savedState.bedrooms;
-    if (savedState.sort && document.getElementById('invFilterSort')) document.getElementById('invFilterSort').value = savedState.sort;
+    if (savedState.filterState) {
+      invFilterState = { ...invFilterState, ...savedState.filterState };
+    } else {
+      if (savedState.country && savedState.country !== 'all') invFilterState.country = savedState.country.split(',').filter(Boolean);
+      if (savedState.city && savedState.city !== 'all') invFilterState.city = savedState.city.split(',').filter(Boolean);
+      if (savedState.budget && savedState.budget !== 'any') invFilterState.budget = [savedState.budget];
+      if (savedState.bedrooms && savedState.bedrooms !== 'any') invFilterState.bedrooms = [savedState.bedrooms];
+      if (savedState.sort) invFilterState.sort = savedState.sort;
+    }
+    updateAllFilterPillLabels();
   }
 
   await fetchAndRenderCatalogListings();
@@ -1801,192 +1833,535 @@ window.backToInvestmentsLanding = backToInvestmentsLanding;
 window.selectResultsCategory = selectResultsCategory;
 window.handleInvTypeDropdownChange = handleInvTypeDropdownChange;
 
-function handleInvCountryChange(countryVal) {
-  updateCityOptions(countryVal, invFilterOptions);
-  handleInvFilterChange();
+function capitalize(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-function updateCityOptions(countryVal, opts = invFilterOptions) {
-  const citySelect = document.getElementById('invFilterCity');
-  if (!citySelect) return;
-  const curVal = citySelect.value;
+function escapeHtml(str) {
+  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
-  let cityList = [];
-  if (opts && opts.cities_by_country) {
-    if (countryVal && countryVal !== 'all' && opts.cities_by_country[countryVal]) {
-      cityList = opts.cities_by_country[countryVal];
+function escapeHtmlAttr(str) {
+  return String(str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+function calcCandidateCount() {
+  const items = (allCatalogItems && allCatalogItems.length > 0) ? allCatalogItems : invListings;
+  if (!items || items.length === 0) {
+    return invFilterOptions?.total_count || invTotalProperties || 239;
+  }
+
+  const state = invCandidateState;
+  const filtered = items.filter(r => {
+    // category / type
+    if (invSelectedCategory && invSelectedCategory !== 'All Properties' && invSelectedCategory !== 'all') {
+      const normCat = (r.property_type || '').toLowerCase();
+      if (normCat !== invSelectedCategory.toLowerCase()) return false;
+    }
+
+    // countries (OR logic)
+    if (state.country && state.country.length > 0) {
+      const c = (r.country || '').toLowerCase().trim();
+      const matchC = state.country.some(sel => sel.toLowerCase().trim() === c);
+      if (!matchC) return false;
+    }
+
+    // cities (OR logic)
+    if (state.city && state.city.length > 0) {
+      const city = (r.city || '').toLowerCase().trim();
+      const matchCity = state.city.some(sel => sel.toLowerCase().trim() === city);
+      if (!matchCity) return false;
+    }
+
+    // budget (OR logic across brackets)
+    if (state.budget && state.budget.length > 0) {
+      const p = r.price_min_num || r.price_max_num || 0;
+      const inBudget = state.budget.some(br => {
+        const parts = br.split('-').map(Number);
+        const minB = parts[0] || 0;
+        const maxB = parts[1] || 0;
+        if (minB > 0 && maxB > 0) return p >= minB && p <= maxB;
+        if (minB > 0 && maxB === 0) return p >= minB;
+        if (minB === 0 && maxB > 0) return p <= maxB;
+        return false;
+      });
+      if (!inBudget) return false;
+    }
+
+    // bedrooms (OR logic across selected bed options)
+    if (state.bedrooms && state.bedrooms.length > 0) {
+      const beds = r.beds !== null ? r.beds : null;
+      const bMin = r.beds_min;
+      const bMax = r.beds_max;
+      const inBeds = state.bedrooms.some(bedChoice => {
+        if (bedChoice === 'studio') return beds === 0 || bMin === 0;
+        if (bedChoice === '1') return beds === 1 || (bMin <= 1 && bMax >= 1);
+        if (bedChoice === '2') return beds === 2 || (bMin <= 2 && bMax >= 2);
+        if (bedChoice === '3') return beds === 3 || (bMin <= 3 && bMax >= 3);
+        if (bedChoice === '4') return beds === 4 || (bMin <= 4 && bMax >= 4);
+        if (bedChoice === '5+') return (beds !== null && beds >= 5) || (bMax !== null && bMax >= 5);
+        return false;
+      });
+      if (!inBeds) return false;
+    }
+
+    // features (AND logic across selected features)
+    if (state.features && state.features.length > 0) {
+      const featStr = (r.features_json || '').toLowerCase();
+      const descStr = (r.description || '').toLowerCase();
+      const compStr = (r.completion_status || '').toLowerCase();
+      const hoStr = (r.handover || '').toLowerCase();
+      const matchAll = state.features.every(f => {
+        if (f === 'ready') {
+          return compStr.includes('ready') || compStr.includes('completed') || compStr.includes('100%') ||
+                 hoStr.includes('ready') || hoStr.includes('completed') ||
+                 featStr.includes('ready') || featStr.includes('completed') ||
+                 descStr.includes('ready') || descStr.includes('completed');
+        }
+        if (f === 'instalments') {
+          let hasPlan = false;
+          try {
+            const pt = JSON.parse(r.payment_terms_json || '{}');
+            if (pt.installment_plan && String(pt.installment_plan).trim()) hasPlan = true;
+          } catch (e) {}
+          return hasPlan || featStr.includes('instalment') || featStr.includes('installment') ||
+                 featStr.includes('payment plan') || descStr.includes('instalment');
+        }
+        if (f === 'sea_view') {
+          return featStr.includes('sea') || featStr.includes('ocean') || featStr.includes('waterfront') ||
+                 descStr.includes('sea view') || descStr.includes('seaview') || descStr.includes('ocean view');
+        }
+        if (f === 'furnished') {
+          return featStr.includes('furnish') || featStr.includes('furniture') || descStr.includes('furnished');
+        }
+        return featStr.includes(f.toLowerCase());
+      });
+      if (!matchAll) return false;
+    }
+
+    return true;
+  });
+
+  return filtered.length;
+}
+
+function toggleFilterPopover(type, event) {
+  if (event) {
+    if (event.target.closest('.inv-dd-clear')) return;
+    if (event.target.closest('.inv-popover')) return;
+    event.stopPropagation();
+  }
+
+  const wrapId = (type === 'sort') ? 'wrapInvFilterSort' : `wrapInvFilter${capitalize(type)}`;
+  const wrapEl = document.getElementById(wrapId);
+  if (!wrapEl) return;
+
+  const isAlreadyOpen = wrapEl.classList.contains('open');
+
+  // Close any open popovers
+  document.querySelectorAll('.inv-dropdown-wrap, .inv-sort-wrap').forEach(w => {
+    w.classList.remove('open');
+  });
+
+  if (isAlreadyOpen) {
+    activeFilterPopover = null;
+    return;
+  }
+
+  // Clone active filter state to candidate state
+  invCandidateState = JSON.parse(JSON.stringify(invFilterState));
+  activeFilterPopover = type;
+
+  // Render content
+  renderPopoverContent(type);
+
+  // Open this popover
+  wrapEl.classList.add('open');
+
+  // If search input exists, focus it smoothly
+  setTimeout(() => {
+    const input = wrapEl.querySelector('.inv-popover-search-input');
+    if (input) input.focus();
+  }, 40);
+}
+
+function renderPopoverContent(type) {
+  const popoverEl = document.getElementById(`popoverInvFilter${capitalize(type)}`);
+  if (!popoverEl) return;
+
+  if (type === 'sort' || type === 'features') {
+    popoverEl.classList.add('inv-popover-right');
+  }
+
+  const currentSelection = (type === 'sort') ? invCandidateState.sort : (invCandidateState[type] || []);
+  let title = capitalize(type);
+  let searchPlaceholder = '';
+  let showSearch = false;
+  let items = [];
+
+  if (type === 'country') {
+    title = 'Country';
+    showSearch = true;
+    searchPlaceholder = 'Search country or city...';
+    const countries = (invFilterOptions && invFilterOptions.countries) || [];
+    const counts = (invFilterOptions && invFilterOptions.country_counts) || {};
+    items = countries.map(c => ({
+      id: c,
+      label: c,
+      count: counts[c] || 0,
+      checked: currentSelection.includes(c)
+    }));
+  } else if (type === 'city') {
+    title = 'City';
+    showSearch = true;
+    searchPlaceholder = 'Search city...';
+    const citiesByCountry = (invFilterOptions && invFilterOptions.cities_by_country) || {};
+    const cityCounts = (invFilterOptions && invFilterOptions.city_counts) || {};
+    let cityList = [];
+    if (invCandidateState.country && invCandidateState.country.length > 0) {
+      const set = new Set();
+      invCandidateState.country.forEach(ctry => {
+        if (citiesByCountry[ctry]) citiesByCountry[ctry].forEach(c => set.add(c));
+      });
+      cityList = Array.from(set).sort();
     } else {
       const set = new Set();
-      Object.values(opts.cities_by_country).forEach(arr => {
+      Object.values(citiesByCountry).forEach(arr => {
         if (Array.isArray(arr)) arr.forEach(c => set.add(c));
       });
       cityList = Array.from(set).sort();
     }
+    items = cityList.map(c => ({
+      id: c,
+      label: c,
+      count: cityCounts[c] || 0,
+      checked: currentSelection.includes(c)
+    }));
+  } else if (type === 'budget') {
+    title = 'Budget';
+    const brackets = [
+      { id: '0-500000', label: 'Under €500k' },
+      { id: '500000-1000000', label: '€500k – €1M' },
+      { id: '1000000-2500000', label: '€1M – €2.5M' },
+      { id: '2500000-5000000', label: '€2.5M – €5M' },
+      { id: '5000000-999999999', label: 'Over €5M' }
+    ];
+    const counts = (invFilterOptions && invFilterOptions.budget_counts) || {};
+    items = brackets.map(b => ({
+      id: b.id,
+      label: b.label,
+      count: counts[b.id] || 0,
+      checked: currentSelection.includes(b.id)
+    }));
+  } else if (type === 'bedrooms') {
+    title = 'Bedrooms';
+    const bedOpts = [
+      { id: 'studio', label: 'Studio' },
+      { id: '1', label: '1 Bedroom' },
+      { id: '2', label: '2 Bedrooms' },
+      { id: '3', label: '3 Bedrooms' },
+      { id: '4', label: '4 Bedrooms' },
+      { id: '5+', label: '5+ Bedrooms' }
+    ];
+    const counts = (invFilterOptions && invFilterOptions.bedroom_counts) || {};
+    items = bedOpts.map(b => ({
+      id: b.id,
+      label: b.label,
+      count: counts[b.id] || 0,
+      checked: currentSelection.includes(b.id)
+    }));
+  } else if (type === 'features') {
+    title = 'Features';
+    const featOpts = [
+      { id: 'ready', label: 'Ready to Move' },
+      { id: 'instalments', label: 'Instalment Plan' },
+      { id: 'sea_view', label: 'Sea View' },
+      { id: 'furnished', label: 'Furnished' }
+    ];
+    const counts = (invFilterOptions && invFilterOptions.feature_counts) || {};
+    items = featOpts.map(f => ({
+      id: f.id,
+      label: f.label,
+      count: counts[f.id] || 0,
+      checked: currentSelection.includes(f.id)
+    }));
+  } else if (type === 'sort') {
+    title = 'Sort By';
+    const sortOpts = [
+      { id: 'newest', label: 'Newest' },
+      { id: 'price_asc', label: 'Price: Low to High' },
+      { id: 'price_desc', label: 'Price: High to Low' },
+      { id: 'title', label: 'Title: A to Z' }
+    ];
+    items = sortOpts.map(s => ({
+      id: s.id,
+      label: s.label,
+      count: null,
+      checked: invCandidateState.sort === s.id
+    }));
   }
 
-  if (cityList.length > 0) {
-    const isFiltered = curVal && curVal !== 'all';
-    let optsHtml = `<option value="all">${isFiltered ? '✕ Clear City' : 'City'}</option>`;
-    cityList.forEach(c => {
-      optsHtml += `<option value="${c}">${c}</option>`;
+  const candidateCount = calcCandidateCount();
+
+  let html = `
+    <div class="inv-popover-header">
+      <div class="inv-popover-title">${title}</div>
+      <button type="button" class="inv-popover-close-btn" onclick="closeAllFilterPopovers(event)" title="Close">✕</button>
+    </div>
+  `;
+
+  if (showSearch) {
+    html += `
+      <div class="inv-popover-search-wrap">
+        <svg class="inv-search-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+        </svg>
+        <input type="text" class="inv-popover-search-input" placeholder="${searchPlaceholder}" oninput="handlePopoverSearch(this.value, '${type}')">
+      </div>
+    `;
+  }
+
+  html += `<div class="inv-popover-options-list" id="popoverList_${type}">`;
+  items.forEach(it => {
+    html += `
+      <div class="inv-popover-item ${it.checked ? 'checked' : ''}" data-val="${escapeHtmlAttr(it.id)}" onclick="togglePopoverOption('${type}', '${escapeHtmlAttr(it.id)}')">
+        <div class="inv-popover-item-left">
+          <div class="inv-checkbox-box">
+            <svg class="inv-checkbox-check" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2.5 6.5L4.5 8.5L9.5 3.5"/>
+            </svg>
+          </div>
+          <span class="inv-popover-item-name">${escapeHtml(it.label)}</span>
+        </div>
+        ${it.count !== null ? `<span class="inv-popover-item-count">${it.count}</span>` : ''}
+      </div>
+    `;
+  });
+  html += `</div>`;
+
+  html += `
+    <div class="inv-popover-footer">
+      <button type="button" class="inv-popover-clear-action" onclick="clearCandidateCategory('${type}')">Clear</button>
+      <button type="button" class="inv-popover-show-btn" id="popoverShowBtn_${type}" onclick="applyAndClosePopover('${type}')">
+        ${type === 'sort' ? 'Apply' : `Show ${candidateCount}`}
+      </button>
+    </div>
+  `;
+
+  popoverEl.innerHTML = html;
+}
+
+function handlePopoverSearch(val, type) {
+  const query = (val || '').toLowerCase().trim();
+  const list = document.getElementById(`popoverList_${type}`);
+  if (!list) return;
+  list.querySelectorAll('.inv-popover-item').forEach(item => {
+    const text = (item.querySelector('.inv-popover-item-name')?.textContent || '').toLowerCase();
+    if (!query || text.includes(query)) {
+      item.style.display = 'flex';
+    } else {
+      item.style.display = 'none';
+    }
+  });
+}
+
+function togglePopoverOption(type, value) {
+  if (type === 'sort') {
+    invCandidateState.sort = value;
+    const list = document.getElementById(`popoverList_${type}`);
+    if (list) {
+      list.querySelectorAll('.inv-popover-item').forEach(it => {
+        if (it.getAttribute('data-val') === value) {
+          it.classList.add('checked');
+        } else {
+          it.classList.remove('checked');
+        }
+      });
+    }
+  } else {
+    const arr = invCandidateState[type] || [];
+    const idx = arr.indexOf(value);
+    if (idx > -1) {
+      arr.splice(idx, 1);
+    } else {
+      arr.push(value);
+    }
+    invCandidateState[type] = arr;
+
+    const list = document.getElementById(`popoverList_${type}`);
+    if (list) {
+      list.querySelectorAll('.inv-popover-item').forEach(it => {
+        if (it.getAttribute('data-val') === value) {
+          if (arr.includes(value)) it.classList.add('checked');
+          else it.classList.remove('checked');
+        }
+      });
+    }
+  }
+
+  const showBtn = document.getElementById(`popoverShowBtn_${type}`);
+  if (showBtn) {
+    if (type === 'sort') {
+      showBtn.textContent = 'Apply';
+    } else {
+      showBtn.textContent = `Show ${calcCandidateCount()}`;
+    }
+  }
+}
+
+function clearCandidateCategory(type) {
+  if (type === 'sort') {
+    invCandidateState.sort = 'newest';
+  } else {
+    invCandidateState[type] = [];
+  }
+  const list = document.getElementById(`popoverList_${type}`);
+  if (list) {
+    list.querySelectorAll('.inv-popover-item').forEach(it => {
+      if (type === 'sort') {
+        if (it.getAttribute('data-val') === 'newest') it.classList.add('checked');
+        else it.classList.remove('checked');
+      } else {
+        it.classList.remove('checked');
+      }
     });
-    citySelect.innerHTML = optsHtml;
-    citySelect.value = (curVal && cityList.includes(curVal)) ? curVal : 'all';
   }
-}
-
-function syncFilterClearButtons() {
-  const configs = [
-    { selId: 'invFilterCountry', wrapId: 'wrapInvFilterCountry', defaultVal: 'all', label: 'Country' },
-    { selId: 'invFilterCity', wrapId: 'wrapInvFilterCity', defaultVal: 'all', label: 'City' },
-    { selId: 'invFilterBudget', wrapId: 'wrapInvFilterBudget', defaultVal: 'any', label: 'Budget' },
-    { selId: 'invFilterBedrooms', wrapId: 'wrapInvFilterBedrooms', defaultVal: 'any', label: 'Bedrooms' },
-    { selId: 'invFilterFeatures', wrapId: 'wrapInvFilterFeatures', defaultVal: '', label: 'Features' },
-    { selId: 'invFilterSort', wrapId: 'wrapInvFilterSort', defaultVal: 'newest', label: 'Sort' },
-  ];
-
-  configs.forEach(cfg => {
-    const sel = document.getElementById(cfg.selId);
-    const wrap = document.getElementById(cfg.wrapId);
-    if (!sel || !wrap) return;
-    const isFiltered = sel.value && sel.value !== cfg.defaultVal;
-    if (isFiltered) {
-      wrap.classList.add('has-value');
+  const showBtn = document.getElementById(`popoverShowBtn_${type}`);
+  if (showBtn) {
+    if (type === 'sort') {
+      showBtn.textContent = 'Apply';
     } else {
-      wrap.classList.remove('has-value');
+      showBtn.textContent = `Show ${calcCandidateCount()}`;
     }
-
-    if (sel.options && sel.options.length > 0) {
-      const firstOpt = sel.options[0];
-      if (firstOpt.value === cfg.defaultVal) {
-        if (isFiltered) {
-          firstOpt.textContent = `✕ Clear ${cfg.label}`;
-        } else {
-          firstOpt.textContent = cfg.label === 'Sort' ? 'Sort: Newest' : cfg.label;
-        }
-      }
-    }
-  });
-
-  const eventConfigs = [
-    { selId: 'filterEventType', wrapId: 'wrapEventFilterType', defaultVal: 'all', label: 'Type' },
-    { selId: 'filterEventDest', wrapId: 'wrapEventFilterDest', defaultVal: 'all', label: 'Destination' },
-    { selId: 'filterEventStatus', wrapId: 'wrapEventFilterStatus', defaultVal: 'all', label: 'Status' },
-  ];
-  eventConfigs.forEach(cfg => {
-    const sel = document.getElementById(cfg.selId);
-    const wrap = document.getElementById(cfg.wrapId);
-    if (!sel || !wrap) return;
-    const isFiltered = sel.value && sel.value !== cfg.defaultVal;
-    if (isFiltered) {
-      wrap.classList.add('has-value');
-    } else {
-      wrap.classList.remove('has-value');
-    }
-    if (sel.options && sel.options.length > 0) {
-      const firstOpt = sel.options[0];
-      if (firstOpt.value === cfg.defaultVal) {
-        if (isFiltered) {
-          firstOpt.textContent = `✕ Clear ${cfg.label}`;
-        } else {
-          firstOpt.textContent = `All ${cfg.label}s`;
-        }
-      }
-    }
-  });
+  }
 }
 
-function clearSpecificFilter(filterType, event) {
-  if (event) {
-    event.stopPropagation();
-    event.preventDefault();
-  }
-
-  if (filterType === 'country') {
-    const el = document.getElementById('invFilterCountry');
-    if (el) el.value = 'all';
-    updateCityOptions('all', invFilterOptions);
-    const cityEl = document.getElementById('invFilterCity');
-    if (cityEl) cityEl.value = 'all';
-    handleInvFilterChange();
-  } else if (filterType === 'city') {
-    const el = document.getElementById('invFilterCity');
-    if (el) el.value = 'all';
-    handleInvFilterChange();
-  } else if (filterType === 'budget') {
-    const el = document.getElementById('invFilterBudget');
-    if (el) el.value = 'any';
-    handleInvFilterChange();
-  } else if (filterType === 'bedrooms') {
-    const el = document.getElementById('invFilterBedrooms');
-    if (el) el.value = 'any';
-    handleInvFilterChange();
-  } else if (filterType === 'features') {
-    const el = document.getElementById('invFilterFeatures');
-    if (el) el.value = '';
-    handleInvFilterChange();
-  } else if (filterType === 'sort') {
-    const el = document.getElementById('invFilterSort');
-    if (el) el.value = 'newest';
-    handleInvFilterChange();
-  } else if (filterType === 'event_type') {
-    const el = document.getElementById('filterEventType');
-    if (el) el.value = 'all';
-    filterEvents('type', 'all');
-  } else if (filterType === 'event_dest') {
-    const el = document.getElementById('filterEventDest');
-    if (el) el.value = 'all';
-    filterEvents('dest', 'all');
-  } else if (filterType === 'event_status') {
-    const el = document.getElementById('filterEventStatus');
-    if (el) el.value = 'all';
-    filterEvents('status', 'all');
-  }
-
-  syncFilterClearButtons();
-}
-
-function handleInvFilterChange() {
-  syncFilterClearButtons();
+function applyAndClosePopover(type) {
+  invFilterState = JSON.parse(JSON.stringify(invCandidateState));
+  closeAllFilterPopovers();
+  updateAllFilterPillLabels();
   fetchAndRenderCatalogListings();
   saveInvestmentState();
 }
 
-function setupInvestmentDropdownClicks() {
-  document.querySelectorAll('.inv-dropdown-wrap, .inv-sort-wrap').forEach(wrap => {
-    if (wrap.dataset.clicksBound) return;
-    wrap.dataset.clicksBound = 'true';
-    wrap.addEventListener('click', (e) => {
-      if (e.target.closest('.inv-dd-clear')) return;
-      const sel = wrap.querySelector('select');
-      if (sel && e.target !== sel) {
-        if (typeof sel.showPicker === 'function') {
-          try { sel.showPicker(); } catch (err) { sel.focus(); }
-        } else {
-          sel.focus();
-        }
+function closeAllFilterPopovers(event) {
+  if (event) {
+    event.stopPropagation();
+  }
+  document.querySelectorAll('.inv-dropdown-wrap, .inv-sort-wrap').forEach(w => {
+    w.classList.remove('open');
+  });
+  activeFilterPopover = null;
+}
+
+function clearSpecificMultiFilter(type, event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  if (type === 'sort') {
+    invFilterState.sort = 'newest';
+  } else {
+    invFilterState[type] = [];
+  }
+  if (type === 'country') {
+    invFilterState.city = [];
+  }
+  updateAllFilterPillLabels();
+  fetchAndRenderCatalogListings();
+  saveInvestmentState();
+}
+
+function updateAllFilterPillLabels() {
+  const configs = [
+    { type: 'country', label: 'Country' },
+    { type: 'city', label: 'City' },
+    { type: 'budget', label: 'Budget' },
+    { type: 'bedrooms', label: 'Bedrooms' },
+    { type: 'features', label: 'Features' },
+    { type: 'sort', label: 'Sort' }
+  ];
+
+  const budgetLabels = {
+    '0-500000': 'Under €500k',
+    '500000-1000000': '€500k – €1M',
+    '1000000-2500000': '€1M – €2.5M',
+    '2500000-5000000': '€2.5M – €5M',
+    '5000000-999999999': 'Over €5M'
+  };
+
+  const bedLabels = {
+    'studio': 'Studio',
+    '1': '1 Bedroom',
+    '2': '2 Bedrooms',
+    '3': '3 Bedrooms',
+    '4': '4 Bedrooms',
+    '5+': '5+ Bedrooms'
+  };
+
+  const featLabels = {
+    'ready': 'Ready to Move',
+    'instalments': 'Instalment Plan',
+    'sea_view': 'Sea View',
+    'furnished': 'Furnished'
+  };
+
+  const sortLabels = {
+    'newest': 'Newest',
+    'price_asc': 'Price: Low to High',
+    'price_desc': 'Price: High to Low',
+    'title': 'Title: A to Z'
+  };
+
+  configs.forEach(cfg => {
+    const wrapId = cfg.type === 'sort' ? 'wrapInvFilterSort' : `wrapInvFilter${capitalize(cfg.type)}`;
+    const labelId = cfg.type === 'sort' ? 'labelInvFilterSort' : `labelInvFilter${capitalize(cfg.type)}`;
+    const wrap = document.getElementById(wrapId);
+    const label = document.getElementById(labelId);
+    if (!wrap || !label) return;
+
+    if (cfg.type === 'sort') {
+      const sVal = invFilterState.sort || 'newest';
+      label.textContent = `Sort: ${sortLabels[sVal] || 'Newest'}`;
+      if (sVal !== 'newest') {
+        wrap.classList.add('has-value');
+      } else {
+        wrap.classList.remove('has-value');
       }
-    });
+      return;
+    }
+
+    const sel = invFilterState[cfg.type] || [];
+    if (sel.length === 0) {
+      label.textContent = cfg.label;
+      wrap.classList.remove('has-value');
+    } else if (sel.length === 1) {
+      let singleName = sel[0];
+      if (cfg.type === 'budget') singleName = budgetLabels[sel[0]] || sel[0];
+      if (cfg.type === 'bedrooms') singleName = bedLabels[sel[0]] || sel[0];
+      if (cfg.type === 'features') singleName = featLabels[sel[0]] || sel[0];
+      label.textContent = singleName;
+      wrap.classList.add('has-value');
+    } else {
+      label.textContent = `${cfg.label} (${sel.length})`;
+      wrap.classList.add('has-value');
+    }
   });
 }
 
 function clearAllInvestmentFilters() {
-  const countryEl = document.getElementById('invFilterCountry');
-  const cityEl = document.getElementById('invFilterCity');
-  const budgetEl = document.getElementById('invFilterBudget');
-  const bedroomsEl = document.getElementById('invFilterBedrooms');
-  const featEl = document.getElementById('invFilterFeatures');
-  const sortEl = document.getElementById('invFilterSort');
-
-  if (countryEl) countryEl.value = 'all';
-  if (cityEl) {
-    updateCityOptions('all', invFilterOptions);
-    cityEl.value = 'all';
-  }
-  if (budgetEl) budgetEl.value = 'any';
-  if (bedroomsEl) bedroomsEl.value = 'any';
-  if (featEl) featEl.value = '';
-  if (sortEl) sortEl.value = 'newest';
+  invFilterState = {
+    country: [],
+    city: [],
+    budget: [],
+    bedrooms: [],
+    features: [],
+    sort: 'newest'
+  };
+  invCandidateState = JSON.parse(JSON.stringify(invFilterState));
+  closeAllFilterPopovers();
+  updateAllFilterPillLabels();
 
   invSelectedCategory = 'All Properties';
   const breadcrumb = document.getElementById('activeCategoryBreadcrumb');
@@ -1995,47 +2370,22 @@ function clearAllInvestmentFilters() {
   renderCompactCategoryStrip();
   fetchAndRenderCatalogListings();
   saveInvestmentState();
-  syncFilterClearButtons();
 }
-
-window.handleInvCountryChange = handleInvCountryChange;
-window.handleInvFilterChange = handleInvFilterChange;
-window.clearAllInvestmentFilters = clearAllInvestmentFilters;
-window.clearSpecificFilter = clearSpecificFilter;
-window.syncFilterClearButtons = syncFilterClearButtons;
-window.updateCityOptions = updateCityOptions;
-window.setupInvestmentDropdownClicks = setupInvestmentDropdownClicks;
 
 async function fetchAndRenderCatalogListings() {
   const grid = document.getElementById('listingsGrid');
   if (grid) grid.innerHTML = '<div class="loading-state">Fetching verified property portfolios...</div>';
 
-  const country = document.getElementById('invFilterCountry')?.value || 'all';
-  const city = document.getElementById('invFilterCity')?.value || 'all';
-  const budget = document.getElementById('invFilterBudget')?.value || 'any';
-  const bedrooms = document.getElementById('invFilterBedrooms')?.value || 'any';
-  const features = document.getElementById('invFilterFeatures')?.value || '';
-  const sort = document.getElementById('invFilterSort')?.value || 'newest';
-
-  let budgetMin = 0;
-  let budgetMax = 0;
-  if (budget && budget !== 'any') {
-    const parts = budget.split('-');
-    budgetMin = parseFloat(parts[0]) || 0;
-    budgetMax = parseFloat(parts[1]) || 0;
-  }
-
   const effectiveType = (invSelectedCategory !== 'All Properties' && invSelectedCategory !== 'all') ? invSelectedCategory : (document.getElementById('invFilterType')?.value || 'all');
 
   const params = new URLSearchParams();
   if (effectiveType && effectiveType !== 'all') params.append('type', effectiveType);
-  if (country !== 'all') params.append('country', country);
-  if (city !== 'all') params.append('city', city);
-  if (bedrooms !== 'any') params.append('bedrooms', bedrooms);
-  if (features) params.append('features', features);
-  if (budgetMin > 0) params.append('budgetMin', budgetMin);
-  if (budgetMax > 0) params.append('budgetMax', budgetMax);
-  if (sort) params.append('sort', sort);
+  if (invFilterState.country && invFilterState.country.length > 0) params.append('country', invFilterState.country.join(','));
+  if (invFilterState.city && invFilterState.city.length > 0) params.append('city', invFilterState.city.join(','));
+  if (invFilterState.bedrooms && invFilterState.bedrooms.length > 0) params.append('bedrooms', invFilterState.bedrooms.join(','));
+  if (invFilterState.budget && invFilterState.budget.length > 0) params.append('budgetBrackets', invFilterState.budget.join(','));
+  if (invFilterState.features && invFilterState.features.length > 0) params.append('features', invFilterState.features.join(','));
+  if (invFilterState.sort) params.append('sort', invFilterState.sort);
   if (currentUserId) params.append('viewerId', currentUserId);
   params.append('limit', '60');
 
@@ -2043,94 +2393,27 @@ async function fetchAndRenderCatalogListings() {
     const res = await fetch(`/api/investments/catalog?${params.toString()}`);
     const data = await res.json();
     invListings = data.listings || [];
-    invFilterOptions = data.filter_options || null;
-
-    // Populate dropdowns once if available
-    populateFilterDropdownOptions(data.filter_options);
+    if (data.filter_options) {
+      invFilterOptions = data.filter_options;
+    }
+    if (!allCatalogItems || allCatalogItems.length === 0) {
+      allCatalogItems = invListings;
+    }
 
     // Update Result count
-    const countEl = document.getElementById('investmentsResultsCount');
-    if (countEl) {
-      countEl.textContent = `${data.total} properties found`;
-    }
+    const countEl = document.getElementById('invResultsCount');
+    const totalCount = (typeof data.total === 'number') ? data.total : invListings.length;
+    if (countEl) countEl.innerText = `${totalCount} ${totalCount === 1 ? 'property' : 'properties'}`;
+
+    // Update favorites badge count
+    updateFavoritesBadgeCount();
 
     if (!invListings.length) {
       grid.innerHTML = '<div class="empty-state">No matching properties found. Try clearing your filters.</div>';
       return;
     }
 
-    grid.innerHTML = invListings.map(item => {
-      const images = item.images && item.images.length > 0 ? item.images : ['https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800'];
-      const curIndex = invCardPhotoIndices[item.id] || 0;
-      const displayImg = images[curIndex] || images[0];
-      const hasMultiple = images.length > 1;
-
-      // Format specs
-      const specParts = [];
-      if (item.bedrooms_range) specParts.push(`${item.bedrooms_range} bedrooms`);
-      else if (item.beds !== null && item.beds !== undefined) specParts.push(`${item.beds} bed`);
-      if (item.completion_status) specParts.push(item.completion_status);
-      if (item.features && item.features.length) specParts.push(item.features[0]);
-
-      const specsLine = specParts.join(' · ') || 'Verified ÖZARA Portfolio';
-
-      return `
-        <div class="prop-card" onclick="openPropertyDetailModal('${item.id}')">
-          <!-- 4:3 Image Container with Carousel Navigation -->
-          <div class="prop-card-img-wrap" 
-               id="imgWrap_${item.id}"
-               ontouchstart="handleCardTouchStart(event)" 
-               ontouchend="handleCardTouchEnd(event, '${item.id}')">
-            <img src="${displayImg}" 
-                 id="cardImg_${item.id}" 
-                 alt="${item.title}" 
-                 class="prop-card-img" 
-                 loading="lazy">
-
-            ${hasMultiple ? `
-              <button class="prop-carousel-btn prop-carousel-prev" 
-                      title="Previous photo" 
-                      onclick="navigateCardPhoto('${item.id}', -1, event)">
-                <img src="/investments/icons/arrow_left_glass.png" class="prop-carousel-arrow-glass" alt="‹">
-              </button>
-              <button class="prop-carousel-btn prop-carousel-next" 
-                      title="Next photo" 
-                      onclick="navigateCardPhoto('${item.id}', 1, event)">
-                <img src="/investments/icons/arrow_right_glass.png" class="prop-carousel-arrow-glass" alt="›">
-              </button>
-            ` : ''}
-
-            <div class="prop-photo-counter" id="photoCount_${item.id}">
-              ${curIndex + 1} / ${images.length}
-            </div>
-
-            <button class="prop-card-save-btn ${item.is_saved ? 'saved' : ''}" 
-                    title="${item.is_saved ? 'Saved' : 'Save property'}" 
-                    onclick="toggleSaveInvestmentListing('${item.id}', event)">
-              ${item.is_saved ? '★' : '☆'}
-            </button>
-          </div>
-
-          <!-- Card Body -->
-          <div class="prop-card-body">
-            <div class="prop-card-location" title="${item.location}">
-              📍 ${item.location || item.city || item.country}
-            </div>
-            <h3 class="prop-card-title" title="${item.title}">${item.title}</h3>
-            <div class="prop-card-price">${item.price_display}</div>
-            <div class="prop-card-specs" title="${specsLine}">${specsLine}</div>
-
-            <div class="prop-card-actions">
-              <span class="badge badge-outline" style="font-size: 0.7rem;">${item.property_type}</span>
-              <button class="btn btn-sm btn-white-pill" onclick="event.stopPropagation(); openPropertyDetailModal('${item.id}')">
-                Details →
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-
+    grid.innerHTML = invListings.map(renderPropertyCardHtml).join('');
   } catch (err) {
     console.error('Error fetching catalog listings:', err);
     if (grid) grid.innerHTML = '<div class="loading-state">Error loading properties.</div>';
@@ -2140,24 +2423,28 @@ async function fetchAndRenderCatalogListings() {
 function populateFilterDropdownOptions(opts) {
   if (!opts) return;
   invFilterOptions = opts;
-
-  const countryEl = document.getElementById('invFilterCountry');
-  if (countryEl && opts.countries && opts.countries.length) {
-    const curVal = countryEl.value;
-    const isFiltered = curVal && curVal !== 'all';
-    let html = `<option value="all">${isFiltered ? '✕ Clear Country' : 'Country'}</option>`;
-    const uniqueCountries = Array.from(new Set(opts.countries.filter(Boolean))).sort();
-    uniqueCountries.forEach(c => {
-      html += `<option value="${c}">${c}</option>`;
-    });
-    countryEl.innerHTML = html;
-    countryEl.value = (curVal && uniqueCountries.includes(curVal)) ? curVal : 'all';
-  }
-
-  updateCityOptions(countryEl ? countryEl.value : 'all', opts);
-  setupInvestmentDropdownClicks();
-  syncFilterClearButtons();
+  updateAllFilterPillLabels();
 }
+
+// Global outside-click dismisser for popovers
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.inv-dropdown-wrap') && !e.target.closest('.inv-sort-wrap')) {
+    closeAllFilterPopovers();
+  }
+});
+
+window.toggleFilterPopover = toggleFilterPopover;
+window.closeAllFilterPopovers = closeAllFilterPopovers;
+window.togglePopoverOption = togglePopoverOption;
+window.clearCandidateCategory = clearCandidateCategory;
+window.applyAndClosePopover = applyAndClosePopover;
+window.clearSpecificMultiFilter = clearSpecificMultiFilter;
+window.clearSpecificFilter = clearSpecificMultiFilter;
+window.handlePopoverSearch = handlePopoverSearch;
+window.updateAllFilterPillLabels = updateAllFilterPillLabels;
+window.clearAllInvestmentFilters = clearAllInvestmentFilters;
+window.fetchAndRenderCatalogListings = fetchAndRenderCatalogListings;
+window.populateFilterDropdownOptions = populateFilterDropdownOptions;
 
 function navigateCardPhoto(listingId, delta, event) {
   if (event) {
@@ -2200,33 +2487,247 @@ function handleCardTouchEnd(e, listingId) {
   }
 }
 
+// Render single property card HTML
+function renderPropertyCardHtml(item) {
+  const images = item.images && item.images.length > 0 ? item.images : ['https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800'];
+  const curIndex = invCardPhotoIndices[item.id] || 0;
+  const displayImg = images[curIndex] || images[0];
+  const hasMultiple = images.length > 1;
+
+  // Format specs
+  const specParts = [];
+  if (item.bedrooms_range) specParts.push(`${item.bedrooms_range} bedrooms`);
+  else if (item.beds !== null && item.beds !== undefined) specParts.push(`${item.beds} bed`);
+  if (item.completion_status) specParts.push(item.completion_status);
+  if (item.features && item.features.length) specParts.push(item.features[0]);
+
+  const specsLine = specParts.join(' · ') || 'Verified ÖZARA Portfolio';
+
+  return `
+    <div class="prop-card" onclick="openPropertyDetailModal('${item.id}')">
+      <!-- 4:3 Image Container with Carousel Navigation -->
+      <div class="prop-card-img-wrap" 
+           id="imgWrap_${item.id}"
+           ontouchstart="handleCardTouchStart(event)" 
+           ontouchend="handleCardTouchEnd(event, '${item.id}')">
+        <img src="${displayImg}" 
+             id="cardImg_${item.id}" 
+             alt="${item.title}" 
+             class="prop-card-img" 
+             loading="lazy">
+
+        ${hasMultiple ? `
+          <button class="prop-carousel-btn prop-carousel-prev" 
+                  title="Previous photo" 
+                  onclick="navigateCardPhoto('${item.id}', -1, event)">
+            <img src="/investments/icons/arrow_left_glass.png" class="prop-carousel-arrow-glass" alt="‹">
+          </button>
+          <button class="prop-carousel-btn prop-carousel-next" 
+                  title="Next photo" 
+                  onclick="navigateCardPhoto('${item.id}', 1, event)">
+            <img src="/investments/icons/arrow_right_glass.png" class="prop-carousel-arrow-glass" alt="›">
+          </button>
+        ` : ''}
+
+        <div class="prop-photo-counter" id="photoCount_${item.id}">
+          ${curIndex + 1} / ${images.length}
+        </div>
+
+        <button class="prop-card-save-btn ${item.is_saved ? 'saved' : ''}" 
+                aria-label="${item.is_saved ? 'Remove from favorites' : 'Add to favorites'}" 
+                onclick="toggleSaveInvestmentListing('${item.id}', event)">
+          <img src="${item.is_saved ? '/investments/icons/fav_flower_active.png' : '/investments/icons/fav_star_inactive.png'}" 
+               class="prop-fav-icon-img" alt="">
+        </button>
+      </div>
+
+      <!-- Card Body -->
+      <div class="prop-card-body">
+        <div class="prop-card-location" title="${item.location}">
+          📍 ${item.location || item.city || item.country}
+        </div>
+        <h3 class="prop-card-title" title="${item.title}">${item.title}</h3>
+        <div class="prop-card-price">${item.price_display}</div>
+        <div class="prop-card-specs" title="${specsLine}">${specsLine}</div>
+
+        <div class="prop-card-actions">
+          <span class="badge badge-outline" style="font-size: 0.7rem;">${item.property_type}</span>
+          <button class="btn btn-sm btn-white-pill" onclick="event.stopPropagation(); openPropertyDetailModal('${item.id}')">
+            Details →
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// -------------------------------------------------------------
+// FAVORITES VIEW & BADGE CONTROLS
+// -------------------------------------------------------------
+function updateFavoritesBadgeCount() {
+  const count = (invListings || []).filter(l => l.is_saved).length;
+  const badges = document.querySelectorAll('.fav-count-badge, #realEstateFavCountBadge, #landingFavCountBadge');
+  badges.forEach(b => {
+    b.textContent = count;
+  });
+  const pagePill = document.getElementById('favPageCountPill');
+  if (pagePill) {
+    pagePill.textContent = `${count} ${count === 1 ? 'property' : 'properties'} saved`;
+  }
+}
+
+async function openFavoritesView() {
+  if (activeTab !== 'investments') {
+    switchTab('investments');
+  }
+  const landing = document.getElementById('investmentsLandingView');
+  const results = document.getElementById('investmentsResultsView');
+  const favView = document.getElementById('investmentsFavoritesView');
+
+  if (landing) landing.style.display = 'none';
+  if (results) results.style.display = 'none';
+  if (favView) favView.style.display = 'block';
+
+  invViewMode = 'favorites';
+  saveInvestmentState();
+
+  try {
+    history.replaceState(null, '', '#investments/favorites');
+  } catch (e) {}
+
+  await renderFavoritesGrid();
+  updateFavoritesBadgeCount();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function backToRealEstateResults() {
+  const favView = document.getElementById('investmentsFavoritesView');
+  const results = document.getElementById('investmentsResultsView');
+
+  if (favView) favView.style.display = 'none';
+  if (results) results.style.display = 'block';
+
+  invViewMode = 'results';
+  saveInvestmentState();
+
+  try {
+    history.replaceState(null, '', '#investments');
+  } catch (e) {}
+
+  updateFavoritesBadgeCount();
+}
+
+async function renderFavoritesGrid() {
+  const grid = document.getElementById('favoritesListingsGrid');
+  if (!grid) return;
+
+  if (!invListings || !invListings.length) {
+    grid.innerHTML = '<div class="loading-state">Loading your favorite properties...</div>';
+    try {
+      const viewerParam = currentUserId ? `?viewerId=${currentUserId}&limit=100` : '?limit=100';
+      const res = await fetch(`/api/investments/catalog${viewerParam}`);
+      const data = await res.json();
+      invListings = data.listings || [];
+    } catch (e) {
+      console.error('Error fetching favorites catalog:', e);
+    }
+  }
+
+  const favorites = (invListings || []).filter(l => l.is_saved);
+  updateFavoritesBadgeCount();
+
+  if (!favorites.length) {
+    grid.innerHTML = `
+      <div class="favorites-empty-box">
+        <img src="/investments/icons/fav_star_inactive.png" class="fav-empty-star-img" alt="">
+        <h3>No favorite properties yet</h3>
+        <p>Explore our curated real estate catalog and tap the crystal star on any listing to save it to your private portfolio.</p>
+        <button class="btn btn-sm btn-white-pill" onclick="backToRealEstateResults()">Explore Real Estate Portfolio →</button>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = favorites.map(renderPropertyCardHtml).join('');
+}
+
+window.openFavoritesView = openFavoritesView;
+window.backToRealEstateResults = backToRealEstateResults;
+window.updateFavoritesBadgeCount = updateFavoritesBadgeCount;
+window.renderFavoritesGrid = renderFavoritesGrid;
+
 async function toggleSaveInvestmentListing(listingId, event) {
   if (event) {
     event.stopPropagation();
     event.preventDefault();
   }
 
-  if (!currentUserId) {
-    showToast("Please select a profile to save properties.", "error");
-    return;
-  }
+  const effectiveUserId = currentUserId || 'usr_elena';
 
   const item = invListings.find(l => l.id === listingId);
   if (item) {
     item.is_saved = !item.is_saved;
-    const btn = event.currentTarget;
-    if (btn) {
-      btn.classList.toggle('saved', item.is_saved);
-      btn.textContent = item.is_saved ? '★' : '☆';
+    const btns = document.querySelectorAll(`button[onclick*="'${listingId}'"]`);
+    btns.forEach(btn => {
+      if (btn.classList.contains('prop-card-save-btn')) {
+        btn.classList.toggle('saved', item.is_saved);
+        btn.removeAttribute('title');
+        btn.setAttribute('aria-label', item.is_saved ? 'Remove from favorites' : 'Add to favorites');
+        btn.innerHTML = `<img src="${item.is_saved ? '/investments/icons/fav_flower_active.png' : '/investments/icons/fav_star_inactive.png'}" class="prop-fav-icon-img" alt="">`;
+      }
+    });
+
+    updateFavoritesBadgeCount();
+
+    // If currently on favorites page and item un-favorited, re-render
+    const favView = document.getElementById('investmentsFavoritesView');
+    if (favView && favView.style.display !== 'none') {
+      renderFavoritesGrid();
     }
   }
 
+  // Also sync modal if active
+  if (activePropDetail && activePropDetail.id === listingId) {
+    activePropDetail.is_saved = item ? item.is_saved : !activePropDetail.is_saved;
+    const modalBtn = document.getElementById('propModalFavoriteBtn');
+    if (modalBtn) {
+      modalBtn.classList.toggle('saved', !!activePropDetail.is_saved);
+      modalBtn.removeAttribute('title');
+      modalBtn.setAttribute('aria-label', activePropDetail.is_saved ? 'Remove from favorites' : 'Add to favorites');
+      modalBtn.innerHTML = `<img src="${activePropDetail.is_saved ? '/investments/icons/fav_flower_active.png' : '/investments/icons/fav_star_inactive.png'}" class="prop-fav-icon-img" alt="">`;
+    }
+  }
+
+  if (item && item.is_saved) {
+    showToast(
+      `<div class="toast-fav-content">
+         <img src="/investments/icons/fav_flower_active.png" class="toast-fav-img" alt="">
+         <div class="toast-fav-text-wrap">
+           <span class="toast-fav-title">Added to your favorites</span>
+           <span class="toast-fav-action">Click to view favorites →</span>
+         </div>
+       </div>`,
+      'success',
+      () => openFavoritesView()
+    );
+  } else {
+    showToast("Removed from favorites", "info");
+  }
+
   try {
-    await fetch(`/api/investments/saved/${listingId}?viewerId=${currentUserId}`, { method: 'POST' });
-    showToast(item && item.is_saved ? "Property saved to your watchlist" : "Property removed from watchlist", "success");
+    await fetch(`/api/investments/saved/${listingId}?viewerId=${effectiveUserId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ viewerId: effectiveUserId })
+    });
   } catch (err) {
     console.error('Error toggling saved listing:', err);
   }
+}
+
+async function toggleSaveActivePropDetail(event) {
+  if (!activePropDetail) return;
+  await toggleSaveInvestmentListing(activePropDetail.id, event);
 }
 
 async function openPropertyDetailModal(listingId) {
@@ -2240,6 +2741,12 @@ async function openPropertyDetailModal(listingId) {
   document.getElementById('propModalTypeTag').textContent = listing.property_type || 'Residential';
   document.getElementById('propModalTitle').textContent = listing.title;
   document.getElementById('propModalLocation').textContent = `📍 ${listing.location || listing.city || listing.country}`;
+
+  const modalFavBtn = document.getElementById('propModalFavoriteBtn');
+  if (modalFavBtn) {
+    modalFavBtn.classList.toggle('saved', !!listing.is_saved);
+    modalFavBtn.innerHTML = `<img src="${listing.is_saved ? '/investments/icons/fav_flower_active.png' : '/investments/icons/fav_star_inactive.png'}" class="prop-fav-icon-img" alt="${listing.is_saved ? 'Favorite' : 'Add to favorites'}">`;
+  }
 
   // Gallery
   updatePropModalGallery();

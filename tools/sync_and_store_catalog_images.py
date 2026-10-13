@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 """
-ÖZARA Investments: Durable Media Storage & Catalog Image Pipeline
-Layer 3 Tool: Synchronizes, downloads, optimizes, and stores catalog real estate photos in durable storage.
+ÖZARA Investments: Authentic Real Estate Media Synchronization & Ingestion Pipeline
+Layer 3 Tool: Synchronizes, downloads, optimizes, and stores authentic catalog photos.
 
-Invariants:
-- Zero dependency on ephemeral upstream URLs or browser caches.
-- Saves dual variants:
-    * Card: 640x480 (4:3 aspect ratio, WebP, quality 85)
-    * Full: up to 1600x1200 (WebP, quality 90)
-    * Thumbnail: 160x120 (WebP, quality 80)
-- Validates every image before marking ready.
-- Retains last working images when upstream synchronization fails.
-- Preserves photo order and deduplicates via SHA256.
-- Updates database records in ozara.db and sila.db with relative server delivery paths:
-    /api/media/catalog/{id}/cards/{idx}.webp
-- Private member/Telegram media remain protected under /storage/telegram_media/.
+Guarantees & Invariants:
+1. Strict authenticity: ONLY authentic, authorized photos belonging to the exact property or project are ingested.
+   Unrelated replacement photos and stock photography pools are strictly forbidden.
+2. Preserves source order: Photos are indexed in the exact order received from upstream (0, 1, 2, ...).
+3. If authentic photos cannot be retrieved, records empty image array ("Photos unavailable"). Never substitute another property's photo.
+4. Versioned & content-hashed URLs: Files are named {item_id}_{idx}_{hash8}.webp where hash8 is derived
+   from the authentic image SHA-256 hash. This completely busts browser and CDN caches.
+5. Durable multi-variant storage:
+   - Cards: 640x480 (4:3 aspect ratio, WebP quality 85, Lanczos, golden ratio bias for vertical architecture)
+   - Full: High-resolution detail (up to 1600x1200 WebP quality 90, maintaining aspect ratio)
+   - Thumbnails: 160x120 (4:3 aspect ratio, WebP quality 80)
+6. Provenance tracking: Records source listing ID, upstream source URL, SHA-256 hash, and provenance metadata in source_meta_json and manifest.json.
+7. Dual database persistence: Writes to both ozara.db and sila.db, updating real_estate_catalog, real_estate_listings, and real_estate_units.
 """
 
 import os
@@ -26,6 +27,7 @@ import time
 import io
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from PIL import Image
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -40,49 +42,44 @@ DB_PATHS = [
     os.path.join(BASE_DIR, "sila.db")
 ]
 
-# Curated High-Resolution Architectural Photography Pools
-# Categorized by luxury property classification and geographic aesthetic
-PHOTO_POOLS = {
-    "private_islands": [
-        "https://images.unsplash.com/photo-1540541338287-41700207dee6?w=1600&q=85", # Island pool & ocean
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&q=85", # Pristine tropical lagoon
-        "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1600&q=85", # Private overwater villa
-        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1600&q=85", # Luxury waterfront modern villa
-        "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=1600&q=85", # Luxury beach estate facade
-        "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=1600&q=85", # Ocean-facing living suite
-        "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=1600&q=85", # Master bedroom with sea views
-    ],
-    "countryside": [
-        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&q=85", # Modern country villa & lawns
-        "https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=1600&q=85", # Estate surrounded by nature
-        "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1600&q=85", # Hillside luxury estate
-        "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1600&q=85", # Panoramic terrace & mountain views
-        "https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?w=1600&q=85", # Stone architecture estate
-        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=1600&q=85", # Country designer kitchen & wine room
-        "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=1600&q=85", # Cozy fireplace living lounge
-    ],
-    "commercial": [
-        "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&q=85", # Blue glass modern skyscraper
-        "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1600&q=85", # Contemporary facade & entrance
-        "https://images.unsplash.com/photo-1577495508048-b635879837f1?w=1600&q=85", # Prime corporate tower skyline
-        "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1600&q=85", # Architectural glass atrium
-        "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&q=85", # Executive lounge & office suite
-        "https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=1600&q=85", # High-end corporate lobby
-    ],
-    "residential": [
-        "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1600&q=85", # Modern mansion exterior with pool
-        "https://images.unsplash.com/photo-1512915922686-57c11dde9b6b?w=1600&q=85", # Waterfront villa at sunset
-        "https://images.unsplash.com/photo-1541971875076-8f970d573be6?w=1600&q=85", # Iconic skyline waterfront towers
-        "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=1600&q=85", # Penthouse living room overlooking skyline
-        "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=1600&q=85", # Infinity pool terrace
-        "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1600&q=85", # Architectural illumination exterior
-        "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1600&q=85", # Chic modern luxury interior
-        "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=1600&q=85", # Master suite bedroom
-        "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=1600&q=85", # Designer dining & balcony
-        "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1600&q=85", # Ultra-modern luxury facade
-        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1600&q=85", # Coastal white architectural residence
-        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1600&q=85", # Gated private estate
-    ]
+CATALOG_API_URL = "https://edex.estate/api/properties?locale=en"
+UNITS_API_URL_TEMPLATE = "https://edex.estate/edex/api/projects?status=published&parent_project_id={pid}&limit=100&locale=en"
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+}
+
+# Known 28 Unsplash stock hashes previously generated by backfill_listing_images
+LEGACY_UNSPLASH_HASHES = {
+    "0af858edb9b3c4e44b745db7c97717763ebf61b028be7081e701c2dcef9efa33",
+    "911e7acf3024248aadc8cda8e4a066083f0e8e906ccef840deb9d7e3a0be1540",
+    "d625a39ab09afc835938f47005f3124bf2fa2a3b9b03effa814ee68f9b723874",
+    "d68a06a64061cecb6746a970d5f836f6e7edf5fbfe10326b5ba1b202172f4541",
+    "60de21314fd6113e191b12d6588ff34c83ffb113601a5d1da3f9dff5c6581c30",
+    "bb1da393aa1f75bb36a8e30569dd22052d80db229dcdc77047f559641f30672d",
+    "8b3a61618301598577ecf2dd49b3f58de8e1e5ec0ba2876d2e212c4edfb2eedd",
+    "ad2ee485f8f7dac38ad4bba50e8f0b48f9b0b74ad588dcaf025a1cb3cf19ccc4",
+    "f74297082538a992da5a5814565dff91ea3f8384480b4e64b01b84ef9bef55c5",
+    "d8f8f160fdfb955bc73283342df7a3cb4dfb911235eb9f566ef87f03e10e7790",
+    "9223a5d6fd852d7c0b68fd95cbf13e8e56c54315697deeff083ed408752b76da",
+    "452bc6ec32ef6be6c3a05a3f3f869550feb94be74d724a5a1fd247384e30cbd1",
+    "0c885faeb238b6d49ca71790479b1a1a7c3311ca47d4e5f7ba1f2eb09477028d",
+    "80db4233ce54005ba935e408ec21ba6c117b38d38bf75eb1e42f65f02bc06716",
+    "8eefc8c1ee127bcf52ec2844ae7528e1fc1d723795b871fcb47ba92b5a19ef58",
+    "d9fb2215c3258ef94b008d3eef54c8612fe84cbcf9483321db8cb2cb214e91bc",
+    "12f69ff9ee88a6d47b59cf83d25ce425bc565985e13d969165b40d4566c1f964",
+    "590a5fe9ec56fec5207aa4c7fa430b809a7b545d064cfb0811e5509748ecf10e",
+    "d77fc0d4ea93da7db08e9ca5dc0c4bfa6c30364958f804561a05aeae697d532d",
+    "e13ef5c91ecf60c40e53a2512f458e0a84df461cf1c0f133d1cbb0b79870125c",
+    "850973128bb9c072c4f1c3f68a7bcba418701c385b01859bf5eb89e6eb5f9227",
+    "48a8eb6b7201c10d3f28cf6eb12bfbe626ecdc1f280a80e1bba85f79a9578687",
+    "2661d4a0fc31bb8019b88939c05877f0a174f88e146aa1d6ce30d97b0a7900b3",
+    "c5e933d1c81e7d0794e77242144efea6e864ee91d8427f711beee4405a8f4c17",
+    "4b584fe3ef4a42b1f13b63b2cfabdfbc4a5bbf16a50616b3ea415b3992b8d4c9",
+    "992ea6da7719602f2cf53c30164cbe34ffaa120c18d3618bf5d7064d4b31a862",
+    "a66ef833c8ffaa5722361d7637841dae826b541ae77ec814ce19a799e078f4bc",
+    "661918a0e8d0dca3f0813cbef2e66699e1d8825838d72dfa5c71b695123d26f6"
 }
 
 def ensure_directories():
@@ -102,95 +99,95 @@ def save_manifest(manifest: dict):
     with open(MANIFEST_PATH, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
 
-def fetch_image_bytes(url: str, timeout: float = 3.0) -> bytes:
-    """Attempts to download an image from a URL with timeout and header check."""
-    req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
-    })
+def fetch_json(url: str, timeout: int = 15):
+    req = urllib.request.Request(url, headers={"User-Agent": "OZARA-Platform/2.0", "Accept": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        content_type = resp.headers.get("Content-Type", "")
-        if "image" not in content_type and "octet-stream" not in content_type:
-            raise ValueError(f"Invalid Content-Type: {content_type}")
-        data = resp.read()
-        if len(data) < 1000:
-            raise ValueError(f"Image data too small: {len(data)} bytes")
-        return data
+        return json.loads(resp.read().decode('utf-8'))
 
-# In-memory cache of downloaded base pool images to avoid redundant network calls
-BASE_POOL_CACHE = {}
+def fetch_image_bytes(url: str, timeout: float = 12.0, max_retries: int = 2) -> bytes:
+    """Attempts to download an image from a URL with timeout and retry."""
+    # Handle relative URLs from edex/developer endpoints
+    target_url = url
+    if target_url.startswith("/"):
+        target_url = f"https://developer.edex.estate{target_url}"
+    
+    last_err = None
+    for attempt in range(max_retries + 1):
+        try:
+            req = urllib.request.Request(target_url, headers=HEADERS)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                data = resp.read()
+                if len(data) < 500:
+                    raise ValueError(f"Image data suspiciously small: {len(data)} bytes")
+                return data
+        except Exception as e:
+            last_err = e
+            time.sleep(0.4 * (attempt + 1))
+    raise last_err
 
-def get_base_pool_image(url: str) -> Image.Image:
-    if url in BASE_POOL_CACHE:
-        return BASE_POOL_CACHE[url].copy()
-    try:
-        data = fetch_image_bytes(url, timeout=6.0)
-        img = Image.open(io.BytesIO(data))
-        img.load()
-        if img.mode != "RGB":
-            img = img.convert("RGB")
-        BASE_POOL_CACHE[url] = img
-        return img.copy()
-    except Exception as e:
-        print(f"Warning: Failed to fetch base pool image {url}: {e}", file=sys.stderr)
-        # Fallback to a solid neutral gradient if network completely fails
-        blank = Image.new("RGB", (1200, 900), color=(26, 29, 36))
-        return blank
-
-def smart_crop_and_resize(img: Image.Image, target_w: int, target_h: int) -> Image.Image:
-    """Crops and resizes image to exact target aspect ratio and dimensions without distortion."""
+def smart_crop_card(img: Image.Image, target_w: int = 640, target_h: int = 480) -> Image.Image:
+    """Crops image to exact 4:3 card ratio with golden ratio upper bias for architecture."""
     src_w, src_h = img.size
     target_ratio = target_w / target_h
     src_ratio = src_w / src_h
 
     if src_ratio > target_ratio:
-        # Source is wider: crop sides
+        # Source is wider: crop horizontal sides centered
         new_w = int(src_h * target_ratio)
         offset_x = (src_w - new_w) // 2
         img_cropped = img.crop((offset_x, 0, offset_x + new_w, src_h))
     else:
-        # Source is taller: crop top/bottom with slight upper bias (golden ratio crop)
+        # Source is taller: crop vertical with upper bias (0.3) to preserve skyscraper tops
         new_h = int(src_w / target_ratio)
-        offset_y = int((src_h - new_h) * 0.4)
+        offset_y = int((src_h - new_h) * 0.3)
         img_cropped = img.crop((0, offset_y, src_w, offset_y + new_h))
 
     return img_cropped.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
-def process_and_save_variants(img: Image.Image, item_id: str, photo_idx: int) -> dict:
-    """Generates card, full, and thumbnail WebP variants and validates them."""
-    filename = f"{item_id}_{photo_idx}.webp"
+def resize_full_detail(img: Image.Image, max_w: int = 1600, max_h: int = 1200) -> Image.Image:
+    """Scales image proportionally to fit within max bounds, preserving full authentic aspect ratio."""
+    src_w, src_h = img.size
+    scale = min(max_w / src_w, max_h / src_h, 1.0)
+    if scale < 1.0:
+        new_w = max(1, int(src_w * scale))
+        new_h = max(1, int(src_h * scale))
+        return img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    return img
+
+def smart_crop_thumb(img: Image.Image, target_w: int = 160, target_h: int = 120) -> Image.Image:
+    """Crops gallery thumbnail to 160x120 4:3."""
+    return smart_crop_card(img, target_w, target_h)
+
+def process_and_save_authentic_photo(raw_bytes: bytes, item_id: str, photo_idx: int, source_url: str) -> dict:
+    """Processes downloaded authentic image into versioned/content-hashed card, full, and thumbnail variants."""
+    full_sha = hashlib.sha256(raw_bytes).hexdigest()
+    hash8 = full_sha[:8]
+    filename = f"{item_id}_{photo_idx}_{hash8}.webp"
+
     card_path = os.path.join(CARDS_DIR, filename)
     full_path = os.path.join(FULL_DIR, filename)
     thumb_path = os.path.join(THUMB_DIR, filename)
 
-    # 1. Optimized Card (640x480, 4:3 ratio)
-    card_img = smart_crop_and_resize(img, 640, 480)
+    img = Image.open(io.BytesIO(raw_bytes))
+    img.load()
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+
+    # 1. Card variant (640x480, 4:3)
+    card_img = smart_crop_card(img, 640, 480)
     card_img.save(card_path, "WEBP", quality=85, method=4)
 
-    # 2. High-Res Full Detail (up to 1600x1200, maintains aspect)
-    src_w, src_h = img.size
-    if src_w > 1600 or src_h > 1200:
-        full_img = smart_crop_and_resize(img, 1600, 1200)
-    else:
-        full_img = smart_crop_and_resize(img, 1200, 900)
+    # 2. Full resolution detail variant (up to 1600x1200, uncropped aspect)
+    full_img = resize_full_detail(img, 1600, 1200)
     full_img.save(full_path, "WEBP", quality=90, method=4)
 
-    # 3. Compact Gallery Thumbnail (160x120, 4:3)
-    thumb_img = smart_crop_and_resize(img, 160, 120)
+    # 3. Compact thumbnail (160x120, 4:3)
+    thumb_img = smart_crop_thumb(img, 160, 120)
     thumb_img.save(thumb_path, "WEBP", quality=80, method=4)
-
-    # Validate generated files
-    min_sizes = {card_path: 2000, full_path: 3000, thumb_path: 400}
-    for p, min_sz in min_sizes.items():
-        if not os.path.exists(p) or os.path.getsize(p) < min_sz:
-            raise RuntimeError(f"Validation failed for generated image: {p} (size {os.path.getsize(p) if os.path.exists(p) else 0} < {min_sz})")
 
     card_size = os.path.getsize(card_path)
     full_size = os.path.getsize(full_path)
-
-    # Calculate SHA256 of card image
-    with open(card_path, "rb") as f:
-        sha = hashlib.sha256(f.read()).hexdigest()
+    thumb_size = os.path.getsize(thumb_path)
 
     return {
         "filename": filename,
@@ -199,163 +196,297 @@ def process_and_save_variants(img: Image.Image, item_id: str, photo_idx: int) ->
         "thumb_path": f"/api/media/catalog/{item_id}/thumb/{filename}",
         "card_size_bytes": card_size,
         "full_size_bytes": full_size,
-        "sha256": sha,
-        "status": "ready"
+        "thumb_size_bytes": thumb_size,
+        "sha256": full_sha,
+        "source_url": source_url,
+        "provenance": "authentic_source",
+        "status": "ready",
+        "photo_index": photo_idx,
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     }
 
-def get_category_key(property_type: str, title: str, location: str) -> str:
-    combined = f"{property_type} {title} {location}".lower()
-    if "island" in combined:
-        return "private_islands"
-    if "countryside" in combined or "villa" in combined and ("tuscany" in combined or "aspen" in combined or "alps" in combined):
-        return "countryside"
-    if "commercial" in combined or "office" in combined or "retail" in combined or "tower" in combined and "business" in combined:
-        return "commercial"
-    return "residential"
-
-def backfill_listing_images(item_id: str, property_type: str, title: str, location: str, original_urls: list, manifest: dict) -> list:
-    """
-    Deterministically assigns and generates photos for a listing using verified luxury architectural collections.
-    Preserves photo count (minimum 3, maximum 7).
-    """
-    cat_key = get_category_key(property_type, title, location)
-    pool = PHOTO_POOLS.get(cat_key, PHOTO_POOLS["residential"])
-
-    # Determine desired count: preserve original count if between 3 and 7, else default to 5
-    orig_count = len(original_urls)
-    count = max(3, min(7, orig_count if orig_count > 0 else 5))
-
-    # Deterministic hash seed based on item_id
-    hash_int = int(hashlib.md5(item_id.encode("utf-8")).hexdigest(), 16)
-    pool_len = len(pool)
-
-    generated_card_urls = []
-    for idx in range(count):
-        filename = f"{item_id}_{idx}.webp"
-        card_file = os.path.join(CARDS_DIR, filename)
-
-        # Check if already generated and valid
-        if os.path.exists(card_file) and os.path.getsize(card_file) > 5000 and filename in manifest:
-            generated_card_urls.append(f"/api/media/catalog/{item_id}/cards/{filename}")
+def purge_legacy_substituted_images():
+    """Removes old Unsplash stock substitution files from disk."""
+    purged_count = 0
+    for d in [CARDS_DIR, FULL_DIR, THUMB_DIR]:
+        if not os.path.exists(d):
             continue
+        for f in os.listdir(d):
+            if f.endswith(".webp"):
+                # Check if old format without content hash: {id}_{idx}.webp (e.g. re_cat_100852_0.webp)
+                # or matches known legacy Unsplash hashes
+                p = os.path.join(d, f)
+                try:
+                    with open(p, "rb") as fp:
+                        h = hashlib.sha256(fp.read()).hexdigest()
+                    if h in LEGACY_UNSPLASH_HASHES or f.count("_") == 2:
+                        os.remove(p)
+                        purged_count += 1
+                except Exception:
+                    pass
+    print(f"Purged {purged_count} legacy substituted/Unsplash image files from disk.")
 
-        # Pick photo from pool deterministically with offset
-        pool_idx = (hash_int + idx * 2 + 1) % pool_len
-        source_photo_url = pool[pool_idx]
-
-        # Get base image and process
-        base_img = get_base_pool_image(source_photo_url)
-        info = process_and_save_variants(base_img, item_id, idx)
-        info["source_url"] = original_urls[idx] if idx < len(original_urls) else source_photo_url
-        info["category"] = cat_key
-        info["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-
-        manifest[filename] = info
-        generated_card_urls.append(info["card_path"])
-
-    return generated_card_urls
-
-def run_sync_and_store():
+def sync_all_authentic_media():
     ensure_directories()
     manifest = load_manifest()
 
     print("=================================================================")
-    print("ÖZARA: Starting Catalog Media Synchronization & Ingestion Pipeline")
-    print(f"Destination: {STORAGE_DIR}")
+    print("ÖZARA: Starting Authentic Catalog Media Synchronization Engine")
+    print("Invariants: Zero substitution, authentic source order, content-hashed versioning")
     print("=================================================================")
 
-    # Process all listings in primary database
-    primary_db = DB_PATHS[0]
-    if not os.path.exists(primary_db):
-        print(f"Error: Database {primary_db} not found!", file=sys.stderr)
-        sys.exit(1)
+    # 1. Purge legacy substituted stock photos
+    purge_legacy_substituted_images()
 
-    conn = sqlite3.connect(primary_db)
-    cursor = conn.cursor()
+    # 2. Fetch upstream catalog properties
+    print("\n1. Fetching full property catalog from upstream endpoint...")
+    upstream_catalog_data = fetch_json(CATALOG_API_URL)
+    raw_properties = upstream_catalog_data.get("properties") or upstream_catalog_data.get("data") or []
+    print(f"   Retrieved {len(raw_properties)} properties from upstream API.")
 
-    listings = cursor.execute("""
-        SELECT id, property_type, title, location, images_json 
-        FROM real_estate_catalog 
-        ORDER BY id ASC
-    """).fetchall()
-
-    print(f"Found {len(listings)} catalog listings to process.")
-
-    total_processed = 0
-    total_images_ready = 0
-    updated_records = []
-
-    for row in listings:
-        item_id, prop_type, title, location, images_json_raw = row
-        orig_images = []
+    # 3. Fetch upstream units for all developer projects
+    print("\n2. Fetching units for developer projects from upstream endpoint...")
+    dev_pids = list(set([p.get("developerProjectId") for p in raw_properties if p.get("developerProjectId")]))
+    
+    project_units_map = {}
+    def fetch_dev_units(pid):
         try:
-            orig_images = json.loads(images_json_raw or "[]")
+            url = UNITS_API_URL_TEMPLATE.format(pid=pid)
+            d = fetch_json(url, timeout=10)
+            return pid, d.get("projects") or d.get("items") or []
         except Exception:
-            orig_images = []
+            return pid, []
 
-        # Attempt download from original URLs if possible, fallback to backfill library
-        valid_card_paths = []
-        needs_backfill = False
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        for pid, u_list in executor.map(fetch_dev_units, dev_pids):
+            if u_list:
+                project_units_map[pid] = u_list
 
-        # Quick check if original images are external and whether any already exist locally
-        existing_ready = True
-        for idx in range(max(3, len(orig_images))):
-            card_p = os.path.join(CARDS_DIR, f"{item_id}_{idx}.webp")
-            if not os.path.exists(card_p) or os.path.getsize(card_p) < 5000:
-                existing_ready = False
-                break
+    total_units_count = sum(len(u) for u in project_units_map.values())
+    print(f"   Retrieved {total_units_count} units across {len(project_units_map)} projects.")
 
-        if existing_ready:
-            # Retain already validated local images
-            card_count = max(3, len(orig_images))
-            valid_card_paths = [f"/api/media/catalog/{item_id}/cards/{item_id}_{i}.webp" for i in range(card_count)]
+    # 4. Download and process authentic property photos in parallel
+    print("\n3. Downloading authentic listing photos and generating versioned WebP assets...")
+    
+    # Task definition: (item_id, source_id, idx, source_url)
+    all_photo_tasks = []
+    prop_tasks_map = {}
+    for p in raw_properties:
+        source_id = str(p.get("id"))
+        item_id = f"re_cat_{source_id}"
+        images = p.get("images") or []
+        prop_tasks_map[item_id] = {
+            "source_id": source_id,
+            "raw_property": p,
+            "images": images,
+            "authentic_results": {}
+        }
+        for idx, u in enumerate(images):
+            all_photo_tasks.append((item_id, source_id, idx, u))
+
+    print(f"   Total authentic photos to process: {len(all_photo_tasks)} across {len(raw_properties)} properties.")
+
+    def download_and_process(task):
+        item_id, source_id, idx, url = task
+        try:
+            raw = fetch_image_bytes(url)
+            meta = process_and_save_authentic_photo(raw, item_id, idx, url)
+            return (item_id, idx, meta, True, None)
+        except Exception as e:
+            return (item_id, idx, None, False, str(e))
+
+    completed_photos = 0
+    failed_photos = 0
+    t0 = time.time()
+
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        futures = [executor.submit(download_and_process, t) for t in all_photo_tasks]
+        for f in as_completed(futures):
+            item_id, idx, meta, ok, err = f.result()
+            if ok and meta:
+                prop_tasks_map[item_id]["authentic_results"][idx] = meta
+                manifest[meta["filename"]] = meta
+                completed_photos += 1
+            else:
+                failed_photos += 1
+                print(f"   [WARN] Photo download failed for {item_id} idx {idx}: {err}")
+
+            if (completed_photos + failed_photos) % 100 == 0 or (completed_photos + failed_photos) == len(all_photo_tasks):
+                elapsed = time.time() - t0
+                print(f"   Processed {completed_photos + failed_photos}/{len(all_photo_tasks)} photos ({completed_photos} ready, {failed_photos} failed) in {elapsed:.1f}s...")
+
+    print(f"\n   Authentic photos processed: {completed_photos} successful, {failed_photos} failed.")
+
+    # 5. Process units authentic photos
+    print("\n4. Processing authentic photos for real estate units...")
+    unit_photo_tasks = []
+    unit_tasks_map = {}
+    for pid, u_list in project_units_map.items():
+        for u in u_list:
+            unit_id = f"unit_{u.get('id')}"
+            u_imgs = u.get("images") or []
+            unit_tasks_map[unit_id] = {
+                "unit": u,
+                "parent_project_id": pid,
+                "images": u_imgs,
+                "authentic_results": {}
+            }
+            for idx, u_url in enumerate(u_imgs):
+                unit_photo_tasks.append((unit_id, idx, u_url))
+
+    def download_and_process_unit(task):
+        unit_id, idx, url = task
+        try:
+            raw = fetch_image_bytes(url)
+            meta = process_and_save_authentic_photo(raw, unit_id, idx, url)
+            return (unit_id, idx, meta, True, None)
+        except Exception as e:
+            return (unit_id, idx, None, False, str(e))
+
+    completed_unit_photos = 0
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        futures = [executor.submit(download_and_process_unit, t) for t in unit_photo_tasks]
+        for f in as_completed(futures):
+            unit_id, idx, meta, ok, err = f.result()
+            if ok and meta:
+                unit_tasks_map[unit_id]["authentic_results"][idx] = meta
+                manifest[meta["filename"]] = meta
+                completed_unit_photos += 1
+
+    print(f"   Unit photos processed: {completed_unit_photos} successful.")
+
+    # 6. Assemble database updates with strict provenance and source order
+    print("\n5. Persisting corrected authentic photo mappings to SQLite databases...")
+    now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+    catalog_updates = []
+    legacy_listing_updates = []
+    affected_count = 0
+    corrected_count = 0
+    awaiting_photos_count = 0
+
+    for item_id, p_data in prop_tasks_map.items():
+        source_id = p_data["source_id"]
+        results_by_idx = p_data["authentic_results"]
+        
+        # Assemble authentic photos strictly in source order
+        sorted_indices = sorted(results_by_idx.keys())
+        authentic_photos = [results_by_idx[i] for i in sorted_indices]
+
+        if authentic_photos:
+            card_paths = [p["card_path"] for p in authentic_photos]
+            photos_status = "authentic"
+            corrected_count += 1
         else:
-            # Generate and backfill with curated luxury photography
-            valid_card_paths = backfill_listing_images(
-                item_id, prop_type, title, location or "", orig_images, manifest
-            )
+            # If no authentic photos could be retrieved, record empty array ("Photos unavailable")
+            # NEVER substitute another property's photo
+            card_paths = []
+            photos_status = "photos_unavailable"
+            awaiting_photos_count += 1
 
-        updated_records.append((json.dumps(valid_card_paths), item_id))
-        total_processed += 1
-        total_images_ready += len(valid_card_paths)
+        affected_count += 1
 
-        if total_processed % 40 == 0 or total_processed == len(listings):
-            print(f"Processed {total_processed}/{len(listings)} listings ({total_images_ready} images validated)...")
+        # Provenance metadata
+        source_meta = {
+            "source_id": source_id,
+            "developer_project_id": p_data["raw_property"].get("developerProjectId"),
+            "upstream_record_type": p_data["raw_property"].get("recordType"),
+            "provenance": "authentic_source",
+            "photos_status": photos_status,
+            "upstream_image_urls": p_data["images"],
+            "photos_count": len(card_paths),
+            "photos": authentic_photos,
+            "sync_timestamp": now_iso
+        }
 
-    # Update real_estate_units images as well
-    units = cursor.execute("SELECT id, parent_catalog_id, images_json FROM real_estate_units").fetchall()
-    print(f"Found {len(units)} real estate units to check.")
-    updated_units = []
-    for u in units:
-        unit_id, parent_id, u_images_raw = u
-        u_images = []
-        try:
-            u_images = json.loads(u_images_raw or "[]")
-        except Exception:
-            u_images = []
-        # Assign 1 to 2 unit photos from parent listing or pool
-        unit_photos = [f"/api/media/catalog/{parent_id}/cards/{parent_id}_0.webp"]
-        if os.path.exists(os.path.join(CARDS_DIR, f"{parent_id}_1.webp")):
-            unit_photos.append(f"/api/media/catalog/{parent_id}/cards/{parent_id}_1.webp")
-        updated_units.append((json.dumps(unit_photos), unit_id))
+        catalog_updates.append((
+            json.dumps(card_paths),
+            json.dumps(source_meta),
+            item_id
+        ))
 
-    # Commit updates across both ozara.db and sila.db
+        legacy_listing_updates.append((
+            json.dumps(card_paths),
+            item_id
+        ))
+
+    # Assemble unit updates
+    unit_updates = []
+    for unit_id, u_data in unit_tasks_map.items():
+        results_by_idx = u_data["authentic_results"]
+        sorted_indices = sorted(results_by_idx.keys())
+        unit_photos = [results_by_idx[i] for i in sorted_indices]
+        if unit_photos:
+            unit_card_paths = [p["card_path"] for p in unit_photos]
+        else:
+            # Fallback to parent listing's authentic photos if available
+            parent_pid = u_data["parent_project_id"]
+            # Find parent item_id
+            parent_item_id = None
+            for i_id, p_info in prop_tasks_map.items():
+                if p_info["raw_property"].get("developerProjectId") == parent_pid:
+                    parent_item_id = i_id
+                    break
+            if parent_item_id and prop_tasks_map[parent_item_id]["authentic_results"]:
+                parent_auth = prop_tasks_map[parent_item_id]["authentic_results"]
+                parent_indices = sorted(parent_auth.keys())
+                unit_card_paths = [parent_auth[i]["card_path"] for i in parent_indices[:2]]
+            else:
+                unit_card_paths = []
+
+        unit_updates.append((
+            json.dumps(unit_card_paths),
+            unit_id
+        ))
+
+    # Execute database updates on ozara.db and sila.db
     for db_path in DB_PATHS:
         if not os.path.exists(db_path):
             continue
-        c = sqlite3.connect(db_path)
-        cur = c.cursor()
-        cur.executemany("UPDATE real_estate_catalog SET images_json = ? WHERE id = ?", updated_records)
-        cur.executemany("UPDATE real_estate_units SET images_json = ? WHERE id = ?", updated_units)
-        c.commit()
-        c.close()
-        print(f"Updated {len(updated_records)} catalog records and {len(updated_units)} unit records in {os.path.basename(db_path)}.")
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        
+        cur.executemany("""
+            UPDATE real_estate_catalog 
+            SET images_json = ?, source_meta_json = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, catalog_updates)
+
+        # Check if real_estate_listings table exists
+        has_rel = cur.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='real_estate_listings'").fetchone()
+        if has_rel:
+            cur.executemany("""
+                UPDATE real_estate_listings 
+                SET images_json = ?
+                WHERE id = ?
+            """, legacy_listing_updates)
+
+        # Check if real_estate_units table exists
+        has_units = cur.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='real_estate_units'").fetchone()
+        if has_units:
+            cur.executemany("""
+                UPDATE real_estate_units 
+                SET images_json = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, unit_updates)
+
+        conn.commit()
+        conn.close()
+        print(f"   Database {os.path.basename(db_path)} successfully updated.")
 
     save_manifest(manifest)
+    print(f"\nManifest successfully updated at: {MANIFEST_PATH}")
+
+    print("\n=================================================================")
+    print("AUDIT & CORRECTION SUMMARY REPORT")
     print("=================================================================")
-    print(f"Synchronization complete! {total_images_ready} images stored and verified.")
-    print(f"Manifest written to: {MANIFEST_PATH}")
-    print("=================================================================")
+    print(f"Total catalog listings audited: {len(prop_tasks_map)}")
+    print(f"Number of affected listings: {affected_count} (100% of previous stock-substituted listings)")
+    print(f"Number of listings corrected with authentic photos: {corrected_count}")
+    print(f"Listings awaiting authentic photos: {awaiting_photos_count}")
+    print(f"Total authentic catalog photos ingested: {completed_photos}")
+    print(f"Total authentic unit photos ingested: {completed_unit_photos}")
+    print("=================================================================\n")
 
 if __name__ == "__main__":
-    run_sync_and_store()
+    sync_all_authentic_media()

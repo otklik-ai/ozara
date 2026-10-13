@@ -1056,6 +1056,18 @@ export const ApiService = {
       body: JSON.stringify(payload),
     }),
 
+  checkEmailStatus: (email: string) =>
+    request<{
+      status: 'new' | 'pending_request' | 'existing_account' | 'declined_request';
+      email: string;
+      fullName?: string;
+      phone?: string | null;
+      message?: string;
+    }>('/api/invitations/check-email-status', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
   checkAccessStatus: (email: string) =>
     request<{
       status: 'none' | 'pending' | 'approved' | 'claimed';

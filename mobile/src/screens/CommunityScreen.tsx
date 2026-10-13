@@ -550,18 +550,23 @@ export const CommunityScreen: React.FC = () => {
                           style={[styles.carouselBtn, styles.carouselPrevBtn]}
                           onPress={() => handlePhotoPrev(post.id, photoAttachments.length)}
                           activeOpacity={0.75}>
-                          <Ionicons name="chevron-back" size={16} color="#ffffff" />
+                          <Image
+                            source={{ uri: `${API_BASE_URL}/investments/icons/arrow_left_glass.png` }}
+                            style={{ width: 26, height: 26, resizeMode: 'contain' }}
+                          />
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.carouselBtn, styles.carouselNextBtn]}
                           onPress={() => handlePhotoNext(post.id, photoAttachments.length)}
                           activeOpacity={0.75}>
-                          <Ionicons name="chevron-forward" size={16} color="#ffffff" />
+                          <Image
+                            source={{ uri: `${API_BASE_URL}/investments/icons/arrow_right_glass.png` }}
+                            style={{ width: 26, height: 26, resizeMode: 'contain' }}
+                          />
                         </TouchableOpacity>
 
                         {/* Photo Counter Pill */}
                         <View style={styles.carouselCounterPill}>
-                          <Ionicons name="camera-outline" size={11} color="#ffffff" />
                           <Text style={styles.carouselCounterText}>
                             {curPhotoIdx + 1} / {photoAttachments.length}
                           </Text>
@@ -1033,13 +1038,10 @@ const styles = StyleSheet.create({
   carouselBtn: {
     position: 'absolute',
     top: '50%',
-    marginTop: -16,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(10, 14, 22, 0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    marginTop: -18,
+    width: 36,
+    height: 36,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 5,

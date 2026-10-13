@@ -54,15 +54,35 @@ Defines the private club onboarding and invitation protocol for ÖZARA. Membersh
 4. **Token Claim & Concurrency Guard**:
    - The invitation is checked before phone verification, but redeemed (marked claimed) *only after registration succeeds*.
    - Server-side atomic lock (`UPDATE ... WHERE id = ? AND is_claimed = 0 AND status = 'approved'`) prevents simultaneous attempts or multiple accounts from using the same single-use invitation.
-5. **Request Access Protocol**:
+5. **Request Access Protocol & Existing-Email States**:
    - Prospective members without an invite submit a short form:
      - Full Name
      - Email (Business)
      - LinkedIn URL or a short professional background
-     - "What brings you to ÖZARA?"
    - No SMS verification, Face ID, or identity checks required to submit. Submitting does not grant membership.
+   - **Pre-Submission Status Check & Existing-Email States**:
+     Before creating a new access request, the system checks existing account and request status (emails trimmed and matched case-insensitively). Active account status takes strict priority over older request statuses:
+     1. **Pending Request**:
+        - Condition: Email already has a request awaiting approval (`status = 'pending_admin_approval'`).
+        - Title: “Your request is received”
+        - Message: “Our hosts will be in touch by email.”
+        - Action: Primary button “Got it” dismisses the message. Does not create duplicate requests or resend notifications.
+     2. **Existing Account**:
+        - Condition: Email belongs to an active member (`users.is_admitted = 1`).
+        - Title: “You’re already in the circle”
+        - Message: “Sign in to your ÖZARA account.”
+        - Action: Primary button “Sign in” opens the existing sign-in screen with the email prefilled. Does not create a new account or request.
+     3. **Declined Request**:
+        - Condition: Email has a request reviewed and declined (`status = 'declined'`).
+        - Title: “Not this time”
+        - Message: “We’re unable to offer an invitation at this time.”
+        - Action: Primary button “Close” dismisses the message. Does not create a request or alter status.
+   - **Duplicate Prevention & Resilience**:
+     - Both UI and backend strictly enforce duplicate prevention (`POST /api/invitations/check-email-status` and `POST /api/invitations/request-access`).
+     - Submissions are disabled during checking to prevent repeated taps.
+     - If the status check fails (network/server error), a retry message is shown; the email is never treated as new.
+     - New emails continue the standard flow and show confirmation: *"Your request has been received. Our team will review it and contact you by email if approved."*
    - Stored in admin dashboard for Alexandra and Julia to review.
-   - Confirmation on submission: *"Your request has been received. Our team will review it and contact you by email if approved."*
 6. **Admin Invitation Management**:
    - Admins can generate unique, single-use invitations with configurable expiration dates.
    - Admins can review access requests and either **Approve** (generating and emailing an official token) or **Decline**.

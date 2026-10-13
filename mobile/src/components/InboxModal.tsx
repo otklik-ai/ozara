@@ -84,12 +84,16 @@ export const InboxModal: React.FC<InboxModalProps> = ({
   // Load summary and initial tab on open
   useEffect(() => {
     if (visible && viewerId) {
+      if (initialTab) {
+        setActiveTab(initialTab);
+      }
       loadInboxSummary();
-      if (activeTab === 'messages') loadConversationsList();
-      else if (activeTab === 'notifications') loadNotificationsList();
-      else if (activeTab === 'admin_activity') loadAdminActivityList();
+      const currentTab = initialTab || activeTab;
+      if (currentTab === 'messages') loadConversationsList();
+      else if (currentTab === 'notifications') loadNotificationsList();
+      else if (currentTab === 'admin_activity') loadAdminActivityList();
     }
-  }, [visible, viewerId, activeTab]);
+  }, [visible, viewerId, initialTab]);
 
   const loadInboxSummary = async () => {
     try {
@@ -305,6 +309,10 @@ export const InboxModal: React.FC<InboxModalProps> = ({
               <TouchableOpacity
                 style={[styles.tabBtn, activeTab === 'messages' && styles.tabBtnActive]}
                 onPress={() => setActiveTab('messages')}>
+                <Image
+                  source={require('../../assets/icons/nav_inbox_envelope.png')}
+                  style={{ width: 16, height: 16, resizeMode: 'contain', marginRight: 6 }}
+                />
                 <Text style={[styles.tabText, activeTab === 'messages' && styles.tabTextActive]}>Messages</Text>
                 {unreadMsgCount > 0 && (
                   <View style={styles.tabBadge}>
@@ -316,6 +324,10 @@ export const InboxModal: React.FC<InboxModalProps> = ({
               <TouchableOpacity
                 style={[styles.tabBtn, activeTab === 'notifications' && styles.tabBtnActive]}
                 onPress={() => setActiveTab('notifications')}>
+                <Image
+                  source={require('../../assets/icons/nav_notification_bell.png')}
+                  style={{ width: 16, height: 16, resizeMode: 'contain', marginRight: 6 }}
+                />
                 <Text style={[styles.tabText, activeTab === 'notifications' && styles.tabTextActive]}>Notifications</Text>
                 {unreadNotifCount > 0 && (
                   <View style={styles.tabBadge}>
