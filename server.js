@@ -40,7 +40,7 @@ function isSuppressedEmail(to) {
   return false;
 }
 
-async function sendEmailNotification({ to, subject, html, text }) {
+async function sendEmailNotification({ to, subject, html, text, fromName }) {
   if (isSuppressedEmail(to)) {
     console.log(`[EMAIL SUPPRESSED] Automated test or test address recipient safely bypassed: ${to}`);
     return { success: true, stub: true, suppressed: true };
@@ -48,7 +48,9 @@ async function sendEmailNotification({ to, subject, html, text }) {
   const transporter = createTransporter();
   if (transporter) {
     try {
-      const from = process.env.EMAIL_FROM || (process.env.GMAIL_USER ? `ÖZARA Club <${process.env.GMAIL_USER}>` : 'ÖZARA Club <membership@ozara.club>');
+      const senderName = fromName || 'ÖZARA';
+      const senderAddress = process.env.GMAIL_USER || 'membership@ozara.club';
+      const from = process.env.EMAIL_FROM || `${senderName} <${senderAddress}>`;
       const info = await transporter.sendMail({
         from,
         to,
@@ -5401,23 +5403,35 @@ app.post('/api/invitations/request-access', (req, res) => {
     for (const adminEmail of adminRecipients) {
       sendEmailNotification({
         to: adminEmail,
+        fromName: 'ÖZARA',
         subject: `New request to join ÖZARA from ${cleanName || 'Candidate'}`,
-        text: `New membership application received for ÖZARA.\n\nApplicant: ${cleanName || 'Not specified'}\nEmail: ${cleanEmail}\nLinkedIn / Background: ${cleanLinkedin || 'Not specified'}\nWhat brings them: ${cleanWhatBringsYou || 'Not specified'}\n\nTo review this applicant and select their membership tier (Paid vs. Complimentary), click:\n${reviewUrl}`,
+        text: `Membership request\n\n${cleanName || 'A candidate'} would like to join ÖZARA.\n\nApplicant: ${cleanName || 'Candidate'}\nEmail: ${cleanEmail}${cleanLinkedin ? `\nLinkedIn: ${cleanLinkedin}` : ''}${cleanRole ? `\nRole: ${cleanRole}` : ''}${cleanNotes ? `\nNotes: ${cleanNotes}` : ''}${cleanWhatBringsYou ? `\nDetails: ${cleanWhatBringsYou}` : ''}\n\nReview request:\n${reviewUrl}`,
         html: `
-          <div style="font-family: Arial, sans-serif; background: #0b1020; color: #ffffff; padding: 28px; border-radius: 12px; max-width: 520px;">
-            <h2 style="color: #ffffff; letter-spacing: 3px; margin-top: 0;">ÖZARA MEMBERSHIP COMMITTEE</h2>
-            <p style="color: #94a3b8; font-size: 14px;">A new applicant has requested access to the private network.</p>
-            <div style="background: #111827; padding: 18px; border-radius: 8px; margin: 18px 0; border: 1px solid #1e293b;">
-              <p style="margin: 6px 0; font-size: 14px;"><strong>Applicant:</strong> ${cleanName || 'Not specified'}</p>
-              <p style="margin: 6px 0; font-size: 14px;"><strong>Business Email:</strong> <span style="color: #38bdf8;">${cleanEmail}</span></p>
-              <p style="margin: 6px 0; font-size: 14px;"><strong>LinkedIn / Background:</strong> ${cleanLinkedin || 'Not specified'}</p>
-              <p style="margin: 6px 0; font-size: 14px;"><strong>What brings them:</strong> ${cleanWhatBringsYou || 'Not specified'}</p>
-            </div>
-            <div style="margin-top: 24px;">
-              <a href="${reviewUrl}" style="display: inline-block; background: #8b5cf6; color: #ffffff; font-weight: bold; text-decoration: none; padding: 14px 28px; border-radius: 28px; font-size: 14px; letter-spacing: 0.5px;">
-                Review Membership Application →
-              </a>
-            </div>
+          <div style="background-color: #f8fafc; padding: 40px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+            <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; margin: 0 auto; padding: 36px 32px; box-sizing: border-box;">
+              <tr>
+                <td>
+                  <div style="font-size: 13px; font-weight: 700; letter-spacing: 2.5px; color: #0f172a; text-transform: uppercase; margin-bottom: 20px;">ÖZARA</div>
+                  <h1 style="font-size: 22px; font-weight: 700; color: #0f172a; margin: 0 0 10px 0; line-height: 1.3;">Membership request</h1>
+                  <p style="font-size: 15px; color: #334155; margin: 0 0 24px 0; line-height: 1.5;">${cleanName || 'A candidate'} would like to join ÖZARA.</p>
+                  
+                  <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 20px; margin-bottom: 24px;">
+                    <div style="font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">${cleanName || 'Candidate'}</div>
+                    <div style="font-size: 14px; color: #475569; margin-bottom: ${cleanLinkedin || cleanRole || cleanNotes || cleanWhatBringsYou ? '12px' : '0'};">
+                      <a href="mailto:${cleanEmail}" style="color: #475569; text-decoration: none;">${cleanEmail}</a>
+                    </div>
+                    ${cleanLinkedin ? `<div style="font-size: 13.5px; color: #334155; margin-top: 6px;"><strong>LinkedIn:</strong> <a href="${cleanLinkedin}" style="color: #0f172a; text-decoration: underline;" target="_blank">${cleanLinkedin}</a></div>` : ''}
+                    ${cleanRole ? `<div style="font-size: 13.5px; color: #334155; margin-top: 6px;"><strong>Role:</strong> ${cleanRole}</div>` : ''}
+                    ${cleanNotes ? `<div style="font-size: 13.5px; color: #334155; margin-top: 6px;"><strong>Notes:</strong> ${cleanNotes}</div>` : ''}
+                    ${cleanWhatBringsYou ? `<div style="font-size: 13.5px; color: #334155; margin-top: 6px;"><strong>Submitted details:</strong> ${cleanWhatBringsYou}</div>` : ''}
+                  </div>
+
+                  <div style="margin-top: 24px;">
+                    <a href="${reviewUrl}" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; padding: 13px 26px; border-radius: 24px; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;">Review request</a>
+                  </div>
+                </td>
+              </tr>
+            </table>
           </div>
         `
       }).catch(() => {});
@@ -5428,19 +5442,30 @@ app.post('/api/invitations/request-access', (req, res) => {
 
   // 2. Send Applicant Confirmation to cleanEmail (only for genuine new requests)
   if (!isTestCandidate && isNewRequest) {
+    const firstName = cleanName ? cleanName.trim().split(/\s+/)[0] : 'there';
     sendEmailNotification({
       to: cleanEmail,
-      subject: `[ÖZARA] Access Request Received`,
-      text: `Dear ${cleanName || 'Applicant'},\n\nYour request has been received. Our team will review it and contact you by email if approved.\n\nWarm regards,\nÖZARA Membership Committee`,
+      fromName: 'ÖZARA',
+      subject: `Your request to join ÖZARA`,
+      text: `Hi ${firstName},\n\nThank you for your interest in ÖZARA. Our hosts will review your request and be in touch by email.\n\nThe ÖZARA team`,
       html: `
-        <div style="font-family: Arial, sans-serif; background: #0b1020; color: #ffffff; padding: 28px; border-radius: 12px; max-width: 520px;">
-          <h2 style="color: #ffffff; letter-spacing: 3px; margin-top: 0;">ÖZARA PRIVATE CLUB</h2>
-          <p style="color: #38bdf8; font-weight: bold; font-size: 15px;">Application Received</p>
-          <p style="color: #94a3b8; font-size: 14px;">Dear ${cleanName || 'Applicant'},</p>
-          <p style="color: #e2e8f0; font-size: 14px; line-height: 1.6;">
-            Your request has been received. Our team will review it and contact you by email if approved.
-          </p>
-          <p style="color: #64748b; font-size: 12px; margin-top: 24px;">ÖZARA • Private Network for Vetted Founders & Leaders</p>
+        <div style="background-color: #f8fafc; padding: 40px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+          <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; margin: 0 auto; padding: 36px 32px; box-sizing: border-box;">
+            <tr>
+              <td>
+                <div style="font-size: 13px; font-weight: 700; letter-spacing: 2.5px; color: #0f172a; text-transform: uppercase; margin-bottom: 20px;">ÖZARA</div>
+                <h1 style="font-size: 22px; font-weight: 700; color: #0f172a; margin: 0 0 16px 0; line-height: 1.3;">Your request is received</h1>
+                <p style="font-size: 15px; color: #334155; margin: 0 0 12px 0; line-height: 1.6;">Hi ${firstName},</p>
+                <p style="font-size: 15px; color: #334155; margin: 0 0 24px 0; line-height: 1.6;">
+                  Thank you for your interest in ÖZARA. Our hosts will review your request and be in touch by email.
+                </p>
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 28px 0 20px 0;">
+                <p style="font-size: 14px; color: #475569; margin: 0; line-height: 1.5; font-weight: 500;">
+                  The ÖZARA team
+                </p>
+              </td>
+            </tr>
+          </table>
         </div>
       `
     }).catch(() => {});
@@ -5683,11 +5708,11 @@ function executeAccessApproval({ requestId, email, approvedBy, membershipTier })
   const isTestCandidate = isSuppressedEmail(record.email);
 
   const tierEmailHighlight = finalTier === 'complimentary'
-    ? `<div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 12px 16px; margin: 16px 0; font-size: 13px; color: #34d399;">
-        <strong>Complimentary Membership Granted:</strong> You have been invited with full complimentary access. You will skip subscription payment during onboarding.
+    ? `<div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 16px; margin: 18px 0; font-size: 13.5px; color: #166534; line-height: 1.5;">
+        <strong>Complimentary membership granted:</strong> You have been granted complimentary access. You will skip subscription payment during onboarding.
        </div>`
-    : `<div style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 12px 16px; margin: 16px 0; font-size: 13px; color: #c4b5fd;">
-        <strong>Paid Membership:</strong> Your membership requires an active subscription, which you will complete during onboarding in the app before accessing member features.
+    : `<div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; margin: 18px 0; font-size: 13.5px; color: #334155; line-height: 1.5;">
+        <strong>Paid membership:</strong> Your membership requires an annual subscription, which you will complete during onboarding before accessing member features.
        </div>`;
 
   const tierTextHighlight = finalTier === 'complimentary'
@@ -5697,27 +5722,34 @@ function executeAccessApproval({ requestId, email, approvedBy, membershipTier })
   if (!isTestCandidate) {
     sendEmailNotification({
       to: record.email,
-      subject: `Your ÖZARA Membership Invitation Token: ${officialToken}`,
-      text: `Dear ${record.full_name || 'Member'},\n\nYour request for ÖZARA membership has been approved.\n\n${tierTextHighlight}\n\nYour unique 1:1 invitation token is: ${officialToken}\n\nPlease open the ÖZARA mobile app and insert this token to complete your registration.`,
+      fromName: 'ÖZARA',
+      subject: `Your invitation to join ÖZARA`,
+      text: `Dear ${record.full_name || 'Member'},\n\nYour request for ÖZARA membership has been approved.\n\n${tierTextHighlight}\n\nYour invitation token is: ${officialToken}\n\nPlease open the ÖZARA mobile app and insert this token to complete your registration.\n\nThe ÖZARA team`,
       html: `
-        <div style="font-family: Arial, sans-serif; background: #0b1020; color: #ffffff; padding: 32px 28px; border-radius: 14px; max-width: 520px; border: 1px solid rgba(255,255,255,0.08);">
-          <div style="border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px; margin-bottom: 20px;">
-            <h2 style="color: #ffffff; letter-spacing: 3px; margin: 0; font-size: 20px;">ÖZARA</h2>
-            <span style="font-size: 10px; color: #a78bfa; letter-spacing: 2px; font-weight: 700; text-transform: uppercase;">PRIVATE CLUB</span>
-          </div>
-          <p style="color: #10b981; font-weight: bold; font-size: 16px; margin: 0 0 10px 0;">Membership Approved</p>
-          <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6; margin: 0 0 16px 0;">Dear ${record.full_name || 'Member'}, your request for ÖZARA membership has been approved.</p>
-          ${tierEmailHighlight}
-          <div style="background: #111827; padding: 22px; border-radius: 10px; margin: 20px 0; border: 1.5px solid #7c3aed; text-align: center;">
-            <p style="color: #a78bfa; font-size: 11px; margin: 0 0 8px 0; letter-spacing: 2px; font-weight: bold; text-transform: uppercase;">YOUR INVITATION TOKEN</p>
-            <p style="font-size: 28px; font-weight: 900; margin: 0; color: #ffffff; letter-spacing: 4px; font-family: monospace;">${officialToken}</p>
-          </div>
-          <p style="color: #94a3b8; font-size: 13.5px; line-height: 1.6; margin: 0 0 16px 0;">
-            Please open the ÖZARA mobile app and insert this invitation token to complete your registration.
-          </p>
-          <p style="color: #64748b; font-size: 12px; margin: 20px 0 0 0; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 14px;">
-            This token is single-use and bound 1:1 to ${record.email}.
-          </p>
+        <div style="background-color: #f8fafc; padding: 40px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+          <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; margin: 0 auto; padding: 36px 32px; box-sizing: border-box;">
+            <tr>
+              <td>
+                <div style="font-size: 13px; font-weight: 700; letter-spacing: 2.5px; color: #0f172a; text-transform: uppercase; margin-bottom: 20px;">ÖZARA</div>
+                <h1 style="font-size: 22px; font-weight: 700; color: #0f172a; margin: 0 0 10px 0; line-height: 1.3;">Membership approved</h1>
+                <p style="font-size: 15px; color: #334155; margin: 0 0 16px 0; line-height: 1.5;">
+                  Dear ${record.full_name || 'Member'}, your request for ÖZARA membership has been approved.
+                </p>
+                ${tierEmailHighlight}
+                <div style="background-color: #f8fafc; border: 1.5px solid #0f172a; border-radius: 10px; padding: 20px; margin: 24px 0; text-align: center;">
+                  <div style="font-size: 11px; letter-spacing: 2px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">YOUR INVITATION TOKEN</div>
+                  <div style="font-size: 26px; font-weight: 800; color: #0f172a; letter-spacing: 3px; font-family: monospace;">${officialToken}</div>
+                </div>
+                <p style="font-size: 14.5px; color: #334155; line-height: 1.6; margin: 0 0 20px 0;">
+                  Please open the ÖZARA mobile app and insert this invitation token to complete your registration.
+                </p>
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 28px 0 20px 0;">
+                <p style="font-size: 14px; color: #475569; margin: 0; line-height: 1.5; font-weight: 500;">
+                  The ÖZARA team
+                </p>
+              </td>
+            </tr>
+          </table>
         </div>
       `
     }).catch(() => {});
@@ -5765,17 +5797,68 @@ app.get('/api/admin/invitations/review', (req, res) => {
   if (!record) {
     return res.status(404).send(`
       <!DOCTYPE html>
-      <html>
+      <html lang="en">
       <head>
         <meta charset="utf-8">
         <title>ÖZARA — Application Not Found</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body {
+            background-color: #f8fafc;
+            color: #0f172a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 40px 16px;
+            -webkit-font-smoothing: antialiased;
+          }
+          .card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            max-width: 480px;
+            width: 100%;
+            padding: 36px 32px;
+            text-align: center;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+          }
+          .wordmark {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 2.5px;
+            color: #0f172a;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+          }
+          .title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+          }
+          .desc {
+            color: #64748b;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 24px;
+          }
+          .link {
+            color: #0f172a;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+          }
+        </style>
       </head>
-      <body style="background: #060913; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;">
-        <div style="background: #0b1020; border: 1px solid #ef4444; border-radius: 16px; max-width: 480px; width: 100%; padding: 36px 30px; text-align: center;">
-          <h2 style="color: #ef4444; margin: 0 0 12px 0;">Application Not Found</h2>
-          <p style="color: #94a3b8; font-size: 14px; margin: 0 0 24px 0;">The requested membership application could not be located.</p>
-          <a href="http://localhost:8081" style="color: #a78bfa; text-decoration: none; font-size: 14px; font-weight: 600;">← Return to App</a>
+      <body>
+        <div class="card">
+          <div class="wordmark">ÖZARA</div>
+          <h2 class="title">Application not found</h2>
+          <p class="desc">The requested membership application could not be located.</p>
+          <a href="http://localhost:8081" class="link">← Return to app</a>
         </div>
       </body>
       </html>
@@ -5791,235 +5874,303 @@ app.get('/api/admin/invitations/review', (req, res) => {
     <html lang="en">
     <head>
       <meta charset="utf-8">
-      <title>ÖZARA — Membership Request Review</title>
+      <title>ÖZARA — Membership Request</title>
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <style>
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-          background: #060913;
-          color: #ffffff;
+          background-color: #f8fafc;
+          color: #0f172a;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
           display: flex;
           align-items: center;
           justify-content: center;
           min-height: 100vh;
-          margin: 0;
-          padding: 24px 16px;
+          padding: 40px 16px;
+          -webkit-font-smoothing: antialiased;
         }
         .review-card {
-          background: #0b1020;
-          border: 1px solid #1e293b;
-          border-radius: 20px;
-          max-width: 540px;
+          background-color: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          max-width: 520px;
           width: 100%;
           padding: 36px 32px;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
         }
-        .badge {
-          font-size: 11px;
-          letter-spacing: 3px;
-          color: #8b5cf6;
-          font-weight: 800;
+        .wordmark {
+          font-size: 13px;
+          letter-spacing: 2.5px;
+          color: #0f172a;
+          font-weight: 700;
           text-transform: uppercase;
-          margin-bottom: 8px;
+          margin-bottom: 20px;
         }
         .title {
           font-size: 22px;
-          font-weight: 800;
-          margin: 0 0 8px 0;
-          color: #ffffff;
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 8px;
+          line-height: 1.3;
         }
         .subtitle {
-          color: #94a3b8;
-          font-size: 14px;
-          margin: 0 0 22px 0;
+          color: #475569;
+          font-size: 14.5px;
           line-height: 1.5;
+          margin-bottom: 24px;
         }
         .info-box {
-          background: #111827;
-          border-radius: 12px;
-          padding: 18px 20px;
-          text-align: left;
+          background-color: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 20px;
           margin-bottom: 24px;
-          border: 1px solid #1e293b;
+          text-align: left;
+        }
+        .applicant-name {
+          font-size: 18px;
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 4px;
+        }
+        .applicant-email {
+          font-size: 14px;
+          color: #475569;
+          margin-bottom: 12px;
+        }
+        .applicant-email a {
+          color: #475569;
+          text-decoration: none;
         }
         .info-row {
-          margin-bottom: 8px;
-          font-size: 14px;
-          color: #94a3b8;
+          margin-top: 6px;
+          font-size: 13.5px;
+          color: #334155;
+          line-height: 1.45;
         }
-        .info-row:last-child {
-          margin-bottom: 0;
+        .info-label {
+          color: #64748b;
+          font-weight: 500;
         }
         .info-val {
-          color: #ffffff;
-          font-weight: 600;
+          color: #0f172a;
+          font-weight: 500;
+        }
+        .section-label {
+          font-size: 12px;
+          font-weight: 700;
+          color: #475569;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          margin-bottom: 12px;
+          text-align: left;
         }
         .radio-option {
           display: flex;
           align-items: flex-start;
-          gap: 14px;
-          background: #111827;
-          border: 1.5px solid #1e293b;
-          border-radius: 12px;
-          padding: 16px 18px;
-          margin-bottom: 12px;
+          background-color: #ffffff;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 14px 16px;
+          margin-bottom: 10px;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.15s ease;
+          text-align: left;
         }
         .radio-option:hover {
-          border-color: #3b82f6;
-          background: #131d33;
+          border-color: #cbd5e1;
+          background-color: #fcfdfe;
         }
         .radio-option.selected {
-          border-color: #8b5cf6;
-          background: rgba(139, 92, 246, 0.08);
+          border-color: #0f172a;
+          background-color: #f8fafc;
         }
         .radio-input {
+          margin-right: 12px;
           margin-top: 3px;
-          accent-color: #8b5cf6;
-          width: 18px;
-          height: 18px;
+          accent-color: #0f172a;
+          width: 17px;
+          height: 17px;
           cursor: pointer;
         }
         .radio-title {
-          font-weight: 700;
-          color: #ffffff;
+          font-weight: 600;
+          color: #0f172a;
           font-size: 14.5px;
         }
         .radio-desc {
-          color: #94a3b8;
+          color: #64748b;
           font-size: 13px;
-          margin-top: 3px;
+          margin-top: 2px;
           line-height: 1.4;
         }
+        .actions-row {
+          display: flex;
+          gap: 12px;
+          justify-content: flex-start;
+          align-items: center;
+          margin-top: 24px;
+          flex-wrap: wrap;
+        }
         .btn-approve {
-          background: #10b981;
+          background-color: #0f172a;
           color: #ffffff;
-          font-weight: 700;
+          font-weight: 600;
           border: none;
-          padding: 14px 26px;
-          border-radius: 28px;
+          padding: 13px 26px;
+          border-radius: 24px;
           font-size: 14px;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background-color 0.15s ease;
           flex: 1;
-          min-width: 180px;
+          min-width: 160px;
         }
         .btn-approve:hover {
-          background: #059669;
+          background-color: #1e293b;
         }
         .btn-decline {
           background: transparent;
-          color: #ef4444;
-          border: 1.5px solid rgba(239, 68, 68, 0.45);
-          padding: 14px 22px;
-          border-radius: 28px;
+          color: #dc2626;
+          border: 1.5px solid #fecaca;
+          padding: 12px 22px;
+          border-radius: 24px;
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.15s ease;
         }
         .btn-decline:hover {
-          background: rgba(239, 68, 68, 0.1);
-          border-color: #ef4444;
+          background-color: #fef2f2;
+          border-color: #dc2626;
         }
         .error-banner {
           display: none;
-          background: rgba(239, 68, 68, 0.12);
-          border: 1px solid #ef4444;
-          color: #fca5a5;
-          padding: 12px 16px;
-          border-radius: 10px;
+          background-color: #fef2f2;
+          border: 1px solid #fca5a5;
+          color: #b91c1c;
+          border-radius: 8px;
+          padding: 10px 14px;
           font-size: 13px;
-          margin-bottom: 18px;
+          margin-top: 14px;
           text-align: left;
-          line-height: 1.4;
+        }
+        .status-box {
+          border-radius: 10px;
+          padding: 18px 20px;
+          text-align: left;
+          margin-bottom: 20px;
+        }
+        .status-box.approved {
+          background-color: #f0fdf4;
+          border: 1px solid #bbf7d0;
+        }
+        .status-box.declined {
+          background-color: #fef2f2;
+          border: 1px solid #fecaca;
+        }
+        .status-row {
+          margin-bottom: 8px;
+          font-size: 13.5px;
+          color: #334155;
+        }
+        .status-row:last-child {
+          margin-bottom: 0;
         }
         .status-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 14px;
-          border-radius: 20px;
-          font-size: 12px;
+          display: inline-block;
           font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 1px;
+          font-size: 12px;
+          padding: 3px 9px;
+          border-radius: 12px;
+          letter-spacing: 0.3px;
         }
         .status-pill.approved {
-          background: rgba(16, 185, 129, 0.15);
-          color: #10b981;
-          border: 1px solid #10b981;
+          background-color: #dcfce7;
+          color: #15803d;
         }
         .status-pill.declined {
-          background: rgba(239, 68, 68, 0.15);
-          color: #ef4444;
-          border: 1px solid #ef4444;
+          background-color: #fee2e2;
+          color: #b91c1c;
         }
       </style>
     </head>
     <body>
       <div class="review-card">
-        <div class="badge">ÖZARA MEMBERSHIP COMMITTEE</div>
-        <h1 class="title">${isApproved ? 'Request Approved' : isDeclined ? 'Request Declined' : 'Membership Request Review'}</h1>
+        <div class="wordmark">ÖZARA</div>
+        <h1 class="title">${isApproved ? 'Request approved' : isDeclined ? 'Request declined' : 'Membership request'}</h1>
         <p class="subtitle">
           ${isApproved 
-            ? 'This applicant has been approved and issued an official invitation token.' 
+            ? 'This applicant has been approved and issued an invitation.' 
             : isDeclined 
               ? 'This applicant was reviewed and declined.' 
-              : 'Review applicant details and select their membership terms before approving.'}
+              : 'Review applicant details and select membership terms before approving.'}
         </p>
 
-        <!-- Candidate Details -->
+        <!-- Candidate Details (Prominent First) -->
         <div class="info-box">
-          <div class="info-row">
-            Applicant: <span class="info-val">${record.full_name || 'Not specified'}</span>
+          <div class="applicant-name">${record.full_name || 'Applicant'}</div>
+          <div class="applicant-email">
+            <a href="mailto:${record.email}">${record.email}</a>
           </div>
-          <div class="info-row">
-            Business Email: <span class="info-val" style="color: #38bdf8;">${record.email}</span>
-          </div>
-          <div class="info-row">
-            LinkedIn / Background: <span class="info-val">${record.linkedin_or_background || 'Not specified'}</span>
-          </div>
-          <div class="info-row">
-            What brings them: <span class="info-val">${record.what_brings_you || 'Not specified'}</span>
-          </div>
-          ${record.created_at ? `<div class="info-row" style="color: #64748b; font-size: 12px; margin-top: 8px;">Submitted: ${new Date(record.created_at).toLocaleString()}</div>` : ''}
+          ${record.linkedin_or_background ? `
+            <div class="info-row">
+              <span class="info-label">LinkedIn: </span>
+              <span class="info-val"><a href="${record.linkedin_or_background}" target="_blank" style="color: #0f172a; text-decoration: underline;">${record.linkedin_or_background}</a></span>
+            </div>
+          ` : ''}
+          ${record.role_or_headline ? `
+            <div class="info-row">
+              <span class="info-label">Role: </span>
+              <span class="info-val">${record.role_or_headline}</span>
+            </div>
+          ` : ''}
+          ${record.notes ? `
+            <div class="info-row">
+              <span class="info-label">Notes: </span>
+              <span class="info-val">${record.notes}</span>
+            </div>
+          ` : ''}
+          ${record.what_brings_you ? `
+            <div class="info-row">
+              <span class="info-label">Submitted details: </span>
+              <span class="info-val">${record.what_brings_you}</span>
+            </div>
+          ` : ''}
+          ${record.created_at ? `<div class="info-row" style="color: #94a3b8; font-size: 12px; margin-top: 10px;">Submitted: ${new Date(record.created_at).toLocaleString()}</div>` : ''}
         </div>
 
         ${isApproved ? `
-          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 20px; text-align: left; margin-bottom: 22px;">
-            <div style="margin-bottom: 8px; font-size: 13.5px; color: #94a3b8;">
+          <div class="status-box approved">
+            <div class="status-row">
               Status: <span class="status-pill approved">✓ Approved</span>
             </div>
-            <div style="margin-bottom: 8px; font-size: 13.5px; color: #94a3b8;">
-              Membership Tier: <strong style="color: #ffffff;">${record.membership_tier === 'complimentary' ? 'Complimentary Membership (Free Access)' : 'Paid Membership (Subscription Required)'}</strong>
+            <div class="status-row">
+              Membership tier: <strong style="color: #0f172a;">${record.membership_tier === 'complimentary' ? 'Complimentary membership (free access)' : 'Paid membership (subscription required)'}</strong>
             </div>
-            <div style="margin-bottom: 8px; font-size: 13.5px; color: #94a3b8;">
-              Official Token: <span style="color: #c4b5fd; font-family: monospace; font-weight: 700; letter-spacing: 1px;">${record.token}</span>
+            <div class="status-row">
+              Official token: <span style="font-family: monospace; font-weight: 700; letter-spacing: 1px; color: #0f172a;">${record.token}</span>
             </div>
-            <div style="font-size: 12.5px; color: #64748b;">
-              Approved by: ${record.approved_by || approver} ${record.approved_at ? 'on ' + new Date(record.approved_at).toLocaleString() : ''}
+            <div class="status-row" style="font-size: 12.5px; color: #64748b;">
+              Approved by ${record.approved_by || approver}${record.approved_at ? ' on ' + new Date(record.approved_at).toLocaleString() : ''}
             </div>
           </div>
-          <p style="color: #64748b; font-size: 13px; margin: 0; text-align: center;">
+          <p style="color: #64748b; font-size: 13.5px; margin: 0; text-align: center;">
             The applicant has received their invitation code via email. You may close this window.
           </p>
         ` : isDeclined ? `
-          <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 20px; text-align: left; margin-bottom: 22px;">
-            <div style="font-size: 13.5px; color: #94a3b8;">
+          <div class="status-box declined">
+            <div class="status-row">
               Status: <span class="status-pill declined">✕ Declined</span>
             </div>
           </div>
-          <p style="color: #64748b; font-size: 13px; margin: 0; text-align: center;">
+          <p style="color: #64748b; font-size: 13.5px; margin: 0; text-align: center;">
             This request has been declined. You may close this window.
           </p>
         ` : `
           <!-- Pending Review Form -->
           <div style="text-align: left; margin-bottom: 20px;">
-            <div style="font-size: 12px; font-weight: 700; color: #a78bfa; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;">
-              Select Membership Option <span style="color: #ef4444;">*</span>
+            <div class="section-label">
+              Select membership option <span style="color: #dc2626;">*</span>
             </div>
 
             <!-- Radio 1: Paid membership -->
@@ -6043,12 +6194,12 @@ app.get('/api/admin/invitations/review', (req, res) => {
 
           <div id="errorBanner" class="error-banner"></div>
 
-          <div style="display: flex; gap: 12px; justify-content: center; align-items: center; margin-top: 24px; flex-wrap: wrap;">
+          <div class="actions-row">
             <button id="approveBtn" type="button" class="btn-approve" onclick="submitDecision('approve')">
-              ✓ Approve &amp; Send Invitation
+              Approve request
             </button>
             <button id="declineBtn" type="button" class="btn-decline" onclick="submitDecision('decline')">
-              Decline Request
+              Decline
             </button>
           </div>
 
@@ -6094,8 +6245,8 @@ app.get('/api/admin/invitations/review', (req, res) => {
               declineBtn.disabled = true;
               approveBtn.style.opacity = '0.5';
               declineBtn.style.opacity = '0.5';
-              approveBtn.textContent = action === 'approve' ? 'Approving...' : '✓ Approve & Send Invitation';
-              declineBtn.textContent = action === 'decline' ? 'Declining...' : 'Decline Request';
+              approveBtn.textContent = action === 'approve' ? 'Approving...' : 'Approve request';
+              declineBtn.textContent = action === 'decline' ? 'Declining...' : 'Decline';
 
               fetch('/api/admin/invitations/review/decision', {
                 method: 'POST',
@@ -6116,8 +6267,8 @@ app.get('/api/admin/invitations/review', (req, res) => {
                   declineBtn.disabled = false;
                   approveBtn.style.opacity = '1';
                   declineBtn.style.opacity = '1';
-                  approveBtn.textContent = '✓ Approve & Send Invitation';
-                  declineBtn.textContent = 'Decline Request';
+                  approveBtn.textContent = 'Approve request';
+                  declineBtn.textContent = 'Decline';
                 } else {
                   window.location.reload();
                 }
@@ -6129,8 +6280,8 @@ app.get('/api/admin/invitations/review', (req, res) => {
                 declineBtn.disabled = false;
                 approveBtn.style.opacity = '1';
                 declineBtn.style.opacity = '1';
-                approveBtn.textContent = '✓ Approve & Send Invitation';
-                declineBtn.textContent = 'Decline Request';
+                approveBtn.textContent = 'Approve request';
+                declineBtn.textContent = 'Decline';
               });
             }
           </script>

@@ -87,14 +87,33 @@ Defines the private club onboarding and invitation protocol for ÖZARA. Membersh
    - Admins can generate unique, single-use invitations with configurable expiration dates.
    - **Membership Request Review Flow**:
      - Admin notification emails are sent with subject format: `New request to join ÖZARA from ${cleanName || 'Candidate'}`.
-     - The email contains a link to the secure admin review page (`/api/admin/invitations/review?requestId=${id}&adminEmail=${adminEmail}`).
-     - On the review page (and in the mobile admin dashboard), before approving, the admin must choose between two mutually exclusive options:
-       - **Paid membership** — a subscription is required.
-       - **Complimentary membership** — free access, granted at the admin’s discretion.
-     - Neither option is selected by default.
-     - Actions:
-       - **Approve**: Persists the selected `membership_tier` ('paid' or 'complimentary'), generates the official 1:1 token (`OZARA-xxxx-xxxx`), and emails the applicant. Approving is disabled/prevented until one of the two options is explicitly selected.
-       - **Decline**: Declines the request (`status = 'declined'`) without requiring a membership option selection.
+       - Heading: `Membership request`
+       - Intro: `${cleanName} would like to join ÖZARA.`
+       - Applicant details prominent, with email and submitted details beneath.
+       - Button: `Review request` linking to the secure admin review page (`/api/admin/invitations/review?requestId=${id}&adminEmail=${adminEmail}`).
+     - **Applicant Confirmation Email**:
+       - Sender name: `ÖZARA`
+       - Subject: `Your request to join ÖZARA`
+       - Brand header: `ÖZARA` compact wordmark
+       - Heading: `Your request is received`
+       - Body: `Hi {First name},\n\nThank you for your interest in ÖZARA. Our hosts will review your request and be in touch by email.`
+       - Sign-off: `The ÖZARA team` (no button needed)
+     - **Admin Review Page**:
+       - Uses the same clean, light aesthetic (`#f8fafc` / `#ffffff`) with generous whitespace and compact ÖZARA wordmark.
+       - Applicant details are presented prominently first (name, email, background, notes).
+       - Before approving, the admin must choose between two mutually exclusive options:
+         - **Paid membership** — a subscription is required.
+         - **Complimentary membership** — free access, granted at the admin’s discretion.
+       - Neither option is selected by default.
+       - Actions:
+         - **Approve**: Persists the selected `membership_tier` ('paid' or 'complimentary'), generates the official 1:1 token (`OZARA-xxxx-xxxx`), and emails the applicant. Approving is disabled/prevented until one of the two options is explicitly selected.
+         - **Decline**: Declines the request (`status = 'declined'`) without requiring a membership option selection.
+     - **Shared Design Guidelines**:
+       - Clean, light background (`#f8fafc`) with generous whitespace.
+       - Compact ÖZARA wordmark instead of oversized banners.
+       - Dark body text and restrained accents.
+       - Clear typography, subtle dividers, single-column mobile-friendly layout.
+       - Removed heavy dark containers, bright blue headings, and outdated slogans.
    - **Member Account Storage & Admin-Only Visibility/Editing**:
      - The membership tier is persisted on the member's account (`users.membership_tier` and `users.subscription_status`).
      - This setting is strictly visible and editable to administrators only (`FOUNDER` or `ADMIN` roles). Non-admin members cannot view or modify membership tier metadata.
