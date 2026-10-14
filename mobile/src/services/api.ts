@@ -1230,14 +1230,37 @@ export const ApiService = {
       body: JSON.stringify(payload),
     }),
 
-  verifyPhoneCode: (payload: { phone: string; code: string }) =>
+  verifyPhoneCode: (payload: { phone: string; code: string; token?: string }) =>
     request<{
       success: boolean;
       verified: boolean;
       is_existing_member: boolean;
+      is_new_member?: boolean;
+      onboarding_completed?: boolean;
+      onboarding_step?: string;
       user?: Persona;
       phone: string;
+      token?: string;
+      session_token?: string;
     }>('/api/auth/phone/verify-code', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  getOnboardingProgress: (userId?: string) =>
+    request<{
+      user_id: string;
+      is_complete: boolean;
+      onboarding_completed: boolean;
+      onboarding_step: string;
+      membership_tier: 'paid' | 'complimentary';
+      subscription_status: 'pending_payment' | 'active';
+      answered_count: number;
+      is_q18_answered: boolean;
+    }>(`/api/onboarding/progress${userId ? `?userId=${encodeURIComponent(userId)}` : ''}`),
+
+  saveOnboardingProgress: (payload: { userId: string; step: string }) =>
+    request<{ success: boolean; onboarding_step: string }>('/api/onboarding/progress', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

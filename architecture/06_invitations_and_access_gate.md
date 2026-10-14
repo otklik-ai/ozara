@@ -4,25 +4,34 @@
 Defines the private club onboarding and invitation protocol for ÖZARA. Membership is strictly invite-only. New prospective members must validate an invitation code *before* entering phone verification. Uninvited prospective members submit an access request reviewed by ÖZARA leadership (Alexandra Hill: `agniyahill@gmail.com`, Julia Shchukina: `iuliiashchukinainvest@gmail.com`, and Elena Ermolov: `ermolov.elena@gmail.com`). Existing members sign in directly without an invitation code.
 
 ## 2. Invariants & Rules
-1. **Invitation-First Onboarding Flow**:
-   - New members must enter and validate their invitation code on the server *before* proceeding to phone verification.
-   - Sequence:
-     1. Introduction screens (Events, Network, Invest)
-     2. Invitation screen (`/invitation`): validates code on server
-     3. Phone verification flow (`PhoneAuthScreen`): verifies phone ownership via SMS OTP
-     4. Optional Face ID setup (`FaceIdSetupScreen`): genuine device authentication (Face ID / Touch ID / WebAuthn passkey); auto-skipped if unsupported; carries biometric preference
-     5. Welcome / Create account (`CreateAccountScreen`): minimalist layout with underlined Full name and Email inputs, inline validation, clickable dedicated Terms & Conditions and Privacy Policy links, and primary "Create account" button
-     6. Token redemption & Account creation: server atomically redeems single-use invitation token, registers member with verified phone and terms version, and activates biometric preference
-     7. Member profile setup (`SignUpScreen` questionnaire page): 30 canonical questions (Q18 required for completion, Q23 permanently private)
-     8. Investment Access Conditions: strictly separated from account creation; enforced when accessing restricted real estate opportunities or submitting inquiries
-2. **Entry Points & Navigation**:
+1. **Agreed 10-Step Registration Flow**:
+   1. “Join the circle.”
+   2. Enter an invitation code, or request one.
+   3. Requesters complete the existing short application form.
+   4. Admins receive an email linking to the secure approval page.
+   5. After admin approval, the requester receives an invitation code by email.
+   6. Validate the invitation code (`/api/invitations/verify`).
+   7. Verify the phone number using an SMS code (`/api/auth/phone/verify-code`). Token is passed to bind the candidate's account without marking onboarding complete.
+   8. Show the existing membership questionnaire. Reuses the 24 canonical questions and screens already built (`SignUpScreen` questionnaire view). Resumes at the next incomplete question.
+   9. If membership is paid, complete subscription payment; complimentary members skip payment (`/api/membership/activate-subscription`).
+   10. Open the main app (`tabs`) only after all required steps are complete.
+
+2. **Onboarding Persistence & Server-Side Access Enforcement Invariant**:
+   - **Authenticated Account != Fully Onboarded Member**: An account in `users` with `is_admitted = 1` or a valid session token does not grant member access until onboarding is completed (`is_complete = 1` and active subscription for paid members).
+   - **Server-Side Onboarding State**: Tracked in `users.onboarding_step` (`'questionnaire'`, `'subscription_payment'`, `'completed'`) and `users.is_complete`.
+   - **Step Resumption**: On page refresh, app restart, or returning session, the app queries `GET /api/onboarding/progress` and resumes at the next incomplete step (`signup` questionnaire or subscription payment modal). Question answers are draft-persisted via `questionnaire_answers` and rehydrated automatically.
+   - **Dual-Layer Feature Gate**: Backend endpoints (`/api/members`, `/api/recommendations`, `/api/events`, `/api/inbox/conversations`, `/api/community/posts`) strictly reject incomplete regular members with `403 Forbidden` (`code: 'onboarding_incomplete'`).
+   - **Preservation of Existing Completed Members**: Existing completed members (`is_complete = 1`, active/complimentary subscription, founders/admins) retain full, uninterrupted access.
+   - **Question 18 Mandate**: Question 18 ("What can you offer other members?") is strictly required to mark `is_complete = 1`.
+
+3. **Entry Points & Navigation**:
    - Discreet "Have an invitation?" link appears on all three introduction screens (Events, Network, Invest) and routes immediately to the Invitation screen.
    - Screen 1 (Events) & Screen 2 (Network): Primary button is "Next" to advance to the next slide.
    - Screen 3 (Invest): Primary button is "Get started" and opens the Invitation screen.
    - "Already a member? Sign in" remains a distinct, separate route opening phone verification directly for admitted members without requiring an invitation.
    - "Intro" button remains connected to the admin contact panel modal across all slides.
    - Back navigation returns to the exact introduction slide left behind without replaying the splash animation.
-3. **Face ID Setup Invariants**:
+4. **Face ID Setup Invariants**:
    - Background: ÖZARA navy (`#0B1020`), white typography (`Plus Jakarta Sans`), violet accents (`#7C3AED`).
    - Minimal layout with generous spacing and simple outline illustration combining a lock and facial recognition brackets.
    - Headline: "A familiar face. Secure access."

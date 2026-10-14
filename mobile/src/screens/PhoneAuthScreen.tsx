@@ -43,6 +43,7 @@ import { ApiService, Persona } from '../services/api';
 import { useClub } from '../context/ClubContext';
 import { ContactModal } from '../components/ContactModal';
 import { AccessConditionsModal } from '../components/AccessConditionsModal';
+import { OzaraStorage, OZARA_STORAGE_KEYS } from '../services/storage';
 
 interface CountryItem {
   name: string;
@@ -103,6 +104,7 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
     setAuthMode,
     pendingAccessEmail,
     verifiedPhone,
+    invitationCode,
   } = useClub();
 
   const [step, setStep] = useState<AuthStep>('enter_phone');
@@ -216,33 +218,44 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
     setIsLoading(true);
 
     try {
+      const inviteToken =
+        invitationCode ||
+        OzaraStorage.getItem(OZARA_STORAGE_KEYS.INVITATION_CODE) ||
+        OzaraStorage.getItem(OZARA_STORAGE_KEYS.PENDING_TOKEN) ||
+        undefined;
+
       const res = await ApiService.verifyPhoneCode({
         phone: fullNormalizedPhone,
         code: finalCode,
+        token: authMode === 'new_member' ? inviteToken : undefined,
       });
 
       if (res && res.verified) {
         // Ownership verified
         setVerifiedPhone(fullNormalizedPhone);
 
-        if (res.is_existing_member && res.user) {
-          // Case A: Existing approved member -> log in and enter app directly
+        if (res.user) {
           switchPersona(res.user.id);
+          OzaraStorage.setItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID, res.user.id);
+          OzaraStorage.setItem(OZARA_STORAGE_KEYS.TERMS_ACCEPTED_VERSION, '2026-10-v1');
+          if (res.token || (res as any).session_token) {
+            OzaraStorage.setItem('ozara_session_token', res.token || (res as any).session_token);
+          }
+        }
+
+        if (res.onboarding_completed) {
+          // Returning approved member who has completed all onboarding steps
           onEnterClub();
         } else {
-          // Case B: Not an existing member
-          if (authMode === 'sign_in') {
+          // Case B: Not an existing member and not registering with invitation
+          if (authMode === 'sign_in' && !res.is_existing_member && !res.user) {
             setErrorType('invalid');
             setErrorMessage('No active membership found for this number. Please check your phone or enter an invitation code to join.');
             return;
           }
 
-          // Case C: New user / candidate with valid invitation -> proceed to Face ID setup
-          if (onGoToFaceId) {
-            onGoToFaceId();
-          } else {
-            onGoToSignUp();
-          }
+          // Case C: New user with invitation code, or incomplete profile -> proceed to questionnaire
+          onGoToSignUp();
         }
       } else {
         setErrorType('invalid');

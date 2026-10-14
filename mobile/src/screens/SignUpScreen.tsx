@@ -681,14 +681,14 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
   // Navigation mode within SignUp flow - defaults to questionnaire_page if account created, or initialViewMode
   const [viewMode, setViewModeState] = useState<GateView>(() => {
     if (initialViewMode) return initialViewMode;
-    const saved = OzaraStorage.getItem(OZARA_STORAGE_KEYS.SIGNUP_STEP) as GateView | null;
-    if (saved && ['check_token', 'request_access', 'register_form', 'questionnaire_page'].includes(saved)) {
-      return saved;
-    }
     const hasAccount =
       OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID) &&
       OzaraStorage.getItem(OZARA_STORAGE_KEYS.TERMS_ACCEPTED_VERSION);
     if (hasAccount) return 'questionnaire_page';
+    const saved = OzaraStorage.getItem(OZARA_STORAGE_KEYS.SIGNUP_STEP) as GateView | null;
+    if (saved && ['check_token', 'request_access', 'register_form', 'questionnaire_page'].includes(saved)) {
+      return saved;
+    }
     if (initToken) return 'register_form';
     return 'check_token';
   });
@@ -1408,14 +1408,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
     }
 
     if (!isQ18Answered) {
-      const msg = "Question 18 ('What can you offer other members?') is required to mark your profile complete. A directory without member offers cannot function effectively.";
+      const msg = "Question 18 ('What can you offer other members?') is required to complete your membership profile. A directory without member offers cannot function effectively.";
       if (Platform.OS === 'web') {
-        const proceed = window.confirm(msg + "\n\nWould you like to enter anyway with an incomplete profile status?");
-        if (!proceed) return;
+        window.alert(msg);
       } else {
         Alert.alert("Question 18 Required", msg);
-        return;
       }
+      return;
     }
 
     // Content moderation guardrail (Securities & broker-dealer compliance)

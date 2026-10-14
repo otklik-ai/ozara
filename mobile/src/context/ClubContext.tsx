@@ -220,6 +220,21 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (currentUserId && !data.some(p => p.id === currentUserId)) {
         console.log('[ClubContext] Logged-in user session no longer valid.');
         signOut();
+      } else if (currentUserId) {
+        const member = data.find(p => p.id === currentUserId);
+        const isFounderOrAdmin = member?.role === 'FOUNDER' || member?.role === 'ADMIN';
+        if (member && !isFounderOrAdmin) {
+          try {
+            const progress = await ApiService.getOnboardingProgress(currentUserId);
+            if (!progress.onboarding_completed) {
+              console.log('[ClubContext] Member onboarding incomplete (step:', progress.onboarding_step, '). Resuming onboarding.');
+              setAppViewState('signup');
+              OzaraStorage.setItem(OZARA_STORAGE_KEYS.APP_VIEW, 'signup');
+            }
+          } catch (e) {
+            console.warn('[ClubContext] Error checking onboarding progress:', e);
+          }
+        }
       }
     } catch (err) {
       console.warn('[ClubContext] Error fetching personas:', err);

@@ -95,8 +95,8 @@ export const AppNavigator: React.FC = () => {
             }
           }}
           onEnterClub={() => setAppView('tabs')}
-          onGoToSignUp={() => setAppView('face_id_setup')}
-          onGoToFaceId={() => setAppView('face_id_setup')}
+          onGoToSignUp={() => setAppView('signup')}
+          onGoToFaceId={() => setAppView('signup')}
           onGoToInvitation={() => {
             setAuthMode('new_member');
             setAppView('invitation');

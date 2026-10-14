@@ -195,6 +195,11 @@ try {
     db.exec("ALTER TABLE users ADD COLUMN subscription_status TEXT DEFAULT 'pending_payment';");
     db.exec("UPDATE users SET subscription_status = 'active' WHERE is_admitted = 1;");
   }
+  if (!userCols.includes('onboarding_step')) {
+    db.exec("ALTER TABLE users ADD COLUMN onboarding_step TEXT DEFAULT NULL;");
+    db.exec("UPDATE users SET onboarding_step = 'completed' WHERE is_complete = 1;");
+    db.exec("UPDATE users SET onboarding_step = 'questionnaire' WHERE is_complete = 0;");
+  }
 
   const inviteCols = db.prepare("PRAGMA table_info(invitation_tokens)").all().map(c => c.name);
   if (!inviteCols.includes('membership_tier')) {
@@ -322,7 +327,8 @@ function validateSession(req) {
 
   const session = db.prepare(`
     SELECT s.token, s.user_id, s.expires_at,
-           u.id, u.email, u.full_name, u.avatar_url, u.headline, u.role, u.is_admitted
+           u.id, u.email, u.full_name, u.avatar_url, u.headline, u.role, u.is_admitted,
+           u.is_complete, u.membership_tier, u.subscription_status, u.onboarding_step
     FROM user_sessions s
     JOIN users u ON s.user_id = u.id
     WHERE s.token = ?
@@ -366,7 +372,74 @@ function validateSession(req) {
     };
   }
 
+  const isFounderOrAdmin = ['FOUNDER', 'ADMIN'].includes(session.role);
+  if (!isFounderOrAdmin && req.path && !req.path.startsWith('/api/onboarding') && !req.path.startsWith('/api/profile') && !req.path.startsWith('/api/membership') && !req.path.startsWith('/api/questions') && !req.path.startsWith('/api/auth') && !req.path.startsWith('/api/legal') && !req.path.startsWith('/api/personas')) {
+    const isComplete = session.is_complete === 1;
+    const isSubActive = (session.membership_tier === 'complimentary') || (session.subscription_status === 'active');
+    if (!isComplete || !isSubActive) {
+      const step = !isComplete ? 'questionnaire' : 'subscription_payment';
+      return {
+        authenticated: false,
+        forbidden: true,
+        status: 403,
+        error: "Forbidden: Please complete your onboarding before accessing member features.",
+        onboarding_incomplete: true,
+        onboarding_step: session.onboarding_step || step,
+        user: session
+      };
+    }
+  }
+
   return { authenticated: true, user: session, token };
+}
+
+function getViewerAndEnforceMembership(req, res) {
+  let viewerId = req.query.viewerId || req.headers['x-user-id'] || req.headers['authorization'] || req.body?.viewerId || req.body?.userId;
+  if (!viewerId && req.headers['x-session-token']) viewerId = req.headers['x-session-token'];
+  if (!viewerId && req.query.session_token) viewerId = req.query.session_token;
+
+  if (!viewerId) {
+    res.status(401).json({ error: "Access Denied: Community membership required." });
+    return null;
+  }
+  const cleanViewer = String(viewerId).startsWith('Bearer ') ? String(viewerId).slice(7).trim() : String(viewerId).trim();
+
+  let viewer = null;
+  const session = db.prepare(`
+    SELECT u.* FROM user_sessions s
+    JOIN users u ON s.user_id = u.id
+    WHERE s.token = ? AND (s.expires_at IS NULL OR s.expires_at > datetime('now'))
+  `).get(cleanViewer);
+  if (session) {
+    viewer = session;
+  } else {
+    viewer = db.prepare("SELECT * FROM users WHERE (id = ? OR LOWER(email) = ?) AND (is_admitted = 1 OR role IN ('FOUNDER', 'ADMIN'))").get(cleanViewer, cleanViewer.toLowerCase());
+  }
+
+  if (!viewer) {
+    res.status(401).json({ error: "Access Denied: Community membership required." });
+    return null;
+  }
+
+  const isFounderOrAdmin = viewer.role === 'FOUNDER' || viewer.role === 'ADMIN';
+  if (!isFounderOrAdmin) {
+    const isComplete = viewer.is_complete === 1;
+    const isSubActive = (viewer.membership_tier === 'complimentary') || (viewer.subscription_status === 'active');
+    if (!isComplete || !isSubActive) {
+      const step = !isComplete ? 'questionnaire' : 'subscription_payment';
+      res.status(403).json({
+        error: "onboarding_incomplete",
+        message: "Please complete your onboarding questionnaire and subscription before accessing club features.",
+        onboarding_step: viewer.onboarding_step || step,
+        is_complete: viewer.is_complete,
+        membership_tier: viewer.membership_tier,
+        subscription_status: viewer.subscription_status
+      });
+      return null;
+    }
+  }
+
+  return viewer;
 }
 
 // ============================================================================
@@ -1079,20 +1152,111 @@ app.post('/api/auth/phone/verify-code', (req, res) => {
     // Mark as verified
     db.prepare("UPDATE phone_verifications SET is_verified = 1 WHERE id = ?").run(record.id);
 
-    // Look up if an approved member in users table already has this phone
+    const rawInviteToken = (req.body?.token || req.body?.invitation_token || req.body?.invite_code || '').trim();
+
+    // Case 1: Registration with invitation token (Step 6 -> Step 7)
+    if (rawInviteToken) {
+      const invite = db.prepare(`
+        SELECT * FROM invitation_tokens
+        WHERE UPPER(token) = UPPER(?) OR token = ?
+      `).get(rawInviteToken, rawInviteToken);
+
+      if (invite && (invite.status === 'approved' || invite.is_claimed === 1)) {
+        let member = db.prepare(`
+          SELECT * FROM users
+          WHERE LOWER(email) = LOWER(?)
+        `).get(invite.email);
+
+        const tier = invite.membership_tier || 'paid';
+        const subStatus = (tier === 'complimentary') ? 'active' : 'pending_payment';
+
+        if (!member) {
+          const newId = 'usr_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+          db.prepare(`
+            INSERT INTO users (
+              id, email, full_name, headline, avatar_url, chapter_id, city, state, country, industry,
+              contact_preference, role, is_admitted, admitted_by, is_complete,
+              accepted_access_conditions_version, accepted_access_conditions_at,
+              terms_accepted_version, terms_accepted_at, phone,
+              membership_tier, subscription_status, onboarding_step
+            ) VALUES (?, ?, ?, ?, NULL, 'ch_dubai', 'Dubai', 'Dubai', 'United Arab Emirates', 'Other',
+              'direct_contact', 'MEMBER', 1, 'Invitation-Token-Verified', 0,
+              ?, datetime('now'), '2026-10-v1', datetime('now'), ?,
+              ?, ?, 'questionnaire')
+          `).run(
+            newId, invite.email.toLowerCase(), invite.full_name || 'Member', invite.role_or_headline || '',
+            CURRENT_ACCESS_CONDITIONS_VERSION, cleanPhone,
+            tier, subStatus
+          );
+
+          // Seed canonical question rows
+          const insertAnswer = db.prepare(`
+            INSERT OR IGNORE INTO questionnaire_answers (user_id, question_id, prompt, answer_state, visibility, value_text)
+            VALUES (?, ?, ?, 'unanswered', ?, NULL)
+          `);
+          for (const q of CANONICAL_QUESTIONS) {
+            insertAnswer.run(newId, q.id, q.prompt, q.id === 23 ? 'private' : 'shared');
+          }
+
+          member = db.prepare("SELECT * FROM users WHERE id = ?").get(newId);
+        } else {
+          db.prepare(`
+            UPDATE users
+            SET phone = ?,
+                full_name = CASE WHEN (full_name IS NULL OR full_name = '' OR full_name = 'Member') AND ? != '' THEN ? ELSE full_name END,
+                membership_tier = COALESCE(membership_tier, ?),
+                subscription_status = COALESCE(subscription_status, ?)
+            WHERE id = ?
+          `).run(cleanPhone, invite.full_name || '', invite.full_name || '', tier, subStatus, member.id);
+          member = db.prepare("SELECT * FROM users WHERE id = ?").get(member.id);
+        }
+
+        // Mark invitation claimed
+        db.prepare(`
+          UPDATE invitation_tokens
+          SET is_claimed = 1, status = 'claimed', claimed_at = CURRENT_TIMESTAMP, phone = ?
+          WHERE id = ?
+        `).run(cleanPhone, invite.id);
+
+        const session = createSessionForUser(member.id);
+        const isCompletedMember = Boolean(member.is_complete === 1 && (member.membership_tier === 'complimentary' || member.subscription_status === 'active' || member.role === 'FOUNDER' || member.role === 'ADMIN'));
+        const currentStep = isCompletedMember ? 'completed' : (member.onboarding_step || (member.is_complete === 1 ? 'subscription_payment' : 'questionnaire'));
+
+        console.log(`[PHONE AUTH SUCCESS] New candidate verified with invite token: ${member.full_name} (${cleanPhone}), onboarding_step: ${currentStep}`);
+        return res.json({
+          success: true,
+          verified: true,
+          is_existing_member: false,
+          is_new_member: true,
+          onboarding_completed: isCompletedMember,
+          onboarding_step: currentStep,
+          user: member,
+          phone: cleanPhone,
+          token: session.token,
+          session_token: session.token,
+          expires_at: session.expires_at
+        });
+      }
+    }
+
+    // Case 2: Sign-in / returning member check without token
     const existingUser = db.prepare(`
-      SELECT id, email, full_name, headline, avatar_url, role, chapter_id, city, country, is_complete, is_admitted
+      SELECT id, email, full_name, headline, avatar_url, role, chapter_id, city, country, is_complete, is_admitted, membership_tier, subscription_status, onboarding_step
       FROM users
       WHERE (phone = ? OR (id = 'usr_elena' AND ? IN ('+971501112233', '+971501234567'))) AND is_admitted = 1
     `).get(cleanPhone, cleanPhone);
 
     if (existingUser) {
-      console.log(`[PHONE AUTH SUCCESS] Existing approved member logged in: ${existingUser.full_name} (${cleanPhone})`);
+      const isCompletedMember = Boolean(existingUser.is_complete === 1 && (existingUser.membership_tier === 'complimentary' || existingUser.subscription_status === 'active' || existingUser.role === 'FOUNDER' || existingUser.role === 'ADMIN'));
+      const currentStep = isCompletedMember ? 'completed' : (existingUser.onboarding_step || (existingUser.is_complete === 1 ? 'subscription_payment' : 'questionnaire'));
+      console.log(`[PHONE AUTH SUCCESS] Member authenticated: ${existingUser.full_name} (${cleanPhone}), onboarding_completed: ${isCompletedMember}`);
       const session = createSessionForUser(existingUser.id);
       return res.json({
         success: true,
         verified: true,
         is_existing_member: true,
+        onboarding_completed: isCompletedMember,
+        onboarding_step: currentStep,
         user: existingUser,
         phone: cleanPhone,
         token: session.token,
@@ -1821,15 +1985,8 @@ app.get('/api/connections/contact-methods/:targetId', (req, res) => {
 // ALL MEMBERS DIRECTORY & FILTERING
 // -------------------------------------------------------------
 app.get('/api/members', (req, res) => {
-  const viewerId = req.query.viewerId || req.headers['x-user-id'] || req.headers['authorization'];
-  if (!viewerId) {
-    return res.status(401).json({ error: "Access Denied: Community membership required." });
-  }
-  const cleanViewer = viewerId.startsWith('Bearer ') ? viewerId.slice(7).trim() : viewerId.trim();
-  const viewer = db.prepare("SELECT * FROM users WHERE (id = ? OR LOWER(email) = ?) AND (is_admitted = 1 OR role IN ('FOUNDER', 'ADMIN'))").get(cleanViewer, cleanViewer.toLowerCase());
-  if (!viewer) {
-    return res.status(401).json({ error: "Access Denied: Community membership required." });
-  }
+  const viewer = getViewerAndEnforceMembership(req, res);
+  if (!viewer) return;
 
   const query = (req.query.q || '').toLowerCase().trim();
   const locationFilter = (req.query.location || '').toLowerCase().trim();
@@ -2012,17 +2169,10 @@ app.get('/api/members', (req, res) => {
 
 // Explainable recommendations for active viewer
 app.get('/api/recommendations', (req, res) => {
-  const viewerId = req.query.viewerId || 'usr_elena';
+  const viewer = getViewerAndEnforceMembership(req, res);
+  if (!viewer) return;
+  const viewerId = viewer.id;
   const today = new Date().toISOString().split('T')[0];
-
-  const viewer = db.prepare(`
-    SELECT u.id, u.full_name, u.city, u.chapter_id, c.name as chapter_name
-    FROM users u
-    LEFT JOIN chapters c ON u.chapter_id = c.id
-    WHERE u.id = ?
-  `).get(viewerId);
-
-  if (!viewer) return res.status(404).json({ error: "Viewer not found" });
 
   // Get viewer's stated needs and industries
   const viewerNeeds = db.prepare(`
@@ -2446,7 +2596,7 @@ app.get('/api/profile/:userId', (req, res) => {
 
   const user = db.prepare(`
     SELECT u.id, u.email, u.phone, u.zoom_link, u.full_name, u.headline, u.avatar_url, u.city, u.state, u.country, u.industry, u.contact_preference,
-           u.role, u.is_admitted, u.admitted_by, u.admitted_at, u.is_complete, u.membership_tier, u.subscription_status, c.name as chapter_name, c.id as chapter_id
+           u.role, u.is_admitted, u.admitted_by, u.admitted_at, u.is_complete, u.membership_tier, u.subscription_status, u.onboarding_step, c.name as chapter_name, c.id as chapter_id
     FROM users u
     LEFT JOIN chapters c ON u.chapter_id = c.id
     WHERE u.id = ?
@@ -2561,6 +2711,7 @@ app.get('/api/profile/:userId', (req, res) => {
     connection_id,
     can_view_contact: canViewContact,
     is_complete: Boolean(user.is_complete),
+    onboarding_step: user.onboarding_step || (user.is_complete ? 'completed' : 'questionnaire'),
     answers: sanitizedAnswers,
     travel_plans: travelPlans,
     taxonomies,
@@ -2646,9 +2797,25 @@ function handleSaveAnswer(req, res) {
   `).get(userId);
 
   const isComplete = (q18 && q18.answer_state === 'answered') ? 1 : 0;
-  db.prepare("UPDATE users SET is_complete = ? WHERE id = ?").run(isComplete, userId);
+  const userRec = db.prepare("SELECT membership_tier, subscription_status, full_name FROM users WHERE id = ?").get(userId);
+  const nextStep = isComplete === 1
+    ? (userRec?.membership_tier === 'paid' && userRec?.subscription_status !== 'active' ? 'subscription_payment' : 'completed')
+    : 'questionnaire';
 
-  res.json({ success: true, is_complete: Boolean(isComplete) });
+  db.prepare("UPDATE users SET is_complete = ?, onboarding_step = ? WHERE id = ?").run(isComplete, nextStep, userId);
+
+  if (nextStep === 'completed') {
+    recordAdminActivity({
+      activityType: 'completed_onboarding',
+      title: 'Member Completed Onboarding',
+      description: `${userRec?.full_name || userId} completed questionnaire onboarding.`,
+      actorId: userId,
+      entityType: 'user',
+      entityId: userId
+    });
+  }
+
+  res.json({ success: true, is_complete: Boolean(isComplete), onboarding_step: nextStep });
 }
 
 app.post('/api/intake/answer', handleSaveAnswer);
@@ -2777,9 +2944,25 @@ app.post(['/api/profile/:id/answers-bulk', '/api/intake/answers-bulk'], (req, re
   `).get(userId);
 
   const isComplete = (q18 && q18.answer_state === 'answered') ? 1 : 0;
-  db.prepare("UPDATE users SET is_complete = ? WHERE id = ?").run(isComplete, userId);
+  const userRec = db.prepare("SELECT membership_tier, subscription_status, full_name FROM users WHERE id = ?").get(userId);
+  const nextStep = isComplete === 1
+    ? (userRec?.membership_tier === 'paid' && userRec?.subscription_status !== 'active' ? 'subscription_payment' : 'completed')
+    : 'questionnaire';
 
-  res.json({ success: true, count: answers.length, is_complete: Boolean(isComplete) });
+  db.prepare("UPDATE users SET is_complete = ?, onboarding_step = ? WHERE id = ?").run(isComplete, nextStep, userId);
+
+  if (nextStep === 'completed') {
+    recordAdminActivity({
+      activityType: 'completed_onboarding',
+      title: 'Member Completed Onboarding',
+      description: `${userRec?.full_name || userId} completed questionnaire onboarding.`,
+      actorId: userId,
+      entityType: 'user',
+      entityId: userId
+    });
+  }
+
+  res.json({ success: true, count: answers.length, is_complete: Boolean(isComplete), onboarding_step: nextStep });
 });
 
 // -------------------------------------------------------------
@@ -2871,15 +3054,8 @@ app.post('/api/intros/resolve', (req, res) => {
 // 5. EVENTS & TARGETED INVITATIONS
 // -------------------------------------------------------------
 app.get('/api/events', (req, res) => {
-  const viewerId = req.query.viewerId || req.query.userId || req.headers['x-user-id'] || req.headers['authorization'];
-  if (!viewerId) {
-    return res.status(401).json({ error: "Access Denied: Community membership required." });
-  }
-  const cleanViewer = viewerId.startsWith('Bearer ') ? viewerId.slice(7).trim() : viewerId.trim();
-  const member = db.prepare("SELECT * FROM users WHERE (id = ? OR LOWER(email) = ?) AND (is_admitted = 1 OR role IN ('FOUNDER', 'ADMIN'))").get(cleanViewer, cleanViewer.toLowerCase());
-  if (!member) {
-    return res.status(401).json({ error: "Access Denied: Community membership required." });
-  }
+  const member = getViewerAndEnforceMembership(req, res);
+  if (!member) return;
 
   const includePast = req.query.include_past === 'true' || req.query.view === 'all';
   const pastOnly = req.query.past_only === 'true';
@@ -5023,6 +5199,45 @@ app.patch('/api/admin/members/:id/membership-tier', requireAdmin, (req, res) => 
   res.json({ success: true, member: updated });
 });
 
+// Onboarding status and progress persistence
+app.get('/api/onboarding/progress', (req, res) => {
+  const viewerId = req.query.userId || req.headers['x-user-id'] || req.headers['authorization'];
+  if (!viewerId) return res.status(401).json({ error: "Authentication required." });
+  const cleanViewer = String(viewerId).startsWith('Bearer ') ? String(viewerId).slice(7).trim() : String(viewerId).trim();
+  const user = db.prepare("SELECT id, email, full_name, is_complete, onboarding_step, membership_tier, subscription_status, role FROM users WHERE id = ? OR LOWER(email) = ?").get(cleanViewer, cleanViewer.toLowerCase());
+  if (!user) return res.status(404).json({ error: "User not found." });
+
+  const isFounderOrAdmin = user.role === 'FOUNDER' || user.role === 'ADMIN';
+  const isComplete = user.is_complete === 1 || isFounderOrAdmin;
+  const isSubActive = (user.membership_tier === 'complimentary') || (user.subscription_status === 'active') || isFounderOrAdmin;
+  const step = isComplete && isSubActive ? 'completed' : (user.onboarding_step || (isComplete ? 'subscription_payment' : 'questionnaire'));
+
+  const answeredCount = db.prepare("SELECT count(*) as count FROM questionnaire_answers WHERE user_id = ? AND answer_state = 'answered'").get(user.id)?.count || 0;
+  const q18 = db.prepare("SELECT answer_state FROM questionnaire_answers WHERE user_id = ? AND question_id = 18").get(user.id);
+
+  res.json({
+    user_id: user.id,
+    is_complete: Boolean(user.is_complete),
+    onboarding_completed: Boolean(isComplete && isSubActive),
+    onboarding_step: step,
+    membership_tier: user.membership_tier || 'paid',
+    subscription_status: user.subscription_status || 'pending_payment',
+    answered_count: answeredCount,
+    is_q18_answered: Boolean(q18 && q18.answer_state === 'answered')
+  });
+});
+
+app.post('/api/onboarding/progress', (req, res) => {
+  const { userId, user_id, step, onboarding_step } = req.body || {};
+  const targetId = userId || user_id || req.headers['x-user-id'];
+  const newStep = step || onboarding_step;
+  if (!targetId || !newStep) {
+    return res.status(400).json({ error: "userId and step are required." });
+  }
+  db.prepare("UPDATE users SET onboarding_step = ? WHERE id = ?").run(newStep, targetId);
+  res.json({ success: true, onboarding_step: newStep });
+});
+
 // Member Subscription Activation (During onboarding or subscription payment)
 app.post('/api/membership/activate-subscription', (req, res) => {
   const viewerId = req.body.userId || req.body.user_id || req.headers['x-user-id'] || req.headers['authorization'];
@@ -5033,7 +5248,7 @@ app.post('/api/membership/activate-subscription', (req, res) => {
 
   db.prepare(`
     UPDATE users
-    SET subscription_status = 'active'
+    SET subscription_status = 'active', onboarding_step = CASE WHEN is_complete = 1 THEN 'completed' ELSE onboarding_step END
     WHERE id = ?
   `).run(user.id);
 
@@ -5046,8 +5261,19 @@ app.post('/api/membership/activate-subscription', (req, res) => {
     entityId: user.id
   });
 
+  if (user.is_complete === 1) {
+    recordAdminActivity({
+      activityType: 'completed_onboarding',
+      title: 'Member Completed Onboarding',
+      description: `${user.full_name} completed subscription payment and finalized onboarding.`,
+      actorId: user.id,
+      entityType: 'user',
+      entityId: user.id
+    });
+  }
+
   const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
-  res.json({ success: true, user: updated, subscription_status: 'active' });
+  res.json({ success: true, user: updated, subscription_status: 'active', onboarding_step: updated.onboarding_step });
 });
 
 // Configurable ÖZARA Legal Documents
@@ -7044,9 +7270,14 @@ app.post('/api/admin/invitations/create', requireAdmin, (req, res) => {
 
 // Helper: Resolve member from request
 function resolveViewer(req) {
-  const viewerId = req.query.viewerId || req.query.userId || req.body.viewerId || req.body.userId || req.headers['x-user-id'] || req.headers['authorization'];
+  const viewerId = req.query.viewerId || req.query.userId || req.body?.viewerId || req.body?.userId || req.headers['x-user-id'] || req.headers['authorization'];
   if (!viewerId) return null;
   const clean = String(viewerId).startsWith('Bearer ') ? String(viewerId).slice(7).trim() : String(viewerId).trim();
+  const session = db.prepare(`
+    SELECT u.* FROM user_sessions s JOIN users u ON s.user_id = u.id
+    WHERE s.token = ? AND (s.expires_at IS NULL OR s.expires_at > datetime('now'))
+  `).get(clean);
+  if (session) return session;
   return db.prepare("SELECT * FROM users WHERE id = ? OR LOWER(email) = ?").get(clean, clean.toLowerCase());
 }
 
@@ -7144,6 +7375,14 @@ app.post('/api/inbox/notifications/read-all', (req, res) => {
 app.get('/api/inbox/conversations', (req, res) => {
   const viewer = resolveViewer(req);
   if (!viewer) return res.status(401).json({ error: "Authentication required." });
+
+  if (viewer.role !== 'FOUNDER' && viewer.role !== 'ADMIN') {
+    const isComplete = viewer.is_complete === 1;
+    const isSubActive = (viewer.membership_tier === 'complimentary') || (viewer.subscription_status === 'active');
+    if (!isComplete || !isSubActive) {
+      return res.status(403).json({ error: "onboarding_incomplete", message: "Please complete your onboarding to access direct messaging." });
+    }
+  }
 
   const convs = db.prepare(`
     SELECT c.*,

@@ -73,6 +73,21 @@
     - **Admin-Only Visibility & Storage**:
       - Membership tier is stored on the member's account (`membership_tier`, `subscription_status`).
       - This setting is visible and editable strictly to administrators (`FOUNDER`, `ADMIN`) and never exposed to other members or non-admin profiles. Admins can adjust the tier via `PATCH /api/admin/members/:id/membership-tier`.
+  - **Agreed 10-Step Registration Flow & Onboarding Gate Invariant**:
+    1. “Join the circle.”
+    2. Enter an invitation code, or request one.
+    3. Requesters complete the existing short application form.
+    4. Admins receive an email linking to the secure approval page.
+    5. After admin approval, the requester receives an invitation code by email.
+    6. Validate the invitation code (`/api/invitations/verify`).
+    7. Verify the phone number using an SMS code (`/api/auth/phone/verify-code`). Validated invitation token is bound to create/link the member account without marking onboarding complete (`onboarding_completed: false`, `onboarding_step: 'questionnaire'`).
+    8. Show the existing membership questionnaire. Reuses the 24 canonical questions and screens already built (`SignUpScreen` questionnaire page). Resumes at the next incomplete question.
+    9. If membership is paid, complete subscription payment; complimentary members skip payment (`/api/membership/activate-subscription`).
+    10. Open the main app (`tabs`) only after all required steps are complete.
+    - **Server-Side Progress Persistence**: Onboarding progress is persisted on the server (`users.onboarding_step`, `users.is_complete`, `questionnaire_answers`). Refreshing, restarting the app, or starting a new session resumes at the next incomplete step. An authenticated account is not necessarily a fully onboarded member.
+    - **Dual-Layer Gate Enforcement**: Incomplete regular members are strictly blocked from member features (`/api/members`, `/api/recommendations`, `/api/events`, `/api/inbox/conversations`, `/api/community/posts`) with `403 Forbidden` (`onboarding_incomplete`).
+    - **Preservation of Existing Completed Members**: Existing completed members and founders (`is_complete = 1`) retain full access without resetting onboarding.
+
   - **Member Location Filtering Invariant**: Member directory searches and location filtering must strictly match members' saved residential locations (`m.city`, `m.country`, `m.state`, or Question 2 saved response). Filtering must never match chapter name or chapter affiliation. Members residing in Seattle (e.g. Elena Alexeeva `usr_muwksc1i`) must match Seattle/United States and never appear under Dubai.
   - **Community as Home Page & Unified Navigation Invariant**:
     - The top-level platform navigation across desktop and mobile is strictly ordered: **Community · Network · Events · Investments**.
