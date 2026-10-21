@@ -17,6 +17,7 @@ import { SignUpScreen } from '../screens/SignUpScreen';
 import { OzaraTabs } from './OzaraTabs';
 import { AccessConditionsScreen } from '../screens/AccessConditionsScreen';
 import { OzaraTheme } from '../constants/ozara-theme';
+import { OzaraStorage, OZARA_STORAGE_KEYS } from '../services/storage';
 
 // Module-level session flag
 let introAlreadyShownInSession = false;
@@ -30,7 +31,11 @@ export const AppNavigator: React.FC = () => {
     setAuthMode,
     setPendingAccessEmail,
     setVerifiedPhone,
+    setInvitationCode,
+    setInvitationEmail,
+    setInvitationFullName,
   } = useClub();
+  const [clearInviteOnOpen, setClearInviteOnOpen] = useState<boolean>(false);
   const [welcomeInitialSlide, setWelcomeInitialSlide] = useState<number>(0);
   
   // Always show the opening purple screen with appearing logo on initial app load / refresh
@@ -49,8 +54,29 @@ export const AppNavigator: React.FC = () => {
           initialSlideIndex={welcomeInitialSlide}
           onGoToSignUp={() => setAppView('signup')}
           onEnterClub={() => setAppView('tabs')}
-          onGoToInvitation={(fromSlide) => {
+          onGoToInvitation={(fromSlide, options) => {
             setWelcomeInitialSlide(fromSlide);
+            if (options?.clearCode !== false) {
+              setInvitationCode('');
+              setInvitationEmail('');
+              setInvitationFullName('');
+              OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_CODE);
+              OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_EMAIL);
+              OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_FULL_NAME);
+              OzaraStorage.removeItem(OZARA_STORAGE_KEYS.PENDING_TOKEN);
+              if (typeof window !== 'undefined' && window.history && window.location) {
+                try {
+                  const url = new URL(window.location.href);
+                  if (url.searchParams.has('code') || url.searchParams.has('token') || url.searchParams.has('invite')) {
+                    url.searchParams.delete('code');
+                    url.searchParams.delete('token');
+                    url.searchParams.delete('invite');
+                    window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+                  }
+                } catch (_) {}
+              }
+              setClearInviteOnOpen(true);
+            }
             setAppView('invitation');
           }}
           onGoToSignIn={() => {
@@ -62,8 +88,10 @@ export const AppNavigator: React.FC = () => {
 
       {appView === 'invitation' && (
         <InvitationScreen
+          clearOnMount={clearInviteOnOpen}
           onBack={() => {
             // Returns to the exact intro screen they left, without replaying splash
+            setClearInviteOnOpen(false);
             setAppView('welcome');
           }}
           onValidInvitation={() => {

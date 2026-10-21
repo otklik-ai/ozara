@@ -38,12 +38,14 @@ interface InvitationScreenProps {
   onBack: () => void;
   onValidInvitation: () => void;
   onGoToSignIn?: (prefilledEmail?: string, prefilledPhone?: string) => void;
+  clearOnMount?: boolean;
 }
 
 export const InvitationScreen: React.FC<InvitationScreenProps> = ({
   onBack,
   onValidInvitation,
   onGoToSignIn,
+  clearOnMount = false,
 }) => {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -60,6 +62,9 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
   } = useClub();
 
   const [inputCode, setInputCode] = useState<string>(() => {
+    if (clearOnMount) {
+      return '';
+    }
     // 1. Check URL query parameters (code / token / invite)
     if (typeof window !== 'undefined' && window.location && window.location.search) {
       try {
@@ -92,10 +97,16 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
 
   // Auto-sync input code if passed in props or storage
   useEffect(() => {
+    if (clearOnMount) {
+      setInputCode('');
+      setErrorMessage(null);
+      setErrorType(null);
+      return;
+    }
     if (invitationCode && !inputCode) {
       setInputCode(invitationCode);
     }
-  }, [invitationCode]);
+  }, [invitationCode, clearOnMount]);
 
   const handleVerify = async () => {
     const clean = inputCode.trim();
@@ -306,7 +317,12 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
                 {inputCode.trim().length > 0 && (
                   <TouchableOpacity
                     style={styles.clearBtn}
-                    onPress={() => setInputCode('')}
+                    onPress={() => {
+                      setInputCode('');
+                      setInvitationCode('');
+                      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_CODE);
+                      if (errorMessage) setErrorMessage(null);
+                    }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Ionicons name="close-circle" size={18} color="#64748b" />
                   </TouchableOpacity>

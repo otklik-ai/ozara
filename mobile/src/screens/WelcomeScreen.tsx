@@ -34,6 +34,7 @@ import { AccessConditionsModal } from '../components/AccessConditionsModal';
 import { ContactModal } from '../components/ContactModal';
 import { ApiService, resolveImageUrl } from '../services/api';
 import { OzaraTheme } from '../constants/ozara-theme';
+import { OzaraStorage, OZARA_STORAGE_KEYS } from '../services/storage';
 
 // Local high-resolution hero mockups (Axevil aesthetic)
 const NETWORK_HERO = require('../../assets/images/onboarding_network.jpg');
@@ -43,7 +44,7 @@ interface WelcomeScreenProps {
   onGoToSignUp: () => void;
   onEnterClub: () => void;
   onGoToPhoneAuth?: () => void;
-  onGoToInvitation?: (fromSlideIndex: number) => void;
+  onGoToInvitation?: (fromSlideIndex: number, options?: { clearCode?: boolean }) => void;
   onGoToSignIn?: () => void;
   initialSlideIndex?: number;
 }
@@ -244,7 +245,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const { openConditions, conditionsAgreed, setConditionsAgreedState } = useClub();
+  const { openConditions, conditionsAgreed, setConditionsAgreedState, setInvitationCode, setInvitationEmail, setInvitationFullName } = useClub();
 
   // Bounded container width for optimal mobile app display on desktop web
   const containerWidth = Math.min(windowWidth, 430);
@@ -319,6 +320,29 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   // Button Action Handlers: Intro opens Contact Panel from all 3 screens
   const handleIntroPress = () => {
     setShowContactModal(true);
+  };
+
+  const handleJoinCircle = () => {
+    // Always clear invitation code and cached tokens when 'Join the circle' is clicked
+    setInvitationCode('');
+    setInvitationEmail('');
+    setInvitationFullName('');
+    OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_CODE);
+    OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_EMAIL);
+    OzaraStorage.removeItem(OZARA_STORAGE_KEYS.INVITATION_FULL_NAME);
+    OzaraStorage.removeItem(OZARA_STORAGE_KEYS.PENDING_TOKEN);
+    if (typeof window !== 'undefined' && window.history && window.location) {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('code') || url.searchParams.has('token') || url.searchParams.has('invite')) {
+          url.searchParams.delete('code');
+          url.searchParams.delete('token');
+          url.searchParams.delete('invite');
+          window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+        }
+      } catch (_) {}
+    }
+    onGoToInvitation?.(currentIndex, { clearCode: true });
   };
 
   const handlePrimaryPress = () => {
@@ -481,7 +505,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           {/* Join the circle Link */}
           <TouchableOpacity
             style={styles.haveInviteBtn}
-            onPress={() => onGoToInvitation?.(currentIndex)}
+            onPress={handleJoinCircle}
             activeOpacity={0.75}>
             <Text style={styles.haveInviteBtnText}>Join the circle</Text>
           </TouchableOpacity>
