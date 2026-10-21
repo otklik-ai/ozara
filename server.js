@@ -9,6 +9,9 @@ require('dotenv').config();
 
 // Live Email Delivery Helper
 function createTransporter() {
+  if (process.env.SUPPRESS_EMAIL_NOTIFICATIONS === 'true' || process.env.EMAIL_PROVIDER === 'console_stub') {
+    return null;
+  }
   if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
     return nodemailer.createTransport({
       service: 'gmail',
@@ -41,7 +44,7 @@ function isSuppressedEmail(to) {
 }
 
 async function sendEmailNotification({ to, subject, html, text, fromName }) {
-  if (isSuppressedEmail(to)) {
+  if (process.env.SUPPRESS_EMAIL_NOTIFICATIONS === 'true' || process.env.EMAIL_PROVIDER === 'console_stub' || isSuppressedEmail(to)) {
     console.log(`[EMAIL SUPPRESSED] Automated test or test address recipient safely bypassed: ${to}`);
     return { success: true, stub: true, suppressed: true };
   }
