@@ -92,7 +92,6 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
   const [modalState, setModalState] = useState<RequestModalState>('form');
   const [reqFullName, setReqFullName] = useState<string>('');
   const [reqEmail, setReqEmail] = useState<string>('');
-  const [reqLinkedin, setReqLinkedin] = useState<string>('');
   const [reqIsSubmitting, setReqIsSubmitting] = useState<boolean>(false);
   const [reqErrorMessage, setReqErrorMessage] = useState<string | null>(null);
   const [matchedEmail, setMatchedEmail] = useState<string>('');
@@ -245,7 +244,6 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
       const res = await ApiService.requestAccess({
         fullName: trimmedName,
         email: cleanEmail,
-        linkedin_or_background: reqLinkedin.trim(),
       });
 
       if (res && res.success) {
@@ -529,24 +527,7 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
                       />
                     </View>
 
-                    {/* Field 3: LinkedIn URL or Professional Background */}
-                    <View style={styles.fieldGroup}>
-                      <Text style={styles.fieldLabel}>
-                        LinkedIn URL or short professional background
-                      </Text>
-                      <TextInput
-                        style={[styles.modalInput, styles.modalInputMulti]}
-                        value={reqLinkedin}
-                        onChangeText={(t) => {
-                          setReqLinkedin(t);
-                          if (reqErrorMessage) setReqErrorMessage(null);
-                        }}
-                        multiline
-                        numberOfLines={2}
-                        autoCapitalize="none"
-                        editable={!reqIsSubmitting}
-                      />
-                    </View>
+
                   </ScrollView>
 
                   {/* Pinned Action Footer: Always visible directly on screen */}
