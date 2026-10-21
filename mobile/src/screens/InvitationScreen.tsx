@@ -13,7 +13,7 @@
  * Submissions route to Alexandra & Julia without SMS, Face ID, or identity checks.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -79,6 +80,8 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
     return invitationCode || OzaraStorage.getItem(OZARA_STORAGE_KEYS.INVITATION_CODE) || '';
   });
 
+  const inputRef = useRef<TextInput>(null);
+  const [isFocused, setIsFocused] = useState<boolean>(false);
   const [isChecking, setIsChecking] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<string | null>(null);
@@ -720,14 +723,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 54,
     marginBottom: 16,
+    ...Platform.select({
+      web: {
+        cursor: 'text',
+        transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+      } as any,
+    }),
+  },
+  inputContainerFocused: {
+    borderColor: 'rgba(167, 139, 250, 0.85)',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 0 0 3px rgba(124, 58, 237, 0.25)',
+      } as any,
+    }),
   },
   input: {
     flex: 1,
+    height: '100%',
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 1.5,
     fontFamily: OzaraTheme.typography.fontFamily,
+    paddingVertical: 0,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    ...Platform.select({
+      web: {
+        outlineStyle: 'none',
+        outlineWidth: 0,
+        outlineColor: 'transparent',
+        boxShadow: 'none',
+        cursor: 'text',
+      } as any,
+    }),
   },
   clearBtn: {
     padding: 4,
@@ -948,6 +978,13 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13.5,
     fontFamily: OzaraTheme.typography.fontFamily,
+    ...Platform.select({
+      web: {
+        outlineStyle: 'none',
+        outlineWidth: 0,
+        boxShadow: 'none',
+      } as any,
+    }),
   },
   modalInputMulti: {
     height: 50,
