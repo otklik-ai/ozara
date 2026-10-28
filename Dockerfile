@@ -11,8 +11,9 @@ RUN npx expo export --platform web
 FROM node:22-bookworm-slim
 WORKDIR /app
 
-# Install Python 3, pip, and Pillow for background media synchronization tools
+# Install C++ build tools for native addons (better-sqlite3), Python 3, pip, and Pillow
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     python3 \
     python3-pip \
     python3-pil \
@@ -23,7 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install root Node.js dependencies
 COPY package*.json ./
-RUN npm ci --prefer-offline --no-audit --omit=dev
+RUN npm ci --no-audit --omit=dev
 
 # Copy application source
 COPY server.js ./
