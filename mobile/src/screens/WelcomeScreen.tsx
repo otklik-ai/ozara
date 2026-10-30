@@ -52,10 +52,10 @@ interface WelcomeScreenProps {
 // -------------------------------------------------------------
 // Screen 1: Marquee Dimensions & Infinite Scroll Component
 // -------------------------------------------------------------
-const CARD_WIDTH = 154;
-const CARD_HEIGHT = 231; // Exact 2:3 aspect ratio matching 1024x1536 images, uncropped
+const CARD_WIDTH = 188;
+const CARD_HEIGHT = 282; // Exact 2:3 aspect ratio matching 1024x1536 images, uncropped
 const CARD_GAP = 10;
-const VISUAL_CONTAINER_HEIGHT = 472; // Exactly fits 2 rows: 231 + 10 + 231 = 472px
+const VISUAL_CONTAINER_HEIGHT = 574; // Exactly fits 2 rows: 282 + 10 + 282 = 574px
 
 interface MarqueeRowProps {
   images: string[];
@@ -69,7 +69,7 @@ const MarqueeRow: React.FC<MarqueeRowProps> = ({
   images,
   direction,
   rowId,
-  duration = 38000,
+  duration = 42000,
   isPaused = false,
 }) => {
   if (!images || images.length === 0) return null;
@@ -396,7 +396,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           <Text style={styles.brandSub}>PRIVATE CLUB</Text>
         </View>
 
-        {/* Horizontal Paging Carousel (Events → Network → Invest) */}
+        {/* Horizontal Paging Carousel (Visuals Only: Events → Network → Invest) */}
         <ScrollView
           ref={scrollRef}
           horizontal
@@ -409,102 +409,100 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           scrollEventThrottle={16}
           style={styles.pagerScrollView}
           contentContainerStyle={{ width: containerWidth * 3 }}>
-          {ONBOARDING_SLIDES.map((slide, sIdx) => {
-            return (
-              <View key={slide.id} style={[styles.slidePage, { width: containerWidth }]}>
-                {/* 1. VISUAL AREA (Consistently Positioned at exactly 406px) */}
-                <View style={styles.visualContainer}>
-                  {sIdx === 0 && (
-                    <View style={styles.marqueeContainer}>
-                      <MarqueeRow
-                        images={row1Images}
-                        direction="left"
-                        rowId="row1"
-                        duration={38000}
-                        isPaused={currentIndex !== 0}
-                      />
-                      <MarqueeRow
-                        images={row2Images}
-                        direction="right"
-                        rowId="row2"
-                        duration={44000}
-                        isPaused={currentIndex !== 0}
-                      />
-                    </View>
-                  )}
+          {/* Slide 1: Events Marquee */}
+          <View style={[styles.slidePage, { width: containerWidth }]}>
+            <View style={styles.visualContainer}>
+              <View style={styles.marqueeContainer}>
+                <MarqueeRow
+                  images={row1Images}
+                  direction="left"
+                  rowId="row1"
+                  duration={42000}
+                  isPaused={currentIndex !== 0}
+                />
+                <MarqueeRow
+                  images={row2Images}
+                  direction="right"
+                  rowId="row2"
+                  duration={48000}
+                  isPaused={currentIndex !== 0}
+                />
+              </View>
+            </View>
+          </View>
 
-                  {sIdx === 1 && (
-                    <View style={styles.heroCardContainer}>
-                      <View style={styles.heroCard}>
-                        <Image
-                          source={NETWORK_HERO}
-                          style={styles.heroImage}
-                          resizeMode="cover"
-                        />
-                        {/* Subtle Cinematic Vignette */}
-                        <View style={styles.heroVignette} pointerEvents="none" />
-                      </View>
-                    </View>
-                  )}
-
-                  {sIdx === 2 && (
-                    <View style={styles.heroCardContainer}>
-                      <View style={styles.heroCard}>
-                        <Image
-                          source={INVEST_HERO}
-                          style={styles.heroImage}
-                          resizeMode="cover"
-                        />
-                        {/* Subtle Cinematic Vignette */}
-                        <View style={styles.heroVignette} pointerEvents="none" />
-                      </View>
-                    </View>
-                  )}
-                </View>
-
-                {/* 2. THREE PROGRESS DOTS (Placed between visual and copy) */}
-                <View style={styles.paginationRow}>
-                  {[0, 1, 2].map((dotIdx) => {
-                    const isActive = currentIndex === dotIdx;
-                    return (
-                      <TouchableOpacity
-                        key={`dot-${slide.id}-${dotIdx}`}
-                        onPress={() => goToSlide(dotIdx)}
-                        activeOpacity={0.7}
-                        style={styles.dotTouchTarget}
-                        hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}>
-                        <View
-                          style={[
-                            styles.dotBase,
-                            isActive ? styles.dotActive : styles.dotInactive,
-                          ]}
-                        />
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {/* 3. COPY SECTION (Consistently Positioned Across All Three Screens) */}
-                <View style={styles.copyContainer}>
-                  <Text style={styles.headline}>
-                    {slide.headlineMain}
-                    {slide.headlineHighlight && (
-                      <Text style={styles.headlineHighlight}>
-                        {slide.headlineHighlight}
-                      </Text>
-                    )}
-                  </Text>
-                  <Text style={styles.description}>
-                    {slide.description}
-                  </Text>
+          {/* Slide 2: Network Hero */}
+          <View style={[styles.slidePage, { width: containerWidth }]}>
+            <View style={styles.visualContainer}>
+              <View style={styles.heroCardContainer}>
+                <View style={styles.heroCard}>
+                  <Image
+                    source={NETWORK_HERO}
+                    style={styles.heroImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.heroVignette} pointerEvents="none" />
                 </View>
               </View>
-            );
-          })}
+            </View>
+          </View>
+
+          {/* Slide 3: Invest Hero */}
+          <View style={[styles.slidePage, { width: containerWidth }]}>
+            <View style={styles.visualContainer}>
+              <View style={styles.heroCardContainer}>
+                <View style={styles.heroCard}>
+                  <Image
+                    source={INVEST_HERO}
+                    style={styles.heroImage}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.heroVignette} pointerEvents="none" />
+                </View>
+              </View>
+            </View>
+          </View>
         </ScrollView>
 
-        {/* 4. FIXED BOTTOM ACTIONS (Consistently Positioned Across All Screens) */}
-        <View style={[styles.bottomContainer, { paddingBottom: Math.max(insets.bottom, 10) + 4 }]}>
+        {/* Unified Compact Lower Section (Dots + Copy + Buttons + Links with NO empty space) */}
+        <View style={[styles.bottomContainer, { paddingBottom: Math.max(insets.bottom, 8) + 4 }]}>
+          {/* Progress Dots */}
+          <View style={styles.paginationRow}>
+            {[0, 1, 2].map((dotIdx) => {
+              const isActive = currentIndex === dotIdx;
+              return (
+                <TouchableOpacity
+                  key={`dot-${dotIdx}`}
+                  onPress={() => goToSlide(dotIdx)}
+                  activeOpacity={0.7}
+                  style={styles.dotTouchTarget}
+                  hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}>
+                  <View
+                    style={[
+                      styles.dotBase,
+                      isActive ? styles.dotActive : styles.dotInactive,
+                    ]}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Copy Section (Tightly bound to current slide) */}
+          <View style={styles.copyContainer}>
+            <Text style={styles.headline}>
+              {ONBOARDING_SLIDES[currentIndex].headlineMain}
+              {ONBOARDING_SLIDES[currentIndex].headlineHighlight && (
+                <Text style={styles.headlineHighlight}>
+                  {ONBOARDING_SLIDES[currentIndex].headlineHighlight}
+                </Text>
+              )}
+            </Text>
+            <Text style={styles.description}>
+              {ONBOARDING_SLIDES[currentIndex].description}
+            </Text>
+          </View>
+
           {/* Dual Action Buttons Row */}
           <View style={styles.buttonRow}>
             {/* Left Button: Intro (Returns to Screen 1) */}
@@ -586,6 +584,7 @@ const styles = StyleSheet.create({
   },
   mainWrapper: {
     flex: 1,
+    height: '100%',
     justifyContent: 'space-between',
     width: '100%',
     maxWidth: 430,
@@ -610,9 +609,10 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
 
-  /* Pager Carousel */
+  /* Pager Carousel (Visuals Only) */
   pagerScrollView: {
-    flex: 1,
+    flexGrow: 0,
+    height: VISUAL_CONTAINER_HEIGHT,
     ...Platform.select({
       web: {
         scrollSnapType: 'x mandatory',
@@ -621,8 +621,9 @@ const styles = StyleSheet.create({
     }),
   },
   slidePage: {
-    flex: 1,
-    justifyContent: 'flex-start',
+    width: '100%',
+    height: VISUAL_CONTAINER_HEIGHT,
+    justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
       web: {
@@ -632,14 +633,12 @@ const styles = StyleSheet.create({
     }),
   },
 
-  /* Visual Container (Exactly 472px height across all 3 screens) */
+  /* Visual Container */
   visualContainer: {
     height: VISUAL_CONTAINER_HEIGHT,
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 2,
-    marginBottom: 2,
   },
 
   /* Screen 1: Marquee */
@@ -720,13 +719,13 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 22,
   },
 
-  /* Progress Dots (Between Visual and Copy) */
+  /* Progress Dots */
   paginationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
-    marginBottom: 4,
+    marginTop: 2,
+    marginBottom: 2,
     gap: 6,
   },
   dotTouchTarget: {
@@ -765,48 +764,53 @@ const styles = StyleSheet.create({
 
   /* Copy Section */
   copyContainer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    minHeight: 64,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
+    marginBottom: 3,
   },
   headline: {
-    fontSize: 21,
+    fontSize: 20,
     fontWeight: '800',
     color: '#ffffff',
     textAlign: 'center',
     letterSpacing: -0.3,
-    lineHeight: 26,
+    lineHeight: 25,
   },
   headlineHighlight: {
     color: '#FF6B00',
     fontWeight: '800',
   },
   description: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '400',
     color: OzaraTheme.colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 16.5,
-    marginTop: 4,
+    lineHeight: 16,
+    marginTop: 2,
     letterSpacing: 0.1,
     maxWidth: 340,
   },
 
-  /* Fixed Bottom Actions */
+  /* Unified Compact Bottom Actions */
   bottomContainer: {
     paddingHorizontal: 24,
     gap: 6,
     backgroundColor: OzaraTheme.colors.backgroundMidnight,
+    width: '100%',
+    alignSelf: 'stretch',
+    alignItems: 'center',
   },
   buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    width: '100%',
+    alignSelf: 'stretch',
   },
   introBtn: {
     flex: 1,
-    paddingVertical: 10.5,
+    paddingVertical: 12,
     borderRadius: OzaraTheme.radius.full,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
@@ -821,13 +825,13 @@ const styles = StyleSheet.create({
   },
   introBtnText: {
     color: '#ffffff',
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '600',
     letterSpacing: 0.2,
   },
   primaryActionBtn: {
     flex: 2,
-    paddingVertical: 10.5,
+    paddingVertical: 12,
     borderRadius: OzaraTheme.radius.full,
     backgroundColor: OzaraTheme.colors.accentViolet,
     alignItems: 'center',
@@ -850,7 +854,7 @@ const styles = StyleSheet.create({
   },
   primaryActionBtnText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 14.5,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
