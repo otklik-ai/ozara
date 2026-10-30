@@ -231,15 +231,23 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Serve compiled mobile application (iOS/web preview) at /app and /preview
+// Serve compiled mobile application (canonical iOS/web app) at root /, /app, and /preview
 const mobileDistPath = path.join(__dirname, 'mobile', 'dist');
+const serveMobileRoot = process.env.SERVE_MOBILE_AS_ROOT !== 'false';
+
 if (fs.existsSync(mobileDistPath)) {
   app.use('/app', express.static(mobileDistPath));
   app.use('/preview', express.static(mobileDistPath));
-  if (process.env.SERVE_MOBILE_AS_ROOT === 'true') {
+  if (serveMobileRoot) {
     app.use(express.static(mobileDistPath));
   }
 }
+
+// Support legacy desktop view explicitly at /classic and /legacy
+app.use('/classic', express.static(path.join(__dirname, 'public')));
+app.use('/legacy', express.static(path.join(__dirname, 'public')));
+
+// Fallback static assets (avatars, icons, etc.) served from public
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Client-side routing fallback for /app and /preview (Express 5 compatible RegExp)
@@ -248,6 +256,9 @@ if (fs.existsSync(mobileDistPath)) {
     res.sendFile(path.join(mobileDistPath, 'index.html'));
   });
 }
+app.get(/^\/(classic|legacy)(\/.*)?$/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // ============================================================================
 // SESSION MANAGEMENT & CRYPTOGRAPHIC TOKEN VERIFICATION
@@ -7917,6 +7928,9 @@ app.get('/api/inbox/test-mailbox', (req, res) => {
 
 // Serve frontend for SPA routing (Express 5 compatible)
 app.use((req, res) => {
+  if (serveMobileRoot && fs.existsSync(mobileDistPath)) {
+    return res.sendFile(path.join(mobileDistPath, 'index.html'));
+  }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 

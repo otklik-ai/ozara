@@ -26,3 +26,5 @@ services:
         value: ermolov.elena@gmail.com
       - key: SUPPRESS_EMAIL_NOTIFICATIONS
         value: false
+      - key: SERVE_MOBILE_AS_ROOT
+        value: "true"
