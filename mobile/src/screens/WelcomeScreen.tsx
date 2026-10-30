@@ -244,11 +244,28 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   initialSlideIndex = 0,
 }) => {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: rnWindowWidth } = useWindowDimensions();
   const { openConditions, conditionsAgreed, setConditionsAgreedState, setInvitationCode, setInvitationEmail, setInvitationFullName } = useClub();
 
-  // Bounded container width for optimal mobile app display on desktop web
-  const containerWidth = Math.min(windowWidth, 430);
+  // Dynamic resilient viewport width (prevents 0px width during SSR/web hydration)
+  const [liveWidth, setLiveWidth] = useState<number>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth && window.innerWidth > 0) {
+      return window.innerWidth;
+    }
+    return 390;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleResize = () => setLiveWidth(window.innerWidth);
+      window.addEventListener('resize', handleResize);
+      setLiveWidth(window.innerWidth);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
+
+  const effectiveWidth = (rnWindowWidth && rnWindowWidth > 0) ? rnWindowWidth : (liveWidth || 390);
+  const containerWidth = Math.min(Math.max(effectiveWidth, 320), 430);
 
   const [currentIndex, setCurrentIndex] = useState<number>(initialSlideIndex || 0);
   const [images, setImages] = useState<string[]>(() =>
@@ -563,6 +580,7 @@ const styles = StyleSheet.create({
   mainWrapper: {
     flex: 1,
     justifyContent: 'space-between',
+    width: '100%',
     maxWidth: 430,
     overflow: 'hidden',
   },

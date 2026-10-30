@@ -91,8 +91,11 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
   onGoToInvitation,
 }) => {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
-  const containerWidth = Math.min(windowWidth, 430);
+  const { width: rnWindowWidth } = useWindowDimensions();
+  const effectiveWidth = (rnWindowWidth && rnWindowWidth > 0)
+    ? rnWindowWidth
+    : (typeof window !== 'undefined' && window.innerWidth ? window.innerWidth : 390);
+  const containerWidth = Math.min(Math.max(effectiveWidth, 320), 430);
 
   const {
     switchPersona,
