@@ -723,12 +723,14 @@ app.get([
   res.status(404).json({ error: "Catalog image not found." });
 });
 
+app.use('/intro_pics', express.static(path.join(__dirname, 'public', 'intro_pics')));
 app.use('/intro_pics', express.static(path.join(__dirname, 'tools', 'DesignGuidlines', 'intro_pics')));
 app.use('/intro_pics', express.static(path.join(__dirname, 'DesignGuidline', 'intro_pics')));
 
 // Intro Pics API for mobile welcome carousel & marquee
 app.get('/api/intro-pics', (req, res) => {
   const candidateDirs = [
+    path.join(__dirname, 'public', 'intro_pics'),
     path.join(__dirname, 'tools', 'DesignGuidlines', 'intro_pics'),
     path.join(__dirname, 'DesignGuidline', 'intro_pics'),
   ];
@@ -736,8 +738,10 @@ app.get('/api/intro-pics', (req, res) => {
     try {
       if (fs.existsSync(introDir)) {
         const files = fs.readdirSync(introDir).filter(file => {
-          return /\.(jpe?g|png|webp|avif|gif)$/i.test(file);
-        });
+          if (!/\.(jpe?g|png|webp|avif|gif)$/i.test(file)) return false;
+          if (file.startsWith('onboarding_')) return false;
+          return true;
+        }).sort();
         if (files.length > 0) {
           return res.json(files.map(f => `/intro_pics/${encodeURIComponent(f)}`));
         }

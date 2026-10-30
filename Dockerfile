@@ -31,6 +31,7 @@ COPY server.js ./
 COPY ozara.db sila.db ./
 COPY public/ ./public/
 COPY tools/ ./tools/
+COPY DesignGuidline/ ./DesignGuidline/
 COPY architecture/ ./architecture/
 COPY storage/ ./storage/
 

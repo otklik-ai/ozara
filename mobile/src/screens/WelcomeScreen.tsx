@@ -188,16 +188,26 @@ const MarqueeRow: React.FC<MarqueeRowProps> = ({
 // Canonical Seed Pictures for Instant Marquee Render
 // -------------------------------------------------------------
 const DEFAULT_INTRO_PICS = [
-  '/intro_pics/14a7fad9-48d3-4df2-92c7-bf0dfa08ecf9.png',
-  '/intro_pics/2092114d-fbdb-4545-82ae-e0e666dcd898.png',
-  '/intro_pics/374f8224-1117-48bd-9ee6-714b509fa0c3.png',
-  '/intro_pics/39e643be-f0e4-45fb-b4dd-41fc63f03cac.png',
-  '/intro_pics/51b420a3-6ad3-4021-b53a-4a0e3e105d54.png',
-  '/intro_pics/8c4e4fb6-64f3-4d66-8082-10e20d74d08e.png',
-  '/intro_pics/90667298-4d39-45d2-8914-61683919683f.png',
-  '/intro_pics/A%20thoughtful%20acquisition%20conversation.png',
-  '/intro_pics/Applied%20AI%20founder%20tests%20a%20robot.png',
-  '/intro_pics/b05f7f2a-35ae-429e-a450-9d1ff0ef1c87.png',
+  '/intro_pics/5249097949164727689.jpg',
+  '/intro_pics/5249290939225206031.jpg',
+  '/intro_pics/5249318448490738649.jpg',
+  '/intro_pics/5249464000637430966.jpg',
+  '/intro_pics/5249464000637430967.jpg',
+  '/intro_pics/5249464000637430968.jpg',
+  '/intro_pics/5249464000637430969.jpg',
+  '/intro_pics/5402138302623719279.jpg',
+  '/intro_pics/5402138302623719281.jpg',
+  '/intro_pics/5402138302623719282.jpg',
+  '/intro_pics/5402138302623719283.jpg',
+  '/intro_pics/5402138302623719284.jpg',
+  '/intro_pics/5402138302623719285.jpg',
+  '/intro_pics/5402138302623719286.jpg',
+  '/intro_pics/5402138302623719287.jpg',
+  '/intro_pics/5402138302623719288.jpg',
+  '/intro_pics/5402138302623719289.jpg',
+  '/intro_pics/img_8318.jpg',
+  '/intro_pics/img_9797.jpg',
+  '/intro_pics/img_9896.jpg',
 ];
 
 // -------------------------------------------------------------
