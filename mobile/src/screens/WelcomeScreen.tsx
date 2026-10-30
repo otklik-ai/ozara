@@ -52,10 +52,10 @@ interface WelcomeScreenProps {
 // -------------------------------------------------------------
 // Screen 1: Marquee Dimensions & Infinite Scroll Component
 // -------------------------------------------------------------
-const CARD_WIDTH = 132;
-const CARD_HEIGHT = 198; // Exact 2:3 aspect ratio matching 1024x1536 images, uncropped
+const CARD_WIDTH = 154;
+const CARD_HEIGHT = 231; // Exact 2:3 aspect ratio matching 1024x1536 images, uncropped
 const CARD_GAP = 10;
-const VISUAL_CONTAINER_HEIGHT = 406; // Exactly fits 2 rows: 198 + 10 + 198 = 406px
+const VISUAL_CONTAINER_HEIGHT = 472; // Exactly fits 2 rows: 231 + 10 + 231 = 472px
 
 interface MarqueeRowProps {
   images: string[];
@@ -69,7 +69,7 @@ const MarqueeRow: React.FC<MarqueeRowProps> = ({
   images,
   direction,
   rowId,
-  duration = 24000,
+  duration = 38000,
   isPaused = false,
 }) => {
   if (!images || images.length === 0) return null;
@@ -318,11 +318,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const row1Images = images;
-  const row2Images =
-    images.length > 2
-      ? [...images.slice(2), ...images.slice(0, 2)]
-      : [...images].reverse();
+  const row1Images = images.length > 1 ? images.filter((_, idx) => idx % 2 === 0) : images;
+  const row2Images = images.length > 1 ? images.filter((_, idx) => idx % 2 !== 0) : images;
 
   // Programmatic slide transition
   const goToSlide = (index: number) => {
@@ -394,7 +391,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       {/* Centered App Container for Mobile Viewport */}
       <View style={[styles.mainWrapper, { width: containerWidth }]}>
         {/* Top Brand Wordmark (Consistent Across All Screens) */}
-        <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 14) }]}>
+        <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 8) }]}>
           <Text style={styles.brandTitle}>ÖZARA</Text>
           <Text style={styles.brandSub}>PRIVATE CLUB</Text>
         </View>
@@ -423,14 +420,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         images={row1Images}
                         direction="left"
                         rowId="row1"
-                        duration={24000}
+                        duration={38000}
                         isPaused={currentIndex !== 0}
                       />
                       <MarqueeRow
                         images={row2Images}
                         direction="right"
                         rowId="row2"
-                        duration={28000}
+                        duration={44000}
                         isPaused={currentIndex !== 0}
                       />
                     </View>
@@ -507,7 +504,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         </ScrollView>
 
         {/* 4. FIXED BOTTOM ACTIONS (Consistently Positioned Across All Screens) */}
-        <View style={[styles.bottomContainer, { paddingBottom: Math.max(insets.bottom, 16) + 6 }]}>
+        <View style={[styles.bottomContainer, { paddingBottom: Math.max(insets.bottom, 10) + 4 }]}>
           {/* Dual Action Buttons Row */}
           <View style={styles.buttonRow}>
             {/* Left Button: Intro (Returns to Screen 1) */}
@@ -596,20 +593,20 @@ const styles = StyleSheet.create({
   },
   topBar: {
     alignItems: 'center',
-    paddingBottom: 6,
+    paddingBottom: 2,
     zIndex: 10,
   },
   brandTitle: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
     color: '#ffffff',
-    letterSpacing: 4,
+    letterSpacing: 3.5,
   },
   brandSub: {
-    fontSize: 8,
+    fontSize: 7.5,
     fontWeight: '700',
     color: OzaraTheme.colors.textMuted,
-    letterSpacing: 2.5,
+    letterSpacing: 2,
     marginTop: -1,
   },
 
@@ -635,14 +632,14 @@ const styles = StyleSheet.create({
     }),
   },
 
-  /* Visual Container (Exactly 406px height across all 3 screens) */
+  /* Visual Container (Exactly 472px height across all 3 screens) */
   visualContainer: {
     height: VISUAL_CONTAINER_HEIGHT,
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 4,
+    marginTop: 2,
+    marginBottom: 2,
   },
 
   /* Screen 1: Marquee */
@@ -728,12 +725,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
-    marginBottom: 10,
-    gap: 7,
+    marginTop: 6,
+    marginBottom: 4,
+    gap: 6,
   },
   dotTouchTarget: {
-    padding: 4,
+    padding: 2,
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
@@ -743,11 +740,11 @@ const styles = StyleSheet.create({
     }),
   },
   dotBase: {
-    height: 6,
-    borderRadius: 3,
+    height: 5,
+    borderRadius: 2.5,
   },
   dotActive: {
-    width: 22,
+    width: 20,
     backgroundColor: OzaraTheme.colors.accentViolet,
     ...Platform.select({
       ios: {
@@ -762,36 +759,36 @@ const styles = StyleSheet.create({
     }),
   },
   dotInactive: {
-    width: 6,
+    width: 5,
     backgroundColor: 'rgba(255, 255, 255, 0.24)',
   },
 
   /* Copy Section */
   copyContainer: {
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     alignItems: 'center',
-    minHeight: 94,
+    minHeight: 64,
     justifyContent: 'flex-start',
   },
   headline: {
-    fontSize: 24,
+    fontSize: 21,
     fontWeight: '800',
     color: '#ffffff',
     textAlign: 'center',
-    letterSpacing: -0.4,
-    lineHeight: 31,
+    letterSpacing: -0.3,
+    lineHeight: 26,
   },
   headlineHighlight: {
     color: '#FF6B00',
     fontWeight: '800',
   },
   description: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '400',
     color: OzaraTheme.colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 18.5,
-    marginTop: 7,
+    lineHeight: 16.5,
+    marginTop: 4,
     letterSpacing: 0.1,
     maxWidth: 340,
   },
@@ -799,17 +796,17 @@ const styles = StyleSheet.create({
   /* Fixed Bottom Actions */
   bottomContainer: {
     paddingHorizontal: 24,
-    gap: 10,
+    gap: 6,
     backgroundColor: OzaraTheme.colors.backgroundMidnight,
   },
   buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   introBtn: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 10.5,
     borderRadius: OzaraTheme.radius.full,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
@@ -824,13 +821,13 @@ const styles = StyleSheet.create({
   },
   introBtnText: {
     color: '#ffffff',
-    fontSize: 14.5,
+    fontSize: 13.5,
     fontWeight: '600',
     letterSpacing: 0.2,
   },
   primaryActionBtn: {
     flex: 2,
-    paddingVertical: 14,
+    paddingVertical: 10.5,
     borderRadius: OzaraTheme.radius.full,
     backgroundColor: OzaraTheme.colors.accentViolet,
     alignItems: 'center',
@@ -853,12 +850,12 @@ const styles = StyleSheet.create({
   },
   primaryActionBtnText: {
     color: '#ffffff',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
   haveInviteBtn: {
-    paddingVertical: 5,
+    paddingVertical: 2.5,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
@@ -869,25 +866,25 @@ const styles = StyleSheet.create({
   },
   haveInviteBtnText: {
     color: '#a78bfa',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
     letterSpacing: 0.2,
     textDecorationLine: 'underline',
   },
   secondaryBtn: {
-    paddingVertical: 4,
+    paddingVertical: 2,
     alignItems: 'center',
   },
   secondaryBtnText: {
     color: OzaraTheme.colors.textSecondary,
-    fontSize: 13,
+    fontSize: 12,
   },
   secondaryBtnBold: {
     color: '#ffffff',
     fontWeight: '600',
   },
   footerLink: {
-    paddingVertical: 4,
+    paddingVertical: 2,
     alignItems: 'center',
     alignSelf: 'center',
     ...Platform.select({
@@ -898,7 +895,7 @@ const styles = StyleSheet.create({
   },
   footerLinkText: {
     color: OzaraTheme.colors.textMuted,
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.3,
     textDecorationLine: 'underline',
