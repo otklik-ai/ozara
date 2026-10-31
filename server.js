@@ -104,6 +104,201 @@ const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+// -------------------------------------------------------------
+// PERSISTENT DATA SYNCHRONIZATION LAYER
+// Keeps persistent volume data strictly synchronized with canonical code updates
+// -------------------------------------------------------------
+function synchronizePersistentData(targetDb, targetDbPath) {
+  try {
+    const templateDbPath = path.join(__dirname, 'ozara.db');
+    const fallbackTemplatePath = path.join(__dirname, 'sila.db');
+    const templatePath = fs.existsSync(templateDbPath) ? templateDbPath : (fs.existsSync(fallbackTemplatePath) ? fallbackTemplatePath : null);
+
+    console.log(`[DATA SYNC] Verifying persistent database synchronization... (Target: ${targetDbPath})`);
+
+    // 1. Ensure community schema exists on targetDb
+    const postCols = targetDb.prepare('PRAGMA table_info(community_posts)').all().map(c => c.name);
+    const neededPostCols = [
+      ['source_type', 'TEXT DEFAULT "member"'],
+      ['author_label', 'TEXT'],
+      ['is_official', 'INTEGER DEFAULT 0'],
+      ['telegram_channel_id', 'TEXT'],
+      ['telegram_message_id', 'INTEGER'],
+      ['media_group_id', 'TEXT'],
+      ['original_content', 'TEXT'],
+      ['original_language', 'TEXT'],
+      ['translated', 'INTEGER DEFAULT 0'],
+      ['admin_corrected', 'INTEGER DEFAULT 0'],
+      ['source_modified_after_admin_edit', 'INTEGER DEFAULT 0'],
+      ['status', 'TEXT DEFAULT "published"'],
+      ['telegram_author_id', 'TEXT'],
+      ['telegram_author_name', 'TEXT']
+    ];
+    for (const [col, def] of neededPostCols) {
+      if (!postCols.includes(col)) {
+        targetDb.exec(`ALTER TABLE community_posts ADD COLUMN ${col} ${def}`);
+      }
+    }
+
+    targetDb.exec(`
+      CREATE TABLE IF NOT EXISTS community_post_media (
+        id TEXT PRIMARY KEY,
+        post_id TEXT NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+        media_type TEXT NOT NULL,
+        url TEXT NOT NULL,
+        thumbnail_url TEXT,
+        caption TEXT,
+        file_id TEXT,
+        order_index INTEGER DEFAULT 0,
+        width INTEGER,
+        height INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_cpm_post ON community_post_media(post_id, order_index ASC);
+
+      CREATE TABLE IF NOT EXISTS telegram_sync_logs (
+        id TEXT PRIMARY KEY,
+        update_id INTEGER,
+        chat_id TEXT,
+        message_id INTEGER,
+        event_type TEXT,
+        author_id TEXT,
+        author_name TEXT,
+        status TEXT,
+        details TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Ensure events table has required columns before cleanup queries
+    const eventCols = targetDb.prepare('PRAGMA table_info(events)').all().map(c => c.name);
+    if (!eventCols.includes('cover_image')) targetDb.exec("ALTER TABLE events ADD COLUMN cover_image TEXT;");
+    if (!eventCols.includes('hero_image')) targetDb.exec("ALTER TABLE events ADD COLUMN hero_image TEXT;");
+    if (!eventCols.includes('registration_count')) targetDb.exec("ALTER TABLE events ADD COLUMN registration_count INTEGER DEFAULT 0;");
+
+    // 2. Clean up broken duplicate events and old mock seed posts from targetDb
+    targetDb.exec(`
+      DELETE FROM events WHERE id LIKE 'evt_mv%' OR cover_image LIKE '/assets/%' OR ((cover_image IS NULL OR TRIM(cover_image) = '') AND (hero_image IS NULL OR TRIM(hero_image) = ''));
+      DELETE FROM community_posts WHERE id LIKE 'post_seed_%';
+    `);
+
+    // 3. If template database exists, synchronize canonical events, Telegram posts, and media
+    if (templatePath) {
+      const isDifferentDb = path.resolve(templatePath) !== path.resolve(targetDbPath);
+      if (isDifferentDb) {
+        console.log(`[DATA SYNC] Synchronizing canonical content from template ${templatePath} into persistent disk ${targetDbPath}...`);
+        const templateDb = new Database(templatePath, { readonly: true });
+
+        // Synchronize events
+        const templateEvents = templateDb.prepare('SELECT * FROM events').all();
+        const currentEventCols = targetDb.prepare('PRAGMA table_info(events)').all().map(c => c.name);
+        for (const tc of templateDb.prepare('PRAGMA table_info(events)').all()) {
+          if (!currentEventCols.includes(tc.name)) {
+            targetDb.exec(`ALTER TABLE events ADD COLUMN ${tc.name} ${tc.type || 'TEXT'}`);
+            currentEventCols.push(tc.name);
+          }
+        }
+        const syncEventStmt = targetDb.prepare(`
+          INSERT OR REPLACE INTO events (${currentEventCols.join(', ')})
+          VALUES (${currentEventCols.map(c => '@' + c).join(', ')})
+        `);
+        const upsertEvents = targetDb.transaction((rows) => {
+          for (const r of rows) {
+            const row = {};
+            for (const c of currentEventCols) row[c] = r[c] !== undefined ? r[c] : null;
+            syncEventStmt.run(row);
+          }
+        });
+        upsertEvents(templateEvents);
+
+        // Synchronize canonical Telegram community posts
+        const templatePosts = templateDb.prepare("SELECT * FROM community_posts WHERE id LIKE 'post_tg_%' OR source_type = 'telegram'").all();
+        const currentPostCols = targetDb.prepare('PRAGMA table_info(community_posts)').all().map(c => c.name);
+        const syncPostStmt = targetDb.prepare(`
+          INSERT OR REPLACE INTO community_posts (${currentPostCols.join(', ')})
+          VALUES (${currentPostCols.map(c => '@' + c).join(', ')})
+        `);
+        const upsertPosts = targetDb.transaction((rows) => {
+          for (const r of rows) {
+            const row = {};
+            for (const c of currentPostCols) row[c] = r[c] !== undefined ? r[c] : null;
+            syncPostStmt.run(row);
+          }
+        });
+        upsertPosts(templatePosts);
+
+        // Synchronize media attachments
+        const templateMedia = templateDb.prepare('SELECT * FROM community_post_media').all();
+        const currentMediaCols = targetDb.prepare('PRAGMA table_info(community_post_media)').all().map(c => c.name);
+        const syncMediaStmt = targetDb.prepare(`
+          INSERT OR REPLACE INTO community_post_media (${currentMediaCols.join(', ')})
+          VALUES (${currentMediaCols.map(c => '@' + c).join(', ')})
+        `);
+        const upsertMedia = targetDb.transaction((rows) => {
+          for (const r of rows) {
+            const row = {};
+            for (const c of currentMediaCols) row[c] = r[c] !== undefined ? r[c] : null;
+            syncMediaStmt.run(row);
+          }
+        });
+        upsertMedia(templateMedia);
+
+        templateDb.close();
+        console.log(`[DATA SYNC] Synced from template: ${templateEvents.length} events, ${templatePosts.length} posts, ${templateMedia.length} media.`);
+      }
+    }
+
+    // 4. Copy storage files to persistent storage directories if needed
+    const srcMediaDir = path.join(__dirname, 'storage', 'telegram_media');
+    const targetDirs = [];
+    if (process.env.STORAGE_DIR && path.resolve(process.env.STORAGE_DIR) !== path.resolve(path.join(__dirname, 'storage'))) {
+      targetDirs.push(path.join(process.env.STORAGE_DIR, 'telegram_media'));
+    }
+    if (process.env.DATABASE_DIR && path.resolve(process.env.DATABASE_DIR) !== path.resolve(__dirname)) {
+      targetDirs.push(path.join(process.env.DATABASE_DIR, 'storage', 'telegram_media'));
+    }
+
+    if (fs.existsSync(srcMediaDir) && targetDirs.length > 0) {
+      const files = fs.readdirSync(srcMediaDir);
+      for (const tDir of targetDirs) {
+        try {
+          if (!fs.existsSync(tDir)) fs.mkdirSync(tDir, { recursive: true });
+          for (const file of files) {
+            const srcFile = path.join(srcMediaDir, file);
+            const dstFile = path.join(tDir, file);
+            if (!fs.existsSync(dstFile)) {
+              try {
+                fs.copyFileSync(srcFile, dstFile);
+              } catch (err) {
+                console.warn(`[DATA SYNC] Warning copying media file ${file}:`, err.message);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(`[DATA SYNC] Warning initializing target directory ${tDir}:`, err.message);
+        }
+      }
+    }
+
+    const finalEvents = targetDb.prepare('SELECT count(*) as c FROM events').get()?.c || 0;
+    const finalPosts = targetDb.prepare('SELECT count(*) as c FROM community_posts').get()?.c || 0;
+    const finalMedia = targetDb.prepare('SELECT count(*) as c FROM community_post_media').get()?.c || 0;
+    console.log(`[DATA SYNC COMPLETE] Target database status: ${finalEvents} events, ${finalPosts} posts, ${finalMedia} media attachments.`);
+    return {
+      success: true,
+      events_count: finalEvents,
+      posts_count: finalPosts,
+      media_count: finalMedia
+    };
+  } catch (err) {
+    console.error(`[DATA SYNC FAILED]`, err);
+    return { success: false, error: err.message };
+  }
+}
+
+// Run synchronization on startup
+synchronizePersistentData(db, dbPath);
+
 // Online SQLite Backup Manager for WAL mode
 const backupDir = process.env.BACKUP_DIR || path.join(dbDir, 'backups');
 
@@ -677,8 +872,14 @@ function shouldSendDirectMessageEmail(conversation, recipientId) {
 // Media Delivery Layer for Community Wall Photos & Videos
 app.get(['/storage/telegram_media/:filename', '/api/community/media/:filename'], (req, res) => {
   const safeFilename = path.basename(req.params.filename);
-  const filePath = path.join(__dirname, 'storage', 'telegram_media', safeFilename);
-  if (!fs.existsSync(filePath)) {
+  const candidatePaths = [
+    path.join(__dirname, 'storage', 'telegram_media', safeFilename),
+    path.join(process.env.STORAGE_DIR || '', 'telegram_media', safeFilename),
+    path.join(process.env.DATABASE_DIR || '', 'storage', 'telegram_media', safeFilename),
+    path.join(process.env.STORAGE_DIR || '', safeFilename)
+  ];
+  const filePath = candidatePaths.find(p => p && fs.existsSync(p));
+  if (!filePath) {
     return res.status(404).json({ error: "Media file not found." });
   }
 
@@ -3337,7 +3538,7 @@ app.get('/api/events', (req, res) => {
   const includePast = req.query.include_past === 'true' || req.query.view === 'all';
   const pastOnly = req.query.past_only === 'true';
 
-  let whereClause = "e.is_published = 1 AND ((e.cover_image IS NOT NULL AND TRIM(e.cover_image) != '') OR (e.hero_image IS NOT NULL AND TRIM(e.hero_image) != ''))";
+  let whereClause = "e.is_published = 1 AND ((e.cover_image IS NOT NULL AND TRIM(e.cover_image) != '' AND e.cover_image NOT LIKE '/assets/%') OR (e.hero_image IS NOT NULL AND TRIM(e.hero_image) != '' AND e.hero_image NOT LIKE '/assets/%')) AND e.id NOT LIKE 'evt_mv%'";
   if (pastOnly) {
     whereClause += " AND e.is_past = 1";
   } else if (!includePast) {
@@ -4725,6 +4926,7 @@ function handleGetCommunityPosts(req, res) {
         source_modified_after_admin_edit: Boolean(p.source_modified_after_admin_edit),
         status: p.status || 'published',
         media_attachments: mediaByPost[p.id] || [],
+        media: mediaByPost[p.id] || [],
         telegram_author_name: p.telegram_author_name || null,
         created_at: p.created_at,
         updated_at: p.updated_at,
@@ -7082,6 +7284,16 @@ function getAdminUser(req) {
 
   if (admin) return admin;
 
+  // Also check if cleanViewer is a bearer session token belonging to an administrator
+  try {
+    const sessionAdmin = db.prepare(`
+      SELECT u.* FROM user_sessions s
+      JOIN users u ON s.user_id = u.id
+      WHERE s.token = ? AND datetime(s.expires_at) > datetime('now') AND (u.role IN ('FOUNDER', 'ADMIN') OR LOWER(u.email) IN ('ermolov.elena@gmail.com', 'alexandra@ozara.club', 'julia@ozara.club', 'alexandra@silasvyazei.com', 'julia@silasvyazei.com'))
+    `).get(cleanViewer);
+    if (sessionAdmin) return sessionAdmin;
+  } catch (e) {}
+
   if (AUTHORIZED_ADMIN_EMAILS.includes(cleanViewer.toLowerCase())) {
     return db.prepare("SELECT * FROM users WHERE LOWER(email) = ?").get(cleanViewer.toLowerCase()) || {
       id: cleanViewer,
@@ -7101,6 +7313,17 @@ function requireAdmin(req, res, next) {
   req.adminUser = admin;
   next();
 }
+
+// On-demand persistent database sync endpoint
+app.post('/api/admin/sync-canonical-data', (req, res) => {
+  const admin = getAdminUser(req);
+  const secret = req.headers['x-app-secret'];
+  if (!admin && secret !== process.env.APP_SECRET) {
+    return res.status(403).json({ error: "Access Denied: Administrator permissions or app secret required." });
+  }
+  const result = synchronizePersistentData(db, dbPath);
+  return res.json(result);
+});
 
 // In-App Notifications Endpoints
 app.get('/api/notifications', (req, res) => {
@@ -7213,7 +7436,7 @@ app.post('/api/admin/events', requireAdmin, (req, res) => {
   const id = 'evt_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
   const cap = capacity ? parseInt(capacity, 10) : 30;
   const isPub = is_published !== undefined ? (is_published ? 1 : 0) : 0;
-  const img = hero_image || cover_image || '/assets/events/miami_2026.jpg';
+  const img = (hero_image && !hero_image.startsWith('/assets/')) ? hero_image : ((cover_image && !cover_image.startsWith('/assets/')) ? cover_image : 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=1200&q=80');
 
   db.prepare(`
     INSERT INTO events (

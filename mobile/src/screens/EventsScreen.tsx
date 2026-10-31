@@ -353,7 +353,14 @@ export const EventsScreen: React.FC = () => {
         ApiService.getEvents(currentUserId, true),
         ApiService.getTravelPlans(currentUserId).catch(() => []),
       ]);
-      setEvents(eventsData);
+      // Strictly exclude any broken/duplicate events without real pictures or legacy mock IDs
+      const cleanEvents = (eventsData || []).filter(e => {
+        if (e.id?.startsWith('evt_mv')) return false;
+        const img = e.cover_image || e.hero_image;
+        if (!img || img.trim() === '' || img.startsWith('/assets/')) return false;
+        return true;
+      });
+      setEvents(cleanEvents);
       setUserTrips(tripsData);
     } catch (err) {
       console.warn('Error loading events:', err);
