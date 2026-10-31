@@ -116,6 +116,9 @@ function synchronizePersistentData(targetDb, targetDbPath) {
 
     console.log(`[DATA SYNC] Verifying persistent database synchronization... (Target: ${targetDbPath})`);
 
+    // Disable foreign keys temporarily during sync to avoid cascade / ordering conflicts
+    targetDb.pragma('foreign_keys = OFF');
+
     // 1. Ensure community schema exists on targetDb
     const postCols = targetDb.prepare('PRAGMA table_info(community_posts)').all().map(c => c.name);
     const neededPostCols = [
@@ -136,14 +139,14 @@ function synchronizePersistentData(targetDb, targetDbPath) {
     ];
     for (const [col, def] of neededPostCols) {
       if (!postCols.includes(col)) {
-        targetDb.exec(`ALTER TABLE community_posts ADD COLUMN ${col} ${def}`);
+        try { targetDb.exec(`ALTER TABLE community_posts ADD COLUMN ${col} ${def}`); } catch (e) {}
       }
     }
 
     targetDb.exec(`
       CREATE TABLE IF NOT EXISTS community_post_media (
         id TEXT PRIMARY KEY,
-        post_id TEXT NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+        post_id TEXT NOT NULL,
         media_type TEXT NOT NULL,
         url TEXT NOT NULL,
         thumbnail_url TEXT,
@@ -172,32 +175,78 @@ function synchronizePersistentData(targetDb, targetDbPath) {
 
     // Ensure events table has required columns before cleanup queries
     const eventCols = targetDb.prepare('PRAGMA table_info(events)').all().map(c => c.name);
-    if (!eventCols.includes('cover_image')) targetDb.exec("ALTER TABLE events ADD COLUMN cover_image TEXT;");
-    if (!eventCols.includes('hero_image')) targetDb.exec("ALTER TABLE events ADD COLUMN hero_image TEXT;");
-    if (!eventCols.includes('registration_count')) targetDb.exec("ALTER TABLE events ADD COLUMN registration_count INTEGER DEFAULT 0;");
+    if (!eventCols.includes('cover_image')) try { targetDb.exec("ALTER TABLE events ADD COLUMN cover_image TEXT;"); } catch (e) {}
+    if (!eventCols.includes('hero_image')) try { targetDb.exec("ALTER TABLE events ADD COLUMN hero_image TEXT;"); } catch (e) {}
+    if (!eventCols.includes('registration_count')) try { targetDb.exec("ALTER TABLE events ADD COLUMN registration_count INTEGER DEFAULT 0;"); } catch (e) {}
 
-    // 2. Clean up broken duplicate events and old mock seed posts from targetDb
+    // 2. Clean up broken duplicate events, their registrations/invitations, and old mock seed posts from targetDb
     targetDb.exec(`
+      DELETE FROM event_registrations WHERE event_id LIKE 'evt_mv%' OR event_id IN (SELECT id FROM events WHERE cover_image LIKE '/assets/%' OR ((cover_image IS NULL OR TRIM(cover_image) = '') AND (hero_image IS NULL OR TRIM(hero_image) = '')));
+      DELETE FROM event_invitations WHERE event_id LIKE 'evt_mv%' OR event_id IN (SELECT id FROM events WHERE cover_image LIKE '/assets/%' OR ((cover_image IS NULL OR TRIM(cover_image) = '') AND (hero_image IS NULL OR TRIM(hero_image) = '')));
       DELETE FROM events WHERE id LIKE 'evt_mv%' OR cover_image LIKE '/assets/%' OR ((cover_image IS NULL OR TRIM(cover_image) = '') AND (hero_image IS NULL OR TRIM(hero_image) = ''));
+      DELETE FROM community_post_media WHERE post_id LIKE 'post_seed_%';
       DELETE FROM community_posts WHERE id LIKE 'post_seed_%';
     `);
 
-    // 3. If template database exists, synchronize canonical events, Telegram posts, and media
+    // 3. If template database exists, synchronize canonical events, Telegram posts, media, and chapters
     if (templatePath) {
       const isDifferentDb = path.resolve(templatePath) !== path.resolve(targetDbPath);
       if (isDifferentDb) {
         console.log(`[DATA SYNC] Synchronizing canonical content from template ${templatePath} into persistent disk ${targetDbPath}...`);
         const templateDb = new Database(templatePath, { readonly: true });
 
-        // Synchronize events
-        const templateEvents = templateDb.prepare('SELECT * FROM events').all();
-        const currentEventCols = targetDb.prepare('PRAGMA table_info(events)').all().map(c => c.name);
-        for (const tc of templateDb.prepare('PRAGMA table_info(events)').all()) {
-          if (!currentEventCols.includes(tc.name)) {
-            targetDb.exec(`ALTER TABLE events ADD COLUMN ${tc.name} ${tc.type || 'TEXT'}`);
-            currentEventCols.push(tc.name);
+        // Helper to dynamically align columns
+        const syncCols = (tableName) => {
+          const tCols = targetDb.prepare(`PRAGMA table_info(${tableName})`).all().map(c => c.name);
+          const srcCols = templateDb.prepare(`PRAGMA table_info(${tableName})`).all();
+          for (const sc of srcCols) {
+            if (!tCols.includes(sc.name)) {
+              try {
+                targetDb.exec(`ALTER TABLE ${tableName} ADD COLUMN ${sc.name} ${sc.type || 'TEXT'}`);
+                tCols.push(sc.name);
+              } catch (e) {}
+            }
           }
+          return tCols;
+        };
+
+        // Synchronize chapters first to fulfill event foreign keys
+        try {
+          const chapCols = syncCols('chapters');
+          const tChapters = templateDb.prepare('SELECT * FROM chapters').all();
+          const syncChapStmt = targetDb.prepare(`
+            INSERT OR REPLACE INTO chapters (${chapCols.join(', ')})
+            VALUES (${chapCols.map(c => '@' + c).join(', ')})
+          `);
+          for (const ch of tChapters) {
+            const row = {};
+            for (const c of chapCols) row[c] = ch[c] !== undefined ? ch[c] : null;
+            syncChapStmt.run(row);
+          }
+        } catch (e) {
+          console.warn('[DATA SYNC] Warning syncing chapters:', e.message);
         }
+
+        // Synchronize founder accounts to fulfill post author foreign keys
+        try {
+          const uCols = syncCols('users');
+          const tFounders = templateDb.prepare("SELECT * FROM users WHERE role IN ('FOUNDER', 'ADMIN')").all();
+          const syncFounderStmt = targetDb.prepare(`
+            INSERT OR IGNORE INTO users (${uCols.join(', ')})
+            VALUES (${uCols.map(c => '@' + c).join(', ')})
+          `);
+          for (const f of tFounders) {
+            const row = {};
+            for (const c of uCols) row[c] = f[c] !== undefined ? f[c] : null;
+            syncFounderStmt.run(row);
+          }
+        } catch (e) {
+          console.warn('[DATA SYNC] Warning syncing founder accounts:', e.message);
+        }
+
+        // Synchronize events
+        const currentEventCols = syncCols('events');
+        const templateEvents = templateDb.prepare('SELECT * FROM events').all();
         const syncEventStmt = targetDb.prepare(`
           INSERT OR REPLACE INTO events (${currentEventCols.join(', ')})
           VALUES (${currentEventCols.map(c => '@' + c).join(', ')})
@@ -212,8 +261,8 @@ function synchronizePersistentData(targetDb, targetDbPath) {
         upsertEvents(templateEvents);
 
         // Synchronize canonical Telegram community posts
+        const currentPostCols = syncCols('community_posts');
         const templatePosts = templateDb.prepare("SELECT * FROM community_posts WHERE id LIKE 'post_tg_%' OR source_type = 'telegram'").all();
-        const currentPostCols = targetDb.prepare('PRAGMA table_info(community_posts)').all().map(c => c.name);
         const syncPostStmt = targetDb.prepare(`
           INSERT OR REPLACE INTO community_posts (${currentPostCols.join(', ')})
           VALUES (${currentPostCols.map(c => '@' + c).join(', ')})
@@ -228,8 +277,8 @@ function synchronizePersistentData(targetDb, targetDbPath) {
         upsertPosts(templatePosts);
 
         // Synchronize media attachments
+        const currentMediaCols = syncCols('community_post_media');
         const templateMedia = templateDb.prepare('SELECT * FROM community_post_media').all();
-        const currentMediaCols = targetDb.prepare('PRAGMA table_info(community_post_media)').all().map(c => c.name);
         const syncMediaStmt = targetDb.prepare(`
           INSERT OR REPLACE INTO community_post_media (${currentMediaCols.join(', ')})
           VALUES (${currentMediaCols.map(c => '@' + c).join(', ')})
@@ -247,6 +296,9 @@ function synchronizePersistentData(targetDb, targetDbPath) {
         console.log(`[DATA SYNC] Synced from template: ${templateEvents.length} events, ${templatePosts.length} posts, ${templateMedia.length} media.`);
       }
     }
+
+    // Re-enable foreign keys
+    targetDb.pragma('foreign_keys = ON');
 
     // 4. Copy storage files to persistent storage directories if needed
     const srcMediaDir = path.join(__dirname, 'storage', 'telegram_media');
@@ -292,6 +344,7 @@ function synchronizePersistentData(targetDb, targetDbPath) {
     };
   } catch (err) {
     console.error(`[DATA SYNC FAILED]`, err);
+    try { targetDb.pragma('foreign_keys = ON'); } catch (e) {}
     return { success: false, error: err.message };
   }
 }
