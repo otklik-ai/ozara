@@ -63,6 +63,7 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
     setAuthMode,
     setAppView,
     setPendingAccessEmail,
+    switchPersona,
   } = useClub();
 
   const [inputCode, setInputCode] = useState<string>(() => {
@@ -126,17 +127,24 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
     setIsChecking(true);
 
     try {
-      const res = await ApiService.verifyInviteToken(clean);
+      const res = await ApiService.claimInvitation(clean);
       if (res && res.valid) {
-        // Store validated invitation details for subsequent phone verification & registration
         setInvitationCode(res.token);
         setInvitationEmail(res.email);
         if (res.fullName) {
           setInvitationFullName(res.fullName);
         }
+        if (res.user) {
+          switchPersona(res.user.id);
+          OzaraStorage.setItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID, res.user.id);
+          OzaraStorage.setItem(OZARA_STORAGE_KEYS.TERMS_ACCEPTED_VERSION, '2026-10-v1');
+          if (res.session_token || (res as any).token) {
+            OzaraStorage.setItem('ozara_session_token', res.session_token || (res as any).token);
+          }
+        }
         setAuthMode('new_member');
 
-        // Proceed to phone verification
+        // Proceed straight to questionnaire (no phone number required)
         onValidInvitation();
       } else {
         setErrorMessage('Invalid invitation code. Please check the code or request access.');
@@ -250,6 +258,10 @@ export const InvitationScreen: React.FC<InvitationScreenProps> = ({
       });
 
       if (res && res.success) {
+        if (trimmedName) {
+          setInvitationFullName(trimmedName);
+          OzaraStorage.setItem(OZARA_STORAGE_KEYS.INVITATION_FULL_NAME, trimmedName);
+        }
         setModalState('success');
       } else {
         if (res?.status === 'pending_request' || res?.status === 'existing_account' || res?.status === 'declined_request') {

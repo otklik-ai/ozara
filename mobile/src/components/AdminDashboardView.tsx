@@ -76,7 +76,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [eventPrice, setEventPrice] = useState('Included in Membership');
   const [eventWhatsIncluded, setEventWhatsIncluded] = useState('');
   const [eventAgenda, setEventAgenda] = useState('');
-  const [eventCoverImage, setEventCoverImage] = useState('/assets/events/london_gathering.jpg');
+  const [eventCoverImage, setEventCoverImage] = useState('/events/london_salon.jpg');
   const [eventPublishNow, setEventPublishNow] = useState(true);
   const [savingEvent, setSavingEvent] = useState(false);
 
@@ -297,7 +297,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     setEventPrice(evt.price || 'Included in Membership');
     setEventWhatsIncluded(evt.whats_included || '');
     setEventAgenda(evt.agenda || '');
-    setEventCoverImage(evt.hero_image || evt.cover_image || '/assets/events/london_gathering.jpg');
+    setEventCoverImage(evt.hero_image || evt.cover_image || '/events/london_salon.jpg');
     setEventPublishNow(evt.is_published === 1);
     setShowCreateEvent(true);
   };

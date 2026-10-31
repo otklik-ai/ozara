@@ -1247,6 +1247,56 @@ export const ApiService = {
       body: JSON.stringify(payload),
     }),
 
+  claimInvitation: (token: string) =>
+    request<{
+      success: boolean;
+      valid: boolean;
+      token: string;
+      email: string;
+      fullName?: string;
+      is_existing_member: boolean;
+      is_new_member: boolean;
+      onboarding_completed: boolean;
+      onboarding_step: string;
+      user?: Persona;
+      token_str?: string;
+      session_token?: string;
+      expires_at?: string;
+      errorType?: string;
+      message?: string;
+    }>('/api/invitations/claim', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+
+  sendEmailVerificationCode: (payload: { email: string }) =>
+    request<{
+      success: boolean;
+      message: string;
+      mock_code?: string;
+      demoCode?: string;
+      expires_in_seconds?: number;
+    }>('/api/auth/email/send-code', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  verifyEmailCode: (payload: { email: string; code: string }) =>
+    request<{
+      success: boolean;
+      verified: boolean;
+      is_existing_member: boolean;
+      onboarding_completed: boolean;
+      onboarding_step: string;
+      user?: Persona;
+      token?: string;
+      session_token?: string;
+      expires_at?: string;
+    }>('/api/auth/email/verify-code', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
   getOnboardingProgress: (userId?: string) =>
     request<{
       user_id: string;

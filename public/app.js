@@ -4744,7 +4744,7 @@ function openAdminCreateEventModal() {
   document.getElementById('adminEvtCapacity').value = '30';
   document.getElementById('adminEvtRsvpDeadline').value = '';
   document.getElementById('adminEvtVisibility').value = 'all_members';
-  document.getElementById('adminEvtCoverImage').value = '/assets/events/london_gathering.jpg';
+  document.getElementById('adminEvtCoverImage').value = '/events/london_salon.jpg';
   document.getElementById('adminEvtPublishNow').checked = true;
 
   openModal('adminEventModal');
@@ -4770,7 +4770,7 @@ function openAdminEditEventModal(eventId) {
   document.getElementById('adminEvtCapacity').value = evt.capacity || '30';
   document.getElementById('adminEvtRsvpDeadline').value = evt.rsvp_deadline || '';
   document.getElementById('adminEvtVisibility').value = evt.visibility || 'all_members';
-  document.getElementById('adminEvtCoverImage').value = evt.hero_image || evt.cover_image || '/assets/events/london_gathering.jpg';
+  document.getElementById('adminEvtCoverImage').value = evt.hero_image || evt.cover_image || '/events/london_salon.jpg';
   document.getElementById('adminEvtPublishNow').checked = (evt.is_published === 1);
 
   openModal('adminEventModal');
@@ -4796,7 +4796,7 @@ async function handleSaveAdminEvent(e) {
     capacity: parseInt(document.getElementById('adminEvtCapacity').value, 10) || 30,
     rsvp_deadline: document.getElementById('adminEvtRsvpDeadline').value.trim() || null,
     visibility: document.getElementById('adminEvtVisibility').value,
-    hero_image: document.getElementById('adminEvtCoverImage').value.trim() || '/assets/events/london_gathering.jpg',
+    hero_image: document.getElementById('adminEvtCoverImage').value.trim() || '/events/london_salon.jpg',
     is_published: document.getElementById('adminEvtPublishNow').checked ? 1 : 0
   };
 

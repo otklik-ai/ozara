@@ -96,7 +96,7 @@ export const AppNavigator: React.FC = () => {
           }}
           onValidInvitation={() => {
             setAuthMode('new_member');
-            setAppView('phone_auth');
+            setAppView('signup');
           }}
           onGoToSignIn={(prefilledEmail?: string, prefilledPhone?: string) => {
             setAuthMode('sign_in');

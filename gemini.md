@@ -24,6 +24,12 @@
   - **Question 23 Permanent Lock**: No sharing toggle exists; permanently private. Only visible to Alexandra and Julia. Never exposed to search, public profiles, API payloads, or recommendations.
   - **Question 18 Mandate**: Question 18 ("What can you offer other members?") is strictly required to mark a profile complete (`is_complete = 1`). A directory of askers without offers fails; offers are foundational.
   - **The 24 Canonical Profile Questions**: The questionnaire covers exclusively the 24 canonical profile questions grouped into Sections A (Where you are), B (What you do), C (What you are working on now), D (Personal context), and E (Chapter and events). Field types: `text`, `long_text`, `single`, `multi`, `city_multi`, `country_multi`, `bracket`, `url`. Every question is skippable (stores as `skipped`, not null). Inline visibility control (`shared` vs `private`) with specified defaults.
+  - **Minimalist Questionnaire Form Factor & In-Bar Placeholder Invariant**:
+    - The questionnaire design must remain ultra-minimalistic, sleek, and dark luxury, avoiding clutter, unnecessary wrappers, cards, or excessive vertical spacing.
+    - No "Option 1", "Option 2", "Option 3" card frames, borders, or sub-headers for multi-slot questions (such as Questions 3 & 4). Each slot renders directly as a compact, clean row.
+    - In-bar placeholders: Dropdowns and text inputs use in-bar placeholders (`Country`, `City`, `Job title`, `Select chapter...`, etc.) instead of floating or stacked sublabels above the bars.
+    - Compact vertical rhythm: Minimal spacing between question lines (no wide gaps or dead footer lines; inline visibility and skip controls keep each question tightly integrated on a single header line).
+    - Floating dropdown overlay invariant: Dropdown menus must render as absolute floating overlays (`position: absolute; z-index: 9999`) with subtle elevation/box-shadow directly beneath the trigger bar without displacing, pushing, or shifting subsequent questions or layout elements.
   - **Broker-Dealer & Content Solicitation Rule**:
     - Members describe who they are, where they are, what they are working on, and what kind of people are useful to them right now. The platform does not ask what anyone owns, what they earn, or what they want to invest in.
     - Flat membership dues only. No transaction-connected success fees, finder's fees, or percentages.

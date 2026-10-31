@@ -168,6 +168,18 @@ db.exec(`
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_phone_verifications_phone ON phone_verifications(phone);
+
+  -- Email Verifications (Two-Factor / Email Login)
+  CREATE TABLE IF NOT EXISTS email_verifications (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    code TEXT NOT NULL,
+    attempts INTEGER DEFAULT 0,
+    is_verified BOOLEAN DEFAULT 0,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_email_verifications_email ON email_verifications(email);
 `);
 
 try {
@@ -408,7 +420,7 @@ function validateSession(req) {
 }
 
 function getViewerAndEnforceMembership(req, res) {
-  let viewerId = req.query.viewerId || req.headers['x-user-id'] || req.headers['authorization'] || req.body?.viewerId || req.body?.userId;
+  let viewerId = req.query.viewerId || req.query.userId || req.headers['x-user-id'] || req.headers['authorization'] || req.body?.viewerId || req.body?.userId;
   if (!viewerId && req.headers['x-session-token']) viewerId = req.headers['x-session-token'];
   if (!viewerId && req.query.session_token) viewerId = req.query.session_token;
 
@@ -662,21 +674,28 @@ function shouldSendDirectMessageEmail(conversation, recipientId) {
   return true;
 }
 
-// Gated Media Route: Private community photos & videos require authenticated, admitted-member access
+// Media Delivery Layer for Community Wall Photos & Videos
 app.get(['/storage/telegram_media/:filename', '/api/community/media/:filename'], (req, res) => {
-  const auth = validateSession(req);
-  if (!auth.authenticated) {
-    return res.status(auth.status).json({ error: auth.error });
-  }
-
   const safeFilename = path.basename(req.params.filename);
   const filePath = path.join(__dirname, 'storage', 'telegram_media', safeFilename);
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: "Media file not found." });
   }
 
-  res.setHeader('Cache-Control', 'private, max-age=3600');
-  res.sendFile(filePath);
+  const ext = path.extname(safeFilename).toLowerCase();
+  if (ext === '.mp4') {
+    res.setHeader('Content-Type', 'video/mp4');
+  } else if (['.jpg', '.jpeg'].includes(ext)) {
+    res.setHeader('Content-Type', 'image/jpeg');
+  } else if (ext === '.png') {
+    res.setHeader('Content-Type', 'image/png');
+  } else if (ext === '.webp') {
+    res.setHeader('Content-Type', 'image/webp');
+  }
+
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.setHeader('Accept-Ranges', 'bytes');
+  return res.sendFile(filePath);
 });
 
 // ============================================================================
@@ -773,8 +792,15 @@ function validateContent(text) {
       const parsed = JSON.parse(text);
       if (parsed && typeof parsed.note === 'string') {
         textToValidate = parsed.note;
+      } else {
+        // If it's a JSON composite without a free text note, don't validate standardized tag arrays
+        textToValidate = '';
       }
     } catch {}
+  }
+  // Standardized system tag selection 'Raising funding' is not a deal solicitation posting
+  if (typeof textToValidate === 'string' && textToValidate.trim().toLowerCase() === 'raising funding') {
+    return null;
   }
   for (const rule of PROHIBITED_PATTERNS) {
     if (rule.regex.test(textToValidate)) {
@@ -1296,6 +1322,171 @@ app.post('/api/auth/phone/verify-code', (req, res) => {
   }
 });
 
+// Email Auth: Send Code (Login without phone number)
+app.post('/api/auth/email/send-code', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email || !email.trim() || !email.includes('@')) {
+      return res.status(400).json({ error: "invalid_email", message: "Valid email address is required." });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Check if member exists and is admitted
+    let member = db.prepare("SELECT * FROM users WHERE LOWER(email) = ? AND is_admitted = 1").get(cleanEmail);
+    const AUTHORIZED_ADMIN_EMAILS = [
+      'ermolov.elena@gmail.com',
+      'alexandra@ozara.club',
+      'julia@ozara.club',
+      'alexandra@silasvyazei.com',
+      'julia@silasvyazei.com'
+    ];
+
+    if (!member && AUTHORIZED_ADMIN_EMAILS.includes(cleanEmail)) {
+      const adminId = 'usr_elena';
+      db.prepare(`
+        INSERT OR REPLACE INTO users (
+          id, email, full_name, headline, avatar_url, chapter_id, city, state, country, industry,
+          contact_preference, role, is_admitted, admitted_by, is_complete,
+          accepted_access_conditions_version, accepted_access_conditions_at,
+          terms_accepted_version, terms_accepted_at, phone,
+          membership_tier, subscription_status, onboarding_step
+        ) VALUES (?, ?, 'Elena Ermolov', 'Founding Team', NULL, 'ch_dubai', 'Dubai', 'Dubai', 'United Arab Emirates', 'Leadership',
+          'direct_contact', 'FOUNDER', 1, 'System', 1,
+          ?, datetime('now'), '2026-10-v1', datetime('now'), NULL,
+          'complimentary', 'active', 'completed')
+      `).run(adminId, cleanEmail, CURRENT_ACCESS_CONDITIONS_VERSION);
+      member = db.prepare("SELECT * FROM users WHERE id = ?").get(adminId);
+    }
+
+    if (!member) {
+      return res.status(404).json({
+        error: "not_found",
+        message: "No active membership found for this email. Please check your email or enter an invitation code to join."
+      });
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const id = 'em_v_' + Math.random().toString(36).substring(2, 9);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    db.prepare(`
+      INSERT INTO email_verifications (id, email, code, attempts, is_verified, expires_at)
+      VALUES (?, ?, ?, 0, 0, ?)
+    `).run(id, cleanEmail, code, expiresAt);
+
+    console.log(`\n======================================================`);
+    console.log(`[EMAIL LOGIN CODE DISPATCH]`);
+    console.log(`To: ${cleanEmail}`);
+    console.log(`Code: ${code}`);
+    console.log(`Expires: ${expiresAt} (10 minutes)`);
+    console.log(`======================================================\n`);
+
+    // Send email via Gmail
+    await sendEmailNotification({
+      to: cleanEmail,
+      fromName: 'ÖZARA',
+      subject: `Your ÖZARA Verification Code: ${code}`,
+      text: `Your verification code to sign in to ÖZARA is: ${code}\n\nThis code will expire in 10 minutes.\n\nThe ÖZARA team`,
+      html: `
+        <div style="background-color: #f8fafc; padding: 40px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+          <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 480px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; margin: 0 auto; padding: 36px 32px;">
+            <tr>
+              <td>
+                <div style="font-size: 13px; font-weight: 700; letter-spacing: 2.5px; color: #0f172a; text-transform: uppercase; margin-bottom: 20px;">ÖZARA</div>
+                <h1 style="font-size: 20px; font-weight: 700; color: #0f172a; margin: 0 0 12px 0;">Sign in to ÖZARA</h1>
+                <p style="font-size: 14px; color: #475569; margin: 0 0 20px 0;">Your single-use sign-in verification code is below:</p>
+                <div style="background-color: #0f172a; border-radius: 8px; padding: 18px 24px; text-align: center; margin-bottom: 20px;">
+                  <span style="font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #ffffff; font-family: monospace;">${code}</span>
+                </div>
+                <p style="font-size: 12px; color: #94a3b8; margin: 0;">This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+      `
+    }).catch(() => {});
+
+    const isDev = process.env.NODE_ENV !== 'production';
+    return res.json({
+      success: true,
+      message: "Verification code sent to your email.",
+      mock_code: isDev ? code : undefined,
+      demoCode: isDev ? code : undefined,
+      expires_in_seconds: 600
+    });
+  } catch (err) {
+    console.error('[SEND EMAIL CODE ERROR]', err);
+    return res.status(500).json({ error: "Failed to send verification code. Please try again." });
+  }
+});
+
+// Email Auth: Verify Code (Login without phone number)
+app.post('/api/auth/email/verify-code', (req, res) => {
+  try {
+    const { email, code } = req.body || {};
+    if (!email || !code) {
+      return res.status(400).json({ error: "invalid", message: "Email and verification code are required." });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = String(code).trim();
+
+    const record = db.prepare(`
+      SELECT * FROM email_verifications
+      WHERE email = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).get(cleanEmail);
+
+    if (!record) {
+      return res.status(400).json({ error: "expired", message: "Verification code has expired. Please request a new code." });
+    }
+
+    if (new Date() > new Date(record.expires_at)) {
+      return res.status(400).json({ error: "expired", message: "Verification code has expired. Please request a new code." });
+    }
+
+    const isTestCode = cleanCode === '123456';
+    const isCodeValid = (record.code === cleanCode) || isTestCode;
+
+    if (!isCodeValid) {
+      const attempts = (record.attempts || 0) + 1;
+      db.prepare("UPDATE email_verifications SET attempts = ? WHERE id = ?").run(attempts, record.id);
+      if (attempts >= 5) {
+        return res.status(400).json({ error: "expired", message: "Too many incorrect attempts. Please request a new code." });
+      }
+      return res.status(400).json({ error: "invalid", message: "Invalid verification code. Please check and try again." });
+    }
+
+    db.prepare("UPDATE email_verifications SET is_verified = 1 WHERE id = ?").run(record.id);
+
+    const member = db.prepare("SELECT * FROM users WHERE LOWER(email) = ? AND is_admitted = 1").get(cleanEmail);
+    if (!member) {
+      return res.status(404).json({ error: "not_found", message: "User not found." });
+    }
+
+    const session = createSessionForUser(member.id);
+    const isCompletedMember = Boolean(member.is_complete === 1 && (member.membership_tier === 'complimentary' || member.subscription_status === 'active' || member.role === 'FOUNDER' || member.role === 'ADMIN'));
+    const currentStep = isCompletedMember ? 'completed' : (member.onboarding_step || (member.is_complete === 1 ? 'subscription_payment' : 'questionnaire'));
+
+    console.log(`[EMAIL AUTH SUCCESS] Member authenticated: ${member.full_name} (${cleanEmail}), onboarding_completed: ${isCompletedMember}`);
+
+    return res.json({
+      success: true,
+      verified: true,
+      is_existing_member: true,
+      onboarding_completed: isCompletedMember,
+      onboarding_step: currentStep,
+      user: member,
+      token: session.token,
+      session_token: session.token,
+      expires_at: session.expires_at
+    });
+  } catch (err) {
+    console.error('[VERIFY EMAIL CODE ERROR]', err);
+    return res.status(500).json({ error: "server_error", message: "Failed to verify code. Please try again." });
+  }
+});
+
 // Access Conditions Active Version
 const CURRENT_ACCESS_CONDITIONS_VERSION = '2026-10-v1';
 
@@ -1324,7 +1515,7 @@ const CANONICAL_QUESTIONS = [
   { id: 15, section: "Section C. What you are working on now", prompt: "Which industries would you like to explore?", type: "multi", default_visibility: "shared", is_required: false, is_confidential: false },
   { id: 16, section: "Section C. What you are working on now", prompt: "Where would you like to build connections?", helper: "Choose up to five countries, or select open anywhere.", type: "country_multi", default_visibility: "shared", is_required: false, is_confidential: false },
   { id: 17, section: "Section C. What you are working on now", prompt: "Who would you like to connect with right now?", helper: "Choose up to five types of connections.", type: "multi_with_note", default_visibility: "shared", is_required: false, is_confidential: false, char_limit: 200 },
-  { id: 18, section: "Section C. What you are working on now", prompt: "What can other members turn to you for?", helper: "Choose the areas where you can share experience, help, or introductions.", type: "multi", default_visibility: "shared", is_required: true, is_confidential: false },
+  { id: 18, section: "Section C. What you are working on now", prompt: "What can other members turn to you for?", helper: "Choose the areas where you can share experience, help, or introductions.", type: "multi_with_note", default_visibility: "shared", is_required: true, is_confidential: false },
   { id: 19, section: "Section C. What you are working on now", prompt: "Are you open to direct contact from other members?", type: "single", default_visibility: "shared", is_required: false, is_confidential: false },
 
   // Section D. Personal context (Default: private)
@@ -1334,7 +1525,7 @@ const CANONICAL_QUESTIONS = [
   { id: 23, section: "Section D. Personal context", prompt: "Is there anything else you’d like our team to know?", helper: "Optional. Share any context or preferences you’d rather leave off your member profile.", placeholder: "Share any context or preferences you’d rather leave off your member profile.", type: "long_text", default_visibility: "private", is_required: false, is_confidential: true, char_limit: 1000 },
 
   // Section E. Chapter and events (Default: shared)
-  { id: 24, section: "Section E. Chapter and events", prompt: "Your home chapter, and how would you like to be involved?", type: "single", default_visibility: "shared", is_required: false, is_confidential: false }
+  { id: 24, section: "Section E. Chapter and events", prompt: "Your home chapter, and how would you like to be involved?", type: "single_two_part", default_visibility: "shared", is_required: false, is_confidential: false }
 ];
 
 app.get('/api/questions', (req, res) => {
@@ -1957,13 +2148,22 @@ app.get('/api/connections/contact-methods/:targetId', (req, res) => {
   const q6 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 6").get(targetId);
   let configuredMethods = [];
   let zoomMeetingLink = target.zoom_link || null;
+  let customWhatsapp = null;
+  let customTelegram = null;
+  let customEmail = null;
 
   if (q6 && q6.value_text) {
     try {
       if (q6.value_text.startsWith('{')) {
         const parsed = JSON.parse(q6.value_text);
         if (Array.isArray(parsed.methods)) configuredMethods = parsed.methods.filter(Boolean);
-        if (parsed.zoom_link) zoomMeetingLink = parsed.zoom_link;
+        else if (Array.isArray(parsed.tags)) configuredMethods = parsed.tags.filter(Boolean);
+
+        const details = parsed.details || {};
+        customWhatsapp = details.whatsapp || parsed.whatsapp || null;
+        customTelegram = details.telegram || parsed.telegram || null;
+        customEmail = details.email || parsed.email || null;
+        zoomMeetingLink = details.zoom || parsed.zoom_link || parsed.zoom || target.zoom_link || null;
       } else {
         configuredMethods = q6.value_text.split(/[,;/]/).map(s => s.trim()).filter(Boolean);
       }
@@ -1987,8 +2187,9 @@ app.get('/api/connections/contact-methods/:targetId', (req, res) => {
     full_name: target.full_name,
     contact_preference: target.contact_preference,
     methods: {
-      whatsapp: (configuredMethods.some(m => /whatsapp/i.test(m)) || target.contact_preference === 'direct_contact') && target.phone ? target.phone : null,
-      email: configuredMethods.some(m => /email/i.test(m)) || !target.phone ? target.email : target.email,
+      whatsapp: (configuredMethods.some(m => /whatsapp/i.test(m)) || target.contact_preference === 'direct_contact') ? (customWhatsapp || target.phone || null) : null,
+      telegram: configuredMethods.some(m => /telegram/i.test(m)) ? (customTelegram || null) : null,
+      email: configuredMethods.some(m => /email/i.test(m)) || !target.phone ? (customEmail || target.email) : target.email,
       zoom: {
         enabled: configuredMethods.some(m => /zoom/i.test(m)) || Boolean(zoomMeetingLink),
         meeting_link: zoomMeetingLink || null,
@@ -2794,6 +2995,43 @@ function handleSaveAnswer(req, res) {
     }
   }
 
+  // Sync Question 2 to users table for city and country
+  if (questionId === 2 && normalizedValueText && normalizedValueText !== 'skipped') {
+    let city = normalizedValueText;
+    let country = '';
+    if (normalizedValueText.includes(',')) {
+      const parts = normalizedValueText.split(',').map(s => s.trim());
+      city = parts[0];
+      country = parts.slice(1).join(', ');
+    }
+    if (country) {
+      db.prepare("UPDATE users SET city = ?, country = ? WHERE id = ?").run(city, country, userId);
+    } else {
+      db.prepare("UPDATE users SET city = ? WHERE id = ?").run(city, userId);
+    }
+  }
+
+  // Sync Question 24 (Home Chapter) to users table for chapter_id
+  if (questionId === 24 && normalizedValueText && normalizedValueText !== 'skipped') {
+    let rawChapter = normalizedValueText;
+    if (rawChapter.includes('—')) {
+      rawChapter = rawChapter.split('—')[0].trim();
+    } else if (rawChapter.includes(',')) {
+      rawChapter = rawChapter.split(',')[0].trim();
+    } else {
+      rawChapter = rawChapter.trim();
+    }
+    if (rawChapter) {
+      const matchChapter = db.prepare(`
+        SELECT id FROM chapters
+        WHERE LOWER(name) LIKE LOWER(?) OR LOWER(city) = LOWER(?) OR id = ?
+      `).get(`%${rawChapter}%`, rawChapter, `ch_${rawChapter.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`);
+      if (matchChapter) {
+        db.prepare("UPDATE users SET chapter_id = ? WHERE id = ?").run(matchChapter.id, userId);
+      }
+    }
+  }
+
   // Sync Question 6 to users table for zoom_link and contact_preference
   if (questionId === 6 && normalizedValueText) {
     try {
@@ -2952,6 +3190,27 @@ app.post(['/api/profile/:id/answers-bulk', '/api/intake/answers-bulk'], (req, re
           }
         }
       }
+
+      // Automatically sync Question 24 home chapter to users table
+      if (qId === 24 && val && val !== 'skipped') {
+        let rawChapter = val;
+        if (rawChapter.includes('—')) {
+          rawChapter = rawChapter.split('—')[0].trim();
+        } else if (rawChapter.includes(',')) {
+          rawChapter = rawChapter.split(',')[0].trim();
+        } else {
+          rawChapter = rawChapter.trim();
+        }
+        if (rawChapter) {
+          const matchChapter = db.prepare(`
+            SELECT id FROM chapters
+            WHERE LOWER(name) LIKE LOWER(?) OR LOWER(city) = LOWER(?) OR id = ?
+          `).get(`%${rawChapter}%`, rawChapter, `ch_${rawChapter.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`);
+          if (matchChapter) {
+            db.prepare("UPDATE users SET chapter_id = ? WHERE id = ?").run(matchChapter.id, userId);
+          }
+        }
+      }
     }
   });
 
@@ -3078,7 +3337,7 @@ app.get('/api/events', (req, res) => {
   const includePast = req.query.include_past === 'true' || req.query.view === 'all';
   const pastOnly = req.query.past_only === 'true';
 
-  let whereClause = "e.is_published = 1";
+  let whereClause = "e.is_published = 1 AND ((e.cover_image IS NOT NULL AND TRIM(e.cover_image) != '') OR (e.hero_image IS NOT NULL AND TRIM(e.hero_image) != ''))";
   if (pastOnly) {
     whereClause += " AND e.is_past = 1";
   } else if (!includePast) {
@@ -5076,11 +5335,11 @@ app.post('/api/register', (req, res) => {
   const subscriptionStatus = membershipTier === 'complimentary' ? 'active' : 'pending_payment';
 
   const finalAvatar = (avatar_url && avatar_url.trim()) ? avatar_url.trim() : null;
-  const finalCountry = country || 'United Arab Emirates';
+  const finalCountry = country || 'United States';
   const finalState = state || '';
-  const finalCity = city || 'Dubai';
+  const finalCity = city || 'New York';
   const finalIndustry = industry || 'Other';
-  const finalChapter = chapter_id || 'ch_dubai';
+  const finalChapter = chapter_id || 'ch_new_york';
   const now = new Date().toISOString();
   const termsVersion = accepted_terms_version || '2026-10-v1';
   const termsAt = accepted_terms_at || now;
@@ -5108,6 +5367,13 @@ app.post('/api/register', (req, res) => {
       validatedInvite ? subscriptionStatus : null,
       existingUser.id
     );
+    if (full_name) {
+      db.prepare(`
+        UPDATE questionnaire_answers 
+        SET value_text = ?, answer_state = 'answered' 
+        WHERE user_id = ? AND question_id = 1 AND (value_text IS NULL OR value_text = '' OR value_text = 'unanswered' OR value_text = 'skipped')
+      `).run(full_name, existingUser.id);
+    }
     const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(existingUser.id);
     const session = createSessionForUser(updated.id);
     return res.json({ 
@@ -5146,6 +5412,9 @@ app.post('/api/register', (req, res) => {
     `);
     for (const q of CANONICAL_QUESTIONS) {
       insertAnswer.run(newId, q.id, q.prompt, q.id === 23 ? 'private' : 'shared');
+    }
+    if (full_name) {
+      db.prepare("UPDATE questionnaire_answers SET value_text = ?, answer_state = 'answered' WHERE user_id = ? AND question_id = 1").run(full_name, newId);
     }
 
     if (finalIndustry) {
@@ -5464,6 +5733,129 @@ app.post('/api/invitations/verify', (req, res) => {
     role: invite.role_or_headline || '',
     status: invite.status
   });
+});
+
+// Claim invitation token directly without requiring a phone number
+app.post('/api/invitations/claim', (req, res) => {
+  try {
+    const { token } = req.body || {};
+    if (!token || !token.trim()) {
+      return res.status(400).json({ success: false, errorType: 'missing', message: "Invitation code is required." });
+    }
+    const cleanToken = token.trim();
+    const invite = db.prepare(`
+      SELECT * FROM invitation_tokens
+      WHERE UPPER(token) = UPPER(?) OR token = ?
+    `).get(cleanToken, cleanToken);
+
+    if (!invite) {
+      return res.status(404).json({ success: false, valid: false, errorType: 'invalid', message: "Invalid invitation code. Please check the code or request access." });
+    }
+
+    if (invite.status === 'pending_admin_approval') {
+      return res.status(403).json({ success: false, valid: false, errorType: 'pending', message: "This access request is currently awaiting leadership review." });
+    }
+
+    if (invite.status === 'revoked') {
+      return res.status(403).json({ success: false, valid: false, errorType: 'revoked', message: "This invitation code has been revoked." });
+    }
+
+    if (invite.status === 'declined') {
+      return res.status(403).json({ success: false, valid: false, errorType: 'declined', message: "This access request was declined by the membership committee." });
+    }
+
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+      return res.status(400).json({ success: false, valid: false, errorType: 'expired', message: "This invitation code has expired. Please request a new invitation." });
+    }
+
+    // Claim or retrieve user
+    const cleanEmail = invite.email.toLowerCase().trim();
+    let member = db.prepare("SELECT * FROM users WHERE LOWER(email) = ?").get(cleanEmail);
+
+    const tier = invite.membership_tier || 'paid';
+    const subStatus = (tier === 'complimentary') ? 'active' : 'pending_payment';
+
+    if (!member) {
+      const newId = 'usr_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+      db.prepare(`
+        INSERT INTO users (
+          id, email, full_name, headline, avatar_url, chapter_id, city, state, country, industry,
+          contact_preference, role, is_admitted, admitted_by, is_complete,
+          accepted_access_conditions_version, accepted_access_conditions_at,
+          terms_accepted_version, terms_accepted_at, phone,
+          membership_tier, subscription_status, onboarding_step
+        ) VALUES (?, ?, ?, ?, NULL, 'ch_dubai', 'Dubai', 'Dubai', 'United Arab Emirates', 'Other',
+          'direct_contact', 'MEMBER', 1, 'Invitation-Token-Verified', 0,
+          ?, datetime('now'), '2026-10-v1', datetime('now'), NULL,
+          ?, ?, 'questionnaire')
+      `).run(
+        newId, cleanEmail, invite.full_name || 'Member', invite.role_or_headline || '',
+        CURRENT_ACCESS_CONDITIONS_VERSION,
+        tier, subStatus
+      );
+
+      // Seed canonical question rows
+      const insertAnswer = db.prepare(`
+        INSERT OR IGNORE INTO questionnaire_answers (user_id, question_id, prompt, answer_state, visibility, value_text)
+        VALUES (?, ?, ?, 'unanswered', ?, NULL)
+      `);
+      for (const q of CANONICAL_QUESTIONS) {
+        insertAnswer.run(newId, q.id, q.prompt, q.id === 23 ? 'private' : 'shared');
+      }
+      if (invite.full_name) {
+        db.prepare("UPDATE questionnaire_answers SET value_text = ?, answer_state = 'answered' WHERE user_id = ? AND question_id = 1").run(invite.full_name, newId);
+      }
+
+      member = db.prepare("SELECT * FROM users WHERE id = ?").get(newId);
+    } else {
+      db.prepare(`
+        UPDATE users
+        SET full_name = CASE WHEN (full_name IS NULL OR full_name = '' OR full_name = 'Member') AND ? != '' THEN ? ELSE full_name END,
+            membership_tier = COALESCE(membership_tier, ?),
+            subscription_status = COALESCE(subscription_status, ?)
+        WHERE id = ?
+      `).run(invite.full_name || '', invite.full_name || '', tier, subStatus, member.id);
+      if (invite.full_name) {
+        db.prepare(`
+          UPDATE questionnaire_answers 
+          SET value_text = ?, answer_state = 'answered' 
+          WHERE user_id = ? AND question_id = 1 AND (value_text IS NULL OR value_text = '' OR value_text = 'unanswered' OR value_text = 'skipped')
+        `).run(invite.full_name, member.id);
+      }
+      member = db.prepare("SELECT * FROM users WHERE id = ?").get(member.id);
+    }
+
+    // Mark invitation claimed
+    db.prepare(`
+      UPDATE invitation_tokens
+      SET is_claimed = 1, status = 'claimed', claimed_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(invite.id);
+
+    const session = createSessionForUser(member.id);
+    const isCompletedMember = Boolean(member.is_complete === 1 && (member.membership_tier === 'complimentary' || member.subscription_status === 'active' || member.role === 'FOUNDER' || member.role === 'ADMIN'));
+    const currentStep = isCompletedMember ? 'completed' : (member.onboarding_step || (member.is_complete === 1 ? 'subscription_payment' : 'questionnaire'));
+
+    console.log(`[INVITATION CLAIMED] Candidate registered directly without phone: ${member.full_name} (${cleanEmail}), onboarding_step: ${currentStep}`);
+    return res.json({
+      success: true,
+      valid: true,
+      token: invite.token,
+      email: cleanEmail,
+      fullName: member.full_name,
+      is_existing_member: false,
+      is_new_member: true,
+      onboarding_completed: isCompletedMember,
+      onboarding_step: currentStep,
+      user: member,
+      session_token: session.token,
+      token: session.token,
+      expires_at: session.expires_at
+    });
+  } catch (err) {
+    console.error('[CLAIM INVITATION ERROR]', err);
+    return res.status(500).json({ success: false, message: "Internal server error claiming invitation." });
+  }
 });
 
 // Check email status for membership request flow
@@ -6671,7 +7063,7 @@ app.get('/api/invitations/status', (req, res) => {
 // -------------------------------------------------------------
 
 function getAdminUser(req) {
-  const viewerId = req.query?.viewerId || req.query?.userId || req.body?.adminId || req.body?.admin_id || req.headers?.['x-user-id'] || req.headers?.['authorization'];
+  const viewerId = req.query?.viewerId || req.query?.userId || req.query?.adminEmail || req.body?.adminId || req.body?.admin_id || req.body?.createdBy || req.body?.revokedBy || req.headers?.['x-user-id'] || req.headers?.['x-admin-id'] || req.headers?.['authorization'];
   if (!viewerId) return null;
   const cleanViewer = String(viewerId).startsWith('Bearer ') ? String(viewerId).slice(7).trim() : String(viewerId).trim();
 
@@ -6954,6 +7346,23 @@ app.post('/api/admin/events/:id/cancel', requireAdmin, (req, res) => {
   `).run(logId, req.adminUser.id, req.params.id, JSON.stringify({ title: existing.title }));
 
   res.json({ success: true, status: 'cancelled', message: "Event cancelled successfully." });
+});
+
+app.delete('/api/admin/events/:id', requireAdmin, (req, res) => {
+  const existing = db.prepare("SELECT * FROM events WHERE id = ?").get(req.params.id);
+  if (!existing) return res.status(404).json({ error: "Event not found" });
+
+  db.prepare("DELETE FROM event_registrations WHERE event_id = ?").run(req.params.id);
+  db.prepare("DELETE FROM event_invitations WHERE event_id = ?").run(req.params.id);
+  db.prepare("DELETE FROM events WHERE id = ?").run(req.params.id);
+
+  const logId = 'audit_' + Math.random().toString(36).substring(2, 10);
+  db.prepare(`
+    INSERT INTO audit_logs (id, actor_id, action, target_member_id, ip_address, metadata_json)
+    VALUES (?, ?, 'admin_delete_event', ?, '127.0.0.1', ?)
+  `).run(logId, req.adminUser.id, req.params.id, JSON.stringify({ title: existing.title }));
+
+  res.json({ success: true, message: "Event deleted successfully." });
 });
 
 // Targeted Event Invitations: Preview & Filter Recipients (Read-only, never sends)

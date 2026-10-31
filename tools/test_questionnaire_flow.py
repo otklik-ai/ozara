@@ -205,7 +205,7 @@ def run():
 
     # 9. Verify Question 23 Permanent Lock Rule:
     # 9a. Peer member view: Question 23 MUST be redacted with founder confidentiality disclaimer
-    peer_profile, status = request(f"/api/profile/{user_id}?viewerId=usr_marcus", extra_headers={"x-user-id": "usr_marcus"})
+    peer_profile, status = request(f"/api/profile/{user_id}?viewerId=usr_fictional_01", extra_headers={"x-user-id": "usr_fictional_01"})
     assert status == 200
     assert peer_profile["is_complete"] is True
     peer_answers = peer_profile.get("answers", [])

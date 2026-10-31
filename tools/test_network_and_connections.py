@@ -220,6 +220,7 @@ def run_tests():
     conn = sqlite3.connect("ozara.db")
     conn.execute("DELETE FROM member_connections WHERE (requester_id=? AND recipient_id=?) OR (requester_id=? AND recipient_id=?)",
                  (user_a, user_b, user_b, user_a))
+    conn.execute("DELETE FROM invitation_tokens WHERE email = 'automated_test_applicant@example.com'")
     conn.commit()
     conn.close()
 

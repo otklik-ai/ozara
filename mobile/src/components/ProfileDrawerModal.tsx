@@ -41,7 +41,24 @@ import {
   STANDARDIZED_INTERESTS,
   STANDARDIZED_CHAPTERS,
   STANDARDIZED_INVOLVEMENT_ROLES,
+  STANDARDIZED_CITIES_Q3,
+  STANDARDIZED_COUNTRIES_Q4,
+  STANDARDIZED_LANGUAGES,
+  STANDARDIZED_REACH_CHANNELS,
+  STANDARDIZED_ROLES,
+  STANDARDIZED_OFFERS,
+  STANDARDIZED_DIRECT_CONTACT,
+  STANDARDIZED_AGE_BRACKETS,
+  STANDARDIZED_FAMILY_SITUATIONS,
+  STANDARDIZED_CONNECTION_COUNTRIES,
 } from '../screens/SignUpScreen';
+import {
+  COUNTRY_DIAL_CODES,
+  parsePhoneNumber,
+  formatNationalNumber,
+  buildFullPhoneNumber,
+  formatWhatsAppNumber,
+} from '../utils/phoneFormatter';
 
 // Canonical sections for questionnaire editing
 const CANONICAL_SECTIONS = [
@@ -76,6 +93,8 @@ export const ProfileDrawerModal: React.FC = () => {
   const [answersState, setAnswersState] = useState<Record<number, { value: string; visibility: 'shared' | 'private' }>>({});
   const [savingQuestionId, setSavingQuestionId] = useState<number | null>(null);
   const [openQ24Dropdown, setOpenQ24Dropdown] = useState<'chapter' | 'involvement' | null>(null);
+  const [isDrawerWhatsAppCountryPickerOpen, setIsDrawerWhatsAppCountryPickerOpen] = useState(false);
+  const [drawerWhatsAppCountrySearchQuery, setDrawerWhatsAppCountrySearchQuery] = useState('');
 
   // Access requests for Founder / Admin role (Alexandra, Julia, Elena)
   const [accessRequests, setAccessRequests] = useState<any[]>([]);
@@ -515,10 +534,10 @@ export const ProfileDrawerModal: React.FC = () => {
         if (Array.isArray(parsed.tags)) q18OffersList = parsed.tags;
         if (typeof parsed.note === 'string') q18OfferNote = parsed.note;
       } else {
-        q18OffersList = rawQ18.split(';').map(s => s.trim()).filter(Boolean);
+        q18OffersList = rawQ18.split(/[,;]/).map(s => s.trim()).filter(Boolean);
       }
     } catch {
-      q18OffersList = rawQ18.split(';').map(s => s.trim()).filter(Boolean);
+      q18OffersList = rawQ18.split(/[,;]/).map(s => s.trim()).filter(Boolean);
     }
   }
   // Combine with taxonomies.offers if available
@@ -586,7 +605,20 @@ export const ProfileDrawerModal: React.FC = () => {
 
   // Contact Q6 & Q19
   const rawQ6 = getAnswer(6);
-  const q6Reach = rawQ6 ? rawQ6.split(';').map(s => s.trim()).filter(Boolean) : [];
+  let q6Reach: string[] = [];
+  if (rawQ6) {
+    if (rawQ6.startsWith('{')) {
+      try {
+        const p = JSON.parse(rawQ6);
+        if (Array.isArray(p.methods)) q6Reach = p.methods;
+        else if (Array.isArray(p.tags)) q6Reach = p.tags;
+      } catch {
+        q6Reach = rawQ6.split(/[,;/]/).map(s => s.trim()).filter(Boolean);
+      }
+    } else {
+      q6Reach = rawQ6.split(/[,;/]/).map(s => s.trim()).filter(Boolean);
+    }
+  }
   const q19DirectContact = getAnswer(19);
 
   return (
@@ -1460,28 +1492,121 @@ export const ProfileDrawerModal: React.FC = () => {
                         value: q.value_text || '',
                         visibility: q.visibility || 'shared',
                       };
+                      const isQ3 = q.question_id === 3;
+                      const isQ4 = q.question_id === 4;
+                      const isQ5 = q.question_id === 5;
                       const isQ6 = q.question_id === 6;
+                      const isQ7 = q.question_id === 7;
+                      const isQ8 = q.question_id === 8;
                       const isQ12 = q.question_id === 12;
                       const isQ13 = q.question_id === 13;
                       const isQ14 = q.question_id === 14;
                       const isQ15 = q.question_id === 15;
+                      const isQ16 = q.question_id === 16;
                       const isQ17 = q.question_id === 17;
                       const isQ18 = q.question_id === 18;
+                      const isQ19 = q.question_id === 19;
+                      const isQ20 = q.question_id === 20;
+                      const isQ21 = q.question_id === 21;
                       const isQ22 = q.question_id === 22;
                       const isQ23 = q.question_id === 23;
                       const isQ24 = q.question_id === 24;
                       const isSaving = savingQuestionId === q.question_id;
 
-                      // Parse Q6 contact methods
+                      // Parse Q3 cities
+                      let itemQ3List: string[] = [];
+                      if (isQ3 && local.value && local.value !== 'skipped') {
+                        if (local.value.startsWith('[') && local.value.endsWith(']')) {
+                          try {
+                            const arr = JSON.parse(local.value);
+                            if (Array.isArray(arr)) itemQ3List = arr.map(String);
+                          } catch {}
+                        }
+                        if (itemQ3List.length === 0) {
+                          itemQ3List = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
+                        }
+                      }
+
+                      // Parse Q4 countries
+                      let itemQ4List: string[] = [];
+                      if (isQ4 && local.value && local.value !== 'skipped') {
+                        if (local.value.startsWith('[') && local.value.endsWith(']')) {
+                          try {
+                            const arr = JSON.parse(local.value);
+                            if (Array.isArray(arr)) itemQ4List = arr.map(String);
+                          } catch {}
+                        }
+                        if (itemQ4List.length === 0) {
+                          itemQ4List = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
+                        }
+                      }
+
+                      // Parse Q5 languages
+                      let itemQ5List: string[] = [];
+                      if (isQ5 && local.value && local.value !== 'skipped') {
+                        itemQ5List = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
+                      }
+
+                      // Parse Q6 contact methods and details
                       let itemQ6Methods: string[] = [];
+                      let itemQ6Details: Record<string, string> = {
+                        whatsapp: '',
+                        telegram: '',
+                        email: '',
+                        zoom: '',
+                      };
                       if (isQ6 && local.value && local.value !== 'skipped') {
                         if (local.value.startsWith('{')) {
                           try {
                             const p = JSON.parse(local.value);
                             if (Array.isArray(p.methods)) itemQ6Methods = p.methods;
+                            else if (Array.isArray(p.tags)) itemQ6Methods = p.tags;
+
+                            const d = p.details || {};
+                            itemQ6Details = {
+                              whatsapp: (d.whatsapp || p.whatsapp) ? formatWhatsAppNumber(d.whatsapp || p.whatsapp) : '',
+                              telegram: d.telegram || p.telegram || '',
+                              email: d.email || p.email || '',
+                              zoom: d.zoom || p.zoom_link || p.zoom || '',
+                            };
                           } catch {}
                         } else {
                           itemQ6Methods = local.value.split(/[,;/]/).map((s: string) => s.trim()).filter(Boolean);
+                        }
+                      }
+
+                      // Parse Q7 roles
+                      let itemQ7List: string[] = [];
+                      if (isQ7 && local.value && local.value !== 'skipped') {
+                        itemQ7List = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
+                      }
+
+                      // Parse Q8 industries
+                      let itemQ8List: string[] = [];
+                      if (isQ8 && local.value && local.value !== 'skipped') {
+                        itemQ8List = local.value.split(';').map((s: string) => s.trim()).filter(Boolean);
+                      }
+
+                      // Parse Q16 connection countries
+                      let itemQ16List: string[] = [];
+                      if (isQ16 && local.value && local.value !== 'skipped') {
+                        itemQ16List = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
+                      }
+
+                      // Parse Q18 offers & note
+                      let itemQ18Tags: string[] = [];
+                      let itemQ18Note = '';
+                      if (isQ18 && local.value && local.value !== 'skipped') {
+                        try {
+                          if (local.value.startsWith('{') && local.value.endsWith('}')) {
+                            const p = JSON.parse(local.value);
+                            if (Array.isArray(p.tags)) itemQ18Tags = p.tags;
+                            if (typeof p.note === 'string') itemQ18Note = p.note;
+                          } else {
+                            itemQ18Tags = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
+                          }
+                        } catch {
+                          itemQ18Tags = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
                         }
                       }
 
@@ -1598,14 +1723,29 @@ export const ProfileDrawerModal: React.FC = () => {
                           <Text style={styles.questionPrompt}>{q.question_prompt}</Text>
 
                           {/* Helpers */}
+                          {isQ8 && (
+                            <Text style={styles.questionHelperText}>
+                              Choose up to 3 industries that reflect your primary expertise.
+                            </Text>
+                          )}
                           {isQ12 && (
                             <Text style={styles.questionHelperText}>
                               Share previous companies, education, research, or projects you’re proud of.
                             </Text>
                           )}
+                          {isQ16 && (
+                            <Text style={styles.questionHelperText}>
+                              Choose up to five countries where introductions or connections are most useful.
+                            </Text>
+                          )}
                           {isQ17 && (
                             <Text style={styles.questionHelperText}>
                               Choose up to five types of connections.
+                            </Text>
+                          )}
+                          {isQ18 && (
+                            <Text style={styles.questionHelperText}>
+                              Choose the areas where you can share experience, help, or introductions.
                             </Text>
                           )}
                           {isQ22 && (
@@ -1629,11 +1769,92 @@ export const ProfileDrawerModal: React.FC = () => {
 
                           {/* Input Fields */}
                           <View style={styles.inputWrap}>
-                            {isQ6 ? (
+                            {isQ3 ? (
+                              <View style={styles.chipsWrap}>
+                                {STANDARDIZED_CITIES_Q3.map((city, idx) => {
+                                  const isSel = itemQ3List.includes(city);
+                                  return (
+                                    <TouchableOpacity
+                                      key={idx}
+                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
+                                      onPress={() => {
+                                        const nextList = isSel
+                                          ? itemQ3List.filter(c => c !== city)
+                                          : [...itemQ3List, city];
+                                        const valStr = nextList.join(', ');
+                                        setAnswersState(prev => ({
+                                          ...prev,
+                                          [3]: { ...local, value: valStr },
+                                        }));
+                                        handleSaveAnswer(3, valStr);
+                                      }}
+                                      activeOpacity={0.7}>
+                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
+                                        {city}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            ) : isQ4 ? (
+                              <View style={styles.chipsWrap}>
+                                {STANDARDIZED_COUNTRIES_Q4.map((country, idx) => {
+                                  const isSel = itemQ4List.includes(country);
+                                  return (
+                                    <TouchableOpacity
+                                      key={idx}
+                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
+                                      onPress={() => {
+                                        const nextList = isSel
+                                          ? itemQ4List.filter(c => c !== country)
+                                          : [...itemQ4List, country];
+                                        const valStr = nextList.join(', ');
+                                        setAnswersState(prev => ({
+                                          ...prev,
+                                          [4]: { ...local, value: valStr },
+                                        }));
+                                        handleSaveAnswer(4, valStr);
+                                      }}
+                                      activeOpacity={0.7}>
+                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
+                                        {country}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            ) : isQ5 ? (
+                              <View style={styles.chipsWrap}>
+                                {STANDARDIZED_LANGUAGES.map((lang, idx) => {
+                                  const isSel = itemQ5List.includes(lang);
+                                  return (
+                                    <TouchableOpacity
+                                      key={idx}
+                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
+                                      onPress={() => {
+                                        const nextList = isSel
+                                          ? itemQ5List.filter(l => l !== lang)
+                                          : [...itemQ5List, lang];
+                                        const valStr = nextList.join(', ');
+                                        setAnswersState(prev => ({
+                                          ...prev,
+                                          [5]: { ...local, value: valStr },
+                                        }));
+                                        handleSaveAnswer(5, valStr);
+                                      }}
+                                      activeOpacity={0.7}>
+                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
+                                        {lang}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            ) : isQ6 ? (
                               <View>
                                 <Text style={styles.subFieldLabel}>Select Approved Contact Channels:</Text>
                                 <View style={styles.chipsWrap}>
-                                  {['WhatsApp', 'Email', 'Zoom', 'In app', 'Telegram', 'Through the team'].map((method, idx) => {
+                                  {STANDARDIZED_REACH_CHANNELS.map((method, idx) => {
                                     const isSel = itemQ6Methods.includes(method);
                                     return (
                                       <TouchableOpacity
@@ -1641,7 +1862,15 @@ export const ProfileDrawerModal: React.FC = () => {
                                         style={[styles.chipPill, isSel && styles.chipPillSelected]}
                                         onPress={() => {
                                           const next = isSel ? itemQ6Methods.filter(m => m !== method) : [...itemQ6Methods, method];
-                                          const valStr = next.join('; ');
+                                          const payload = {
+                                            methods: next,
+                                            details: itemQ6Details,
+                                            whatsapp: itemQ6Details.whatsapp?.trim() || null,
+                                            telegram: itemQ6Details.telegram?.trim() || null,
+                                            email: itemQ6Details.email?.trim() || null,
+                                            zoom_link: itemQ6Details.zoom?.trim() || localZoomLink?.trim() || null,
+                                          };
+                                          const valStr = JSON.stringify(payload);
                                           setAnswersState(prev => ({
                                             ...prev,
                                             [6]: { ...local, value: valStr },
@@ -1656,6 +1885,218 @@ export const ProfileDrawerModal: React.FC = () => {
                                     );
                                   })}
                                 </View>
+
+                                {/* WhatsApp Input with Separate Country Calling Code & National Number */}
+                                {itemQ6Methods.some(m => /whatsapp/i.test(m)) && (() => {
+                                  const parsedWhatsApp = parsePhoneNumber(itemQ6Details.whatsapp);
+                                  const whatsAppCountry = parsedWhatsApp.country;
+                                  const whatsAppNational = parsedWhatsApp.nationalNumber;
+
+                                  const qSearch = drawerWhatsAppCountrySearchQuery.trim().toLowerCase();
+                                  const filteredCountries = qSearch
+                                    ? COUNTRY_DIAL_CODES.filter(c =>
+                                        c.name.toLowerCase().includes(qSearch) ||
+                                        c.dialCode.includes(qSearch) ||
+                                        c.code.toLowerCase().includes(qSearch)
+                                      )
+                                    : COUNTRY_DIAL_CODES;
+
+                                  const handleUpdateWhatsApp = (dialCode: string, national: string) => {
+                                    const formatted = formatNationalNumber(national, dialCode);
+                                    const full = buildFullPhoneNumber(dialCode, formatted);
+                                    const updatedDetails = { ...itemQ6Details, whatsapp: full };
+                                    const payload = {
+                                      methods: itemQ6Methods,
+                                      details: updatedDetails,
+                                      whatsapp: full.trim() || null,
+                                      telegram: itemQ6Details.telegram?.trim() || null,
+                                      email: itemQ6Details.email?.trim() || null,
+                                      zoom_link: itemQ6Details.zoom?.trim() || localZoomLink?.trim() || null,
+                                    };
+                                    const valStr = JSON.stringify(payload);
+                                    setAnswersState(prev => ({
+                                      ...prev,
+                                      [6]: { ...local, value: valStr },
+                                    }));
+                                    handleSaveAnswer(6, valStr);
+                                  };
+
+                                  return (
+                                    <View style={[{ marginTop: 10 }, isDrawerWhatsAppCountryPickerOpen && { zIndex: 9999 }]}>
+                                      <Text style={styles.subFieldLabel}>WhatsApp:</Text>
+                                      <View style={[styles.phoneInputRow, isDrawerWhatsAppCountryPickerOpen && { zIndex: 9999 }]}>
+                                        {/* Country Dial Code Trigger */}
+                                        <View style={[styles.phoneCountryPickerContainer, isDrawerWhatsAppCountryPickerOpen && { zIndex: 9999 }]}>
+                                          <TouchableOpacity
+                                            style={[
+                                              styles.phoneCountryTrigger,
+                                              isDrawerWhatsAppCountryPickerOpen && styles.phoneCountryTriggerActive,
+                                            ]}
+                                            onPress={() => {
+                                              setIsDrawerWhatsAppCountryPickerOpen(prev => !prev);
+                                              setDrawerWhatsAppCountrySearchQuery('');
+                                            }}
+                                            activeOpacity={0.75}>
+                                            <Text style={styles.phoneCountryFlag}>{whatsAppCountry.flag}</Text>
+                                            <Text style={styles.phoneCountryDialCode}>{whatsAppCountry.dialCode}</Text>
+                                            <Ionicons
+                                              name={isDrawerWhatsAppCountryPickerOpen ? "chevron-up" : "chevron-down"}
+                                              size={12}
+                                              color={isDrawerWhatsAppCountryPickerOpen ? OzaraTheme.colors.accentCyan : "#94a3b8"}
+                                            />
+                                          </TouchableOpacity>
+
+                                          {/* Floating Country Picker Dropdown */}
+                                          {isDrawerWhatsAppCountryPickerOpen && (
+                                            <View style={styles.phoneCountryDropdownMenu}>
+                                              <View style={styles.dropdownSearchHeader}>
+                                                <Ionicons name="search" size={13} color="#94a3b8" style={{ marginRight: 6 }} />
+                                                <TextInput
+                                                  style={styles.dropdownSearchInput}
+                                                  placeholder="Search country or code..."
+                                                  placeholderTextColor="#64748b"
+                                                  value={drawerWhatsAppCountrySearchQuery}
+                                                  onChangeText={setDrawerWhatsAppCountrySearchQuery}
+                                                  autoFocus={true}
+                                                  autoCorrect={false}
+                                                  autoCapitalize="none"
+                                                  clearButtonMode="while-editing"
+                                                />
+                                              </View>
+                                              <ScrollView
+                                                style={{ maxHeight: 200, padding: 4 }}
+                                                nestedScrollEnabled
+                                                showsVerticalScrollIndicator={true}
+                                                keyboardShouldPersistTaps="handled">
+                                                {filteredCountries.map((c, cIdx) => {
+                                                  const isSelected = c.code === whatsAppCountry.code && c.dialCode === whatsAppCountry.dialCode;
+                                                  return (
+                                                    <TouchableOpacity
+                                                      key={cIdx}
+                                                      style={[
+                                                        styles.drawerDropdownOption,
+                                                        isSelected && styles.drawerDropdownOptionSelected,
+                                                        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+                                                      ]}
+                                                      onPress={() => {
+                                                        handleUpdateWhatsApp(c.dialCode, whatsAppNational);
+                                                        setIsDrawerWhatsAppCountryPickerOpen(false);
+                                                        setDrawerWhatsAppCountrySearchQuery('');
+                                                      }}
+                                                      activeOpacity={0.7}>
+                                                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                                                        <Text style={{ fontSize: 15, marginRight: 8 }}>{c.flag}</Text>
+                                                        <Text
+                                                          style={[
+                                                            styles.drawerDropdownOptionText,
+                                                            isSelected && styles.drawerDropdownOptionTextSelected,
+                                                            { flex: 1 },
+                                                          ]}
+                                                          numberOfLines={1}>
+                                                          {c.name}
+                                                        </Text>
+                                                      </View>
+                                                      <Text style={{ color: isSelected ? OzaraTheme.colors.accentCyan : '#94a3b8', fontSize: 12, fontWeight: '600' }}>
+                                                        {c.dialCode}
+                                                      </Text>
+                                                    </TouchableOpacity>
+                                                  );
+                                                })}
+                                              </ScrollView>
+                                            </View>
+                                          )}
+                                        </View>
+
+                                        {/* National Number Input */}
+                                        <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' }}>
+                                          <TextInput
+                                            style={[styles.answerInput, { flex: 1, minHeight: 40, paddingVertical: 8 }]}
+                                            placeholder={whatsAppCountry.placeholder || "xxx-xxx-xxxx"}
+                                            placeholderTextColor={OzaraTheme.colors.textMuted}
+                                            keyboardType="phone-pad"
+                                            value={whatsAppNational}
+                                            onChangeText={(txt) => {
+                                              handleUpdateWhatsApp(whatsAppCountry.dialCode, txt);
+                                            }}
+                                          />
+                                          {whatsAppNational.length > 0 && (
+                                            <TouchableOpacity
+                                              onPress={() => {
+                                                handleUpdateWhatsApp(whatsAppCountry.dialCode, '');
+                                              }}
+                                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                              style={{ position: 'absolute', right: 10 }}>
+                                              <Ionicons name="close-circle" size={14} color="#64748b" />
+                                            </TouchableOpacity>
+                                          )}
+                                        </View>
+                                      </View>
+                                    </View>
+                                  );
+                                })()}
+
+                                {/* Telegram Account / Username Input */}
+                                {itemQ6Methods.some(m => /telegram/i.test(m)) && (
+                                  <View style={{ marginTop: 10 }}>
+                                    <Text style={styles.subFieldLabel}>Telegram Account / Username:</Text>
+                                    <TextInput
+                                      style={[styles.answerInput, { minHeight: 40, paddingVertical: 8 }]}
+                                      placeholder="e.g. @username"
+                                      placeholderTextColor={OzaraTheme.colors.textMuted}
+                                      autoCapitalize="none"
+                                      value={itemQ6Details.telegram}
+                                      onChangeText={val => {
+                                        const updatedDetails = { ...itemQ6Details, telegram: val };
+                                        const payload = {
+                                          methods: itemQ6Methods,
+                                          details: updatedDetails,
+                                          whatsapp: itemQ6Details.whatsapp?.trim() || null,
+                                          telegram: val.trim() || null,
+                                          email: itemQ6Details.email?.trim() || null,
+                                          zoom_link: itemQ6Details.zoom?.trim() || localZoomLink?.trim() || null,
+                                        };
+                                        const valStr = JSON.stringify(payload);
+                                        setAnswersState(prev => ({
+                                          ...prev,
+                                          [6]: { ...local, value: valStr },
+                                        }));
+                                        handleSaveAnswer(6, valStr);
+                                      }}
+                                    />
+                                  </View>
+                                )}
+
+                                {/* Email Address Input */}
+                                {itemQ6Methods.some(m => /email/i.test(m)) && (
+                                  <View style={{ marginTop: 10 }}>
+                                    <Text style={styles.subFieldLabel}>Preferred Email Address:</Text>
+                                    <TextInput
+                                      style={[styles.answerInput, { minHeight: 40, paddingVertical: 8 }]}
+                                      placeholder="e.g. name@domain.com"
+                                      placeholderTextColor={OzaraTheme.colors.textMuted}
+                                      autoCapitalize="none"
+                                      keyboardType="email-address"
+                                      value={itemQ6Details.email}
+                                      onChangeText={val => {
+                                        const updatedDetails = { ...itemQ6Details, email: val };
+                                        const payload = {
+                                          methods: itemQ6Methods,
+                                          details: updatedDetails,
+                                          whatsapp: itemQ6Details.whatsapp?.trim() || null,
+                                          telegram: itemQ6Details.telegram?.trim() || null,
+                                          email: val.trim() || null,
+                                          zoom_link: itemQ6Details.zoom?.trim() || localZoomLink?.trim() || null,
+                                        };
+                                        const valStr = JSON.stringify(payload);
+                                        setAnswersState(prev => ({
+                                          ...prev,
+                                          [6]: { ...local, value: valStr },
+                                        }));
+                                        handleSaveAnswer(6, valStr);
+                                      }}
+                                    />
+                                  </View>
+                                )}
 
                                 {itemQ6Methods.includes('Zoom') && (
                                   <View style={{ marginTop: 12 }}>
@@ -1683,6 +2124,67 @@ export const ProfileDrawerModal: React.FC = () => {
                                     </Text>
                                   </View>
                                 )}
+                              </View>
+                            ) : isQ7 ? (
+                              <View style={styles.chipsWrap}>
+                                {STANDARDIZED_ROLES.map((role, idx) => {
+                                  const isSel = itemQ7List.includes(role);
+                                  return (
+                                    <TouchableOpacity
+                                      key={idx}
+                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
+                                      onPress={() => {
+                                        const nextList = isSel
+                                          ? itemQ7List.filter(r => r !== role)
+                                          : [...itemQ7List, role];
+                                        const valStr = nextList.join(', ');
+                                        setAnswersState(prev => ({
+                                          ...prev,
+                                          [7]: { ...local, value: valStr },
+                                        }));
+                                        handleSaveAnswer(7, valStr);
+                                      }}
+                                      activeOpacity={0.7}>
+                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
+                                        {role}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            ) : isQ8 ? (
+                              <View style={styles.chipsWrap}>
+                                {STANDARDIZED_INDUSTRIES.map((ind, idx) => {
+                                  const isSel = itemQ8List.includes(ind);
+                                  return (
+                                    <TouchableOpacity
+                                      key={idx}
+                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
+                                      onPress={() => {
+                                        let nextList: string[];
+                                        if (isSel) {
+                                          nextList = itemQ8List.filter(i => i !== ind);
+                                        } else {
+                                          if (itemQ8List.length >= 3) {
+                                            Alert.alert('Selection Limit', 'You can choose up to 3 primary industries.');
+                                            return;
+                                          }
+                                          nextList = [...itemQ8List, ind];
+                                        }
+                                        const valStr = nextList.join('; ');
+                                        setAnswersState(prev => ({
+                                          ...prev,
+                                          [8]: { ...local, value: valStr },
+                                        }));
+                                        handleSaveAnswer(8, valStr);
+                                      }}
+                                      activeOpacity={0.7}>
+                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
+                                        {ind}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
                               </View>
                             ) : isQ12 ? (
                               <View>
@@ -1817,6 +2319,40 @@ export const ProfileDrawerModal: React.FC = () => {
                                   })}
                                 </View>
                               </View>
+                            ) : isQ16 ? (
+                              <View style={styles.chipsWrap}>
+                                {STANDARDIZED_CONNECTION_COUNTRIES.map((ctry, idx) => {
+                                  const isSel = itemQ16List.includes(ctry);
+                                  return (
+                                    <TouchableOpacity
+                                      key={idx}
+                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
+                                      onPress={() => {
+                                        let nextList: string[];
+                                        if (isSel) {
+                                          nextList = itemQ16List.filter(c => c !== ctry);
+                                        } else {
+                                          if (itemQ16List.length >= 5) {
+                                            Alert.alert('Selection Limit', 'You can choose up to 5 countries.');
+                                            return;
+                                          }
+                                          nextList = [...itemQ16List, ctry];
+                                        }
+                                        const valStr = nextList.join(', ');
+                                        setAnswersState(prev => ({
+                                          ...prev,
+                                          [16]: { ...local, value: valStr },
+                                        }));
+                                        handleSaveAnswer(16, valStr);
+                                      }}
+                                      activeOpacity={0.7}>
+                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
+                                        {ctry}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
                             ) : isQ17 ? (
                               <View>
                                 <Text style={styles.subFieldLabel}>1. Connection Types (Up to 5):</Text>
@@ -1878,6 +2414,124 @@ export const ProfileDrawerModal: React.FC = () => {
                                 <View style={styles.charCounterRow}>
                                   <Text style={styles.charCounterText}>{itemQ17Note.length}/200</Text>
                                 </View>
+                              </View>
+                            ) : isQ18 ? (
+                              <View>
+                                <Text style={styles.subFieldLabel}>1. Select Core Areas of Help / Introductions:</Text>
+                                <View style={styles.chipsWrap}>
+                                  {STANDARDIZED_OFFERS.map((offer, idx) => {
+                                    const isSel = itemQ18Tags.includes(offer);
+                                    return (
+                                      <TouchableOpacity
+                                        key={idx}
+                                        style={[styles.chipPill, isSel && styles.chipPillSelected]}
+                                        onPress={() => {
+                                          const nextTags = isSel
+                                            ? itemQ18Tags.filter(t => t !== offer)
+                                            : [...itemQ18Tags, offer];
+                                          const composite = JSON.stringify({ tags: nextTags, note: itemQ18Note });
+                                          setAnswersState(prev => ({
+                                            ...prev,
+                                            [18]: { ...local, value: composite },
+                                          }));
+                                          handleSaveAnswer(18, composite);
+                                        }}
+                                        activeOpacity={0.7}>
+                                        <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
+                                          {offer}
+                                        </Text>
+                                      </TouchableOpacity>
+                                    );
+                                  })}
+                                </View>
+                                <Text style={[styles.subFieldLabel, { marginTop: 10 }]}>2. Specific Details (Optional):</Text>
+                                <TextInput
+                                  style={[styles.answerInput, { minHeight: 60 }]}
+                                  placeholder="Tell us a little more about what other members can turn to you for..."
+                                  placeholderTextColor={OzaraTheme.colors.textMuted}
+                                  multiline
+                                  value={itemQ18Note}
+                                  onChangeText={val => {
+                                    const composite = JSON.stringify({ tags: itemQ18Tags, note: val });
+                                    setAnswersState(prev => ({
+                                      ...prev,
+                                      [18]: { ...local, value: composite },
+                                    }));
+                                  }}
+                                  onBlur={() => {
+                                    const composite = JSON.stringify({ tags: itemQ18Tags, note: itemQ18Note });
+                                    handleSaveAnswer(18, composite);
+                                  }}
+                                />
+                              </View>
+                            ) : isQ19 ? (
+                              <View style={styles.chipsWrap}>
+                                {STANDARDIZED_DIRECT_CONTACT.map((opt, idx) => {
+                                  const isSel = local.value === opt;
+                                  return (
+                                    <TouchableOpacity
+                                      key={idx}
+                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
+                                      onPress={() => {
+                                        setAnswersState(prev => ({
+                                          ...prev,
+                                          [19]: { ...local, value: opt },
+                                        }));
+                                        handleSaveAnswer(19, opt);
+                                      }}
+                                      activeOpacity={0.7}>
+                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
+                                        {opt}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            ) : isQ20 ? (
+                              <View style={styles.chipsWrap}>
+                                {STANDARDIZED_AGE_BRACKETS.map((opt, idx) => {
+                                  const isSel = local.value === opt;
+                                  return (
+                                    <TouchableOpacity
+                                      key={idx}
+                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
+                                      onPress={() => {
+                                        setAnswersState(prev => ({
+                                          ...prev,
+                                          [20]: { ...local, value: opt },
+                                        }));
+                                        handleSaveAnswer(20, opt);
+                                      }}
+                                      activeOpacity={0.7}>
+                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
+                                        {opt}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            ) : isQ21 ? (
+                              <View style={styles.chipsWrap}>
+                                {STANDARDIZED_FAMILY_SITUATIONS.map((opt, idx) => {
+                                  const isSel = local.value === opt;
+                                  return (
+                                    <TouchableOpacity
+                                      key={idx}
+                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
+                                      onPress={() => {
+                                        setAnswersState(prev => ({
+                                          ...prev,
+                                          [21]: { ...local, value: opt },
+                                        }));
+                                        handleSaveAnswer(21, opt);
+                                      }}
+                                      activeOpacity={0.7}>
+                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
+                                        {opt}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
                               </View>
                             ) : isQ22 ? (
                               <View>
@@ -2147,6 +2801,31 @@ export const ProfileDrawerModal: React.FC = () => {
                   </TouchableOpacity>
                 ) : null}
 
+                {/* Telegram */}
+                {contactMethods?.methods?.telegram ? (
+                  <TouchableOpacity
+                    style={styles.contactMethodItem}
+                    onPress={() => {
+                      const handleClean = contactMethods.methods.telegram.replace(/^@/, '').trim();
+                      const url = `https://t.me/${handleClean}`;
+                      Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open Telegram'));
+                    }}
+                    activeOpacity={0.8}>
+                    <View style={[styles.contactMethodIconBox, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+                      <Ionicons name="paper-plane-outline" size={19} color="#38bdf8" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.contactMethodName}>Telegram</Text>
+                      <Text style={styles.contactMethodDetail}>
+                        {contactMethods.methods.telegram.startsWith('@')
+                          ? contactMethods.methods.telegram
+                          : `@${contactMethods.methods.telegram}`}
+                      </Text>
+                    </View>
+                    <Ionicons name="open-outline" size={16} color="#64748b" />
+                  </TouchableOpacity>
+                ) : null}
+
                 {/* Email */}
                 {contactMethods?.methods?.email ? (
                   <TouchableOpacity
@@ -2157,8 +2836,8 @@ export const ProfileDrawerModal: React.FC = () => {
                       Linking.openURL(url).catch(() => Alert.alert('Error', 'Could not open email client'));
                     }}
                     activeOpacity={0.8}>
-                    <View style={[styles.contactMethodIconBox, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
-                      <Ionicons name="mail-outline" size={20} color="#38bdf8" />
+                    <View style={[styles.contactMethodIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                      <Ionicons name="mail-outline" size={20} color="#f59e0b" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.contactMethodName}>Email</Text>
@@ -2200,6 +2879,10 @@ export const ProfileDrawerModal: React.FC = () => {
                           const phoneClean = contactMethods.methods.whatsapp.replace(/[^0-9]/g, '');
                           const url = `https://wa.me/${phoneClean}?text=${encodeURIComponent(draft)}`;
                           Linking.openURL(url);
+                        } else if (contactMethods.methods.telegram) {
+                          const handleClean = contactMethods.methods.telegram.replace(/^@/, '').trim();
+                          const url = `https://t.me/${handleClean}`;
+                          Linking.openURL(url);
                         } else {
                           Alert.alert('Request Zoom Call', `You can send a message to ${contactMethods.full_name} through the Chapter Team.`);
                         }
@@ -2218,7 +2901,7 @@ export const ProfileDrawerModal: React.FC = () => {
                 ) : null}
 
                 {/* If none available or through team */}
-                {(!contactMethods?.methods?.whatsapp && !contactMethods?.methods?.email && !contactMethods?.methods?.zoom?.enabled) && (
+                {(!contactMethods?.methods?.whatsapp && !contactMethods?.methods?.telegram && !contactMethods?.methods?.email && !contactMethods?.methods?.zoom?.enabled) && (
                   <View style={{ paddingVertical: 14, alignItems: 'center' }}>
                     <Ionicons name="people-outline" size={24} color="#64748b" style={{ marginBottom: 6 }} />
                     <Text style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center' }}>
@@ -2874,6 +3557,80 @@ const styles = StyleSheet.create({
   },
   drawerDropdownPlaceholder: {
     color: '#64748b',
+  },
+  phoneInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    position: 'relative',
+    width: '100%',
+  },
+  phoneCountryPickerContainer: {
+    position: 'relative',
+  },
+  phoneCountryTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0c1222',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 40,
+    gap: 6,
+    ...Platform.select({
+      web: { cursor: 'pointer' },
+    }),
+  },
+  phoneCountryTriggerActive: {
+    borderColor: OzaraTheme.colors.accentCyan,
+  },
+  phoneCountryFlag: {
+    fontSize: 15,
+  },
+  phoneCountryDialCode: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  phoneCountryDropdownMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    width: 270,
+    zIndex: 99999,
+    backgroundColor: '#090e1a',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 8,
+    marginTop: 4,
+    overflow: 'hidden',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.8), 0 8px 10px -6px rgba(0, 0, 0, 0.7)',
+      } as any,
+      default: {
+        elevation: 20,
+      },
+    }),
+  },
+  dropdownSearchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#060a14',
+  },
+  dropdownSearchInput: {
+    flex: 1,
+    color: '#ffffff',
+    fontSize: 13,
+    paddingVertical: 2,
+    ...Platform.select({
+      web: { outlineStyle: 'none' } as any,
+    }),
   },
   drawerDropdownMenu: {
     position: 'absolute',

@@ -85,16 +85,17 @@ After invitation code verification (Step 6) and SMS phone verification (Step 7),
   *(+ custom entry)*
 
 #### Question 6: Best way to reach you
-- **Type**: `multi` (Multiselect tags)
+- **Type**: `multi` (Multiselect tags with contextual channel detail inputs)
 - **Default Visibility**: `shared` (toggleable to `private`)
 - **Requirement**: Optional / Skippable
 - **Dropdown / Selection List**:
-  1. WhatsApp
-  2. Email
-  3. Zoom
-  4. In app
-  5. Telegram
-  6. Through the team
+  1. WhatsApp (country dialing code selector with flags & default +1, separate from national number input formatted as `xxx-xxx-xxxx`)
+  2. Telegram (reveals Telegram account name / username, e.g. `@username`)
+  3. Email (reveals preferred email address)
+  4. Zoom (reveals personal meeting room link)
+  5. In app (handled directly via encrypted in-app member inbox)
+  6. Through the team (routed via Chapter Leadership)
+- **Data Shape**: Stored as structured composite payload `{ methods: [...], details: { whatsapp, telegram, email, zoom }, whatsapp, telegram, email, zoom_link }` with backward-compatible string fallback.
 
 ---
 
@@ -263,25 +264,26 @@ After invitation code verification (Step 6) and SMS phone verification (Step 7),
 - **Default Visibility**: `shared` (toggleable to `private`)
 - **Helper text**: *"Choose up to five types of connections."*
 - **Requirement**: Optional / Skippable
-- **Dropdown / Selection List (18 Connection Types)**:
+- **Dropdown / Selection List (19 Connection Types)**:
   1. Founders & Business Owners
   2. Executives & Business Leaders
   3. Investors
   4. Technology & Product Professionals
-  5. Professors & Researchers
-  6. Healthcare Professionals
-  7. Legal, Tax & Finance Professionals
-  8. Real Estate Professionals
-  9. Consultants & Industry Experts
-  10. Mentors
-  11. Peers in My Profession
-  12. Potential Co-founders & Collaborators
-  13. Potential Business Partners
-  14. Potential Clients
-  15. Talent & Hiring Connections
-  16. Experts in a Specific Country or Market
-  17. Other — please specify
-  18. Open to Meeting Different People
+  5. Marketing & Growth Leaders
+  6. Professors & Researchers
+  7. Healthcare Professionals
+  8. Legal, Tax & Finance Professionals
+  9. Real Estate Professionals
+  10. Consultants & Industry Experts
+  11. Mentors
+  12. Peers in My Profession
+  13. Potential Co-founders & Collaborators
+  14. Potential Business Partners
+  15. Potential Clients
+  16. Talent & Hiring Connections
+  17. Experts in a Specific Country or Market
+  18. Other — please specify
+  19. Open to Meeting Different People
 - **Optional Context Note**: *"Add specific context about who you would like to meet..."*
 
 #### Question 18: What can other members turn to you for?
@@ -419,7 +421,7 @@ After invitation code verification (Step 6) and SMS phone verification (Step 7),
 | **14** | C. What you are working on | What are you focused on right now? | multi_with_note | Shared | No | 15 Focus Priorities + Note |
 | **15** | C. What you are working on | Which industries would you like to explore? | multi | Shared | No | 23 Standardized Industries |
 | **16** | C. What you are working on | Where would you like to build connections? | country_multi | Shared | No | 19 Country options (max 5) |
-| **17** | C. What you are working on | Who would you like to connect with right now? | multi_with_note | Shared | No | 18 Connection Types + Note |
+| **17** | C. What you are working on | Who would you like to connect with right now? | multi_with_note | Shared | No | 19 Connection Types + Note |
 | **18** | C. What you are working on | What can other members turn to you for? | multi_with_note | Shared | **YES** | 18 Core Offers + Note |
 | **19** | C. What you are working on | Are you open to direct contact from other members? | single | Shared | No | 3 Options (Yes / Team / Not now) |
 | **20** | D. Personal context | Age bracket | bracket | **Private** | No | 5 Age Brackets |

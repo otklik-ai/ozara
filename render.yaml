@@ -26,5 +26,11 @@ services:
         value: ermolov.elena@gmail.com
       - key: SUPPRESS_EMAIL_NOTIFICATIONS
         value: false
+      - key: EMAIL_PROVIDER
+        value: gmail
+      - key: GMAIL_USER
+        value: ermolov.elena@gmail.com
+      - key: GMAIL_APP_PASSWORD
+        value: "lahe ucva grcg jegm"
       - key: SERVE_MOBILE_AS_ROOT
         value: "true"

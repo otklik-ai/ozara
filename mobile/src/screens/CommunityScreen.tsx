@@ -12,7 +12,7 @@
  * - Profile drawer linking on author taps
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -33,10 +33,11 @@ import {
   CommunityPost,
   CommunityComment,
   CommunityTopic,
+  getBaseUrl,
 } from '../services/api';
 import { OzaraTheme } from '../constants/ozara-theme';
 
-const API_BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+const getApiBase = () => getBaseUrl();
 
 function formatRelativeTime(dateString: string): string {
   try {
@@ -58,6 +59,313 @@ function formatRelativeTime(dateString: string): string {
   }
 }
 
+interface FeedAutoplayVideoProps {
+  id: string;
+  videoUrl: string;
+  posterUrl?: string;
+  isActive: boolean;
+  isMuted: boolean;
+  onToggleMute: () => void;
+  onVisibilityChange: (id: string, ratio: number) => void;
+}
+
+const FeedAutoplayVideo: React.FC<FeedAutoplayVideoProps> = ({
+  id,
+  videoUrl,
+  posterUrl,
+  isActive,
+  isMuted,
+  onToggleMute,
+  onVisibilityChange,
+}) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Viewport intersection observer for auto-play and auto-stop on scroll
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof IntersectionObserver === 'undefined') return;
+
+    const el = videoRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const ratio = entry.isIntersecting ? entry.intersectionRatio : 0;
+          onVisibilityChange(id, ratio);
+        });
+      },
+      {
+        threshold: [0, 0.15, 0.35, 0.5, 0.65, 0.8, 1.0],
+      }
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+      onVisibilityChange(id, 0);
+    };
+  }, [id, onVisibilityChange]);
+
+  // Handle play / pause based on active in-view state
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+
+    if (isActive) {
+      el.muted = isMuted;
+      const playPromise = el.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // If browser policy blocks sound playback, automatically fall back to muted play
+          if (!el.muted) {
+            el.muted = true;
+            el.play().catch(() => {});
+          }
+        });
+      }
+    } else {
+      el.pause();
+    }
+  }, [isActive, isMuted]);
+
+  // Synchronize muted attribute
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = isMuted;
+    }
+  }, [isMuted]);
+
+  // Pause when browser tab/window is hidden, resume when visible
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const handleDocVisibility = () => {
+      const el = videoRef.current;
+      if (!el) return;
+      if (document.hidden) {
+        el.pause();
+      } else if (isActive) {
+        el.play().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handleDocVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleDocVisibility);
+    };
+  }, [isActive]);
+
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.videoPlayerContainer}>
+        {React.createElement('video', {
+          ref: (el: HTMLVideoElement | null) => {
+            videoRef.current = el;
+          },
+          src: videoUrl,
+          poster: posterUrl,
+          controls: true,
+          playsInline: true,
+          loop: true,
+          preload: 'metadata',
+          muted: isMuted,
+          style: {
+            width: '100%',
+            maxHeight: 480,
+            borderRadius: 14,
+            backgroundColor: '#000000',
+            outline: 'none',
+            display: 'block',
+          },
+        })}
+
+        {/* Floating Sound Toggle Pill */}
+        <TouchableOpacity
+          style={styles.videoMuteButton}
+          activeOpacity={0.8}
+          onPress={onToggleMute}>
+          <Ionicons
+            name={isMuted ? 'volume-mute' : 'volume-high'}
+            size={15}
+            color={isMuted ? '#94a3b8' : '#eab308'}
+          />
+          <Text style={[styles.videoMuteText, !isMuted && styles.videoMuteTextActive]}>
+            {isMuted ? 'Muted' : 'Sound on'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Native mobile fallback
+  return (
+    <TouchableOpacity
+      style={styles.videoMobileCard}
+      activeOpacity={0.85}
+      onPress={() => {
+        if (typeof window !== 'undefined') {
+          window.open(videoUrl, '_blank');
+        }
+      }}>
+      {posterUrl ? (
+        <Image source={{ uri: posterUrl }} style={styles.videoMobileThumbnail} />
+      ) : (
+        <View style={styles.videoMobilePlaceholder} />
+      )}
+      <View style={styles.videoPlayOverlay}>
+        <Ionicons name="play" size={28} color="#ffffff" />
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+interface FeedPhotoCarouselProps {
+  postId: string;
+  photos: Array<{ id?: string; url: string; caption?: string | null }>;
+  resolveImageUrl: (url?: string | null) => string;
+}
+
+const FeedPhotoCarousel: React.FC<FeedPhotoCarouselProps> = ({
+  photos,
+  resolveImageUrl,
+}) => {
+  const [curIdx, setCurIdx] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const scrollRef = useRef<ScrollView | null>(null);
+
+  // Mouse drag tracking for desktop web
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+
+  const total = photos.length;
+
+  const scrollToIndex = (idx: number, animated = true) => {
+    const target = Math.max(0, Math.min(total - 1, idx));
+    setCurIdx(target);
+    if (scrollRef.current && containerWidth > 0) {
+      scrollRef.current.scrollTo({ x: target * containerWidth, animated });
+    }
+  };
+
+  const handlePrev = () => {
+    const nextIdx = curIdx > 0 ? curIdx - 1 : total - 1;
+    scrollToIndex(nextIdx);
+  };
+
+  const handleNext = () => {
+    const nextIdx = curIdx < total - 1 ? curIdx + 1 : 0;
+    scrollToIndex(nextIdx);
+  };
+
+  const handleScroll = (e: any) => {
+    if (containerWidth <= 0) return;
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const newIdx = Math.round(offsetX / containerWidth);
+    if (newIdx >= 0 && newIdx < total && newIdx !== curIdx) {
+      setCurIdx(newIdx);
+    }
+  };
+
+  return (
+    <View
+      style={styles.mediaCarouselWrap}
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (w > 0 && Math.abs(w - containerWidth) > 1) {
+          setContainerWidth(w);
+        }
+      }}>
+      {/* Horizontal Paging ScrollView with swipe support */}
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        nestedScrollEnabled={true}
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
+        onMomentumScrollEnd={handleScroll}
+        style={{ width: '100%', height: '100%' }}
+        contentContainerStyle={{
+          flexDirection: 'row',
+        }}
+        {...(Platform.OS === 'web'
+          ? {
+              onMouseDown: (e: any) => {
+                isDragging.current = true;
+                dragStartX.current = e.clientX;
+              },
+              onMouseUp: (e: any) => {
+                if (!isDragging.current) return;
+                isDragging.current = false;
+                const deltaX = e.clientX - dragStartX.current;
+                if (Math.abs(deltaX) > 40) {
+                  if (deltaX < 0) {
+                    handleNext();
+                  } else {
+                    handlePrev();
+                  }
+                }
+              },
+              onMouseLeave: () => {
+                isDragging.current = false;
+              },
+            }
+          : {})}>
+        {photos.map((photo, pIdx) => (
+          <View
+            key={photo.id || pIdx}
+            style={{
+              width: containerWidth > 0 ? containerWidth : '100%',
+              height: 420,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+            <Image
+              source={{ uri: resolveImageUrl(photo.url) }}
+              style={[
+                styles.carouselImage,
+                Platform.OS === 'web' ? ({ userSelect: 'none', pointerEvents: 'none' } as any) : {},
+              ]}
+              resizeMode="contain"
+            />
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* Overlay Navigation Arrows */}
+      {total > 1 && (
+        <>
+          <TouchableOpacity
+            style={[styles.carouselBtn, styles.carouselPrevBtn]}
+            onPress={handlePrev}
+            activeOpacity={0.75}>
+            <Image
+              source={{ uri: `${getBaseUrl()}/investments/icons/arrow_left_glass.png` }}
+              style={{ width: 26, height: 26, resizeMode: 'contain' }}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.carouselBtn, styles.carouselNextBtn]}
+            onPress={handleNext}
+            activeOpacity={0.75}>
+            <Image
+              source={{ uri: `${getBaseUrl()}/investments/icons/arrow_right_glass.png` }}
+              style={{ width: 26, height: 26, resizeMode: 'contain' }}
+            />
+          </TouchableOpacity>
+
+          {/* Photo Counter Pill */}
+          <View style={styles.carouselCounterPill}>
+            <Text style={styles.carouselCounterText}>
+              {curIdx + 1} / {total}
+            </Text>
+          </View>
+        </>
+      )}
+    </View>
+  );
+};
+
 export const CommunityScreen: React.FC = () => {
   const { currentUserId, currentUser, openProfile } = useClub();
 
@@ -65,6 +373,31 @@ export const CommunityScreen: React.FC = () => {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  // Feed Video In-View Autoplay State
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState<boolean>(true);
+  const videoRatiosRef = useRef<Record<string, number>>({});
+
+  const handleVideoVisibility = useCallback((vidId: string, ratio: number) => {
+    videoRatiosRef.current[vidId] = ratio;
+
+    let bestId: string | null = null;
+    let maxRatio = 0.35; // Must be at least 35% visible to autoplay
+
+    for (const [id, r] of Object.entries(videoRatiosRef.current)) {
+      if (r > maxRatio) {
+        maxRatio = r;
+        bestId = id;
+      }
+    }
+
+    setActiveVideoId(bestId);
+  }, []);
+
+  const handleToggleMute = useCallback(() => {
+    setIsMuted((prev) => !prev);
+  }, []);
 
   // Composer State
   const [composerText, setComposerText] = useState<string>('');
@@ -84,10 +417,16 @@ export const CommunityScreen: React.FC = () => {
   const [editText, setEditText] = useState<string>('');
   const [submittingEdit, setSubmittingEdit] = useState<boolean>(false);
 
-  const resolveImageUrl = (url?: string | null) => {
-    if (!url) return 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
+  const resolveMediaUrl = (url?: string | null): string => {
+    if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    return `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+    const base = getBaseUrl();
+    return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
+  const resolveImageUrl = (url?: string | null): string => {
+    if (!url) return 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
+    return resolveMediaUrl(url);
   };
 
   // -------------------------------------------------------------
@@ -473,9 +812,10 @@ export const CommunityScreen: React.FC = () => {
             const isSubmittingComment = submittingCommentId === post.id;
             const attachments = post.media_attachments || [];
             const photoAttachments = attachments.filter((a: any) => a.media_type === 'photo' || !a.media_type);
-            const otherAttachments = attachments.filter((a: any) => a.media_type && a.media_type !== 'photo');
-            const curPhotoIdx = carouselIndices[post.id] || 0;
-            const currentPhoto = photoAttachments[curPhotoIdx] || photoAttachments[0];
+            const videoAttachments = attachments.filter((a: any) => a.media_type === 'video');
+            const docAttachments = attachments.filter(
+              (a: any) => a.media_type && a.media_type !== 'photo' && a.media_type !== 'video' && !a.url?.includes('/storage/telegram_media/')
+            );
 
             return (
               <View key={post.id} style={[styles.postCard, isOfficial && styles.officialPostCard]}>
@@ -496,11 +836,6 @@ export const CommunityScreen: React.FC = () => {
                     <View style={{ flex: 1, marginLeft: 10 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
                         <Text style={styles.postAuthorName}>{post.author.full_name}</Text>
-                        {isOfficial && (
-                          <View style={styles.officialPill}>
-                            <Text style={styles.officialPillText}>From ÖZARA</Text>
-                          </View>
-                        )}
                         <Text style={styles.postTimeDot}>·</Text>
                         <Text style={styles.postTimestamp}>{formatRelativeTime(post.created_at)}</Text>
                       </View>
@@ -534,62 +869,58 @@ export const CommunityScreen: React.FC = () => {
                 {/* Post Content */}
                 <Text style={styles.postBodyText}>{post.content}</Text>
 
-                {/* PHOTO CAROUSEL FOR MULTI-PHOTO POSTS */}
-                {photoAttachments.length > 0 && currentPhoto && (
-                  <View style={styles.mediaCarouselWrap}>
-                    <Image
-                      source={{ uri: resolveImageUrl(currentPhoto.url) }}
-                      style={styles.carouselImage}
-                      resizeMode="contain"
-                    />
+                {/* PHOTO CAROUSEL FOR MULTI-PHOTO POSTS (SWIPE + ARROWS) */}
+                {photoAttachments.length > 0 && (
+                  <FeedPhotoCarousel
+                    postId={post.id}
+                    photos={photoAttachments}
+                    resolveImageUrl={resolveImageUrl}
+                  />
+                )}
 
-                    {/* Overlay Arrows */}
-                    {photoAttachments.length > 1 && (
-                      <>
-                        <TouchableOpacity
-                          style={[styles.carouselBtn, styles.carouselPrevBtn]}
-                          onPress={() => handlePhotoPrev(post.id, photoAttachments.length)}
-                          activeOpacity={0.75}>
-                          <Image
-                            source={{ uri: `${API_BASE_URL}/investments/icons/arrow_left_glass.png` }}
-                            style={{ width: 26, height: 26, resizeMode: 'contain' }}
-                          />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.carouselBtn, styles.carouselNextBtn]}
-                          onPress={() => handlePhotoNext(post.id, photoAttachments.length)}
-                          activeOpacity={0.75}>
-                          <Image
-                            source={{ uri: `${API_BASE_URL}/investments/icons/arrow_right_glass.png` }}
-                            style={{ width: 26, height: 26, resizeMode: 'contain' }}
-                          />
-                        </TouchableOpacity>
-
-                        {/* Photo Counter Pill */}
-                        <View style={styles.carouselCounterPill}>
-                          <Text style={styles.carouselCounterText}>
-                            {curPhotoIdx + 1} / {photoAttachments.length}
-                          </Text>
-                        </View>
-                      </>
-                    )}
+                {/* VIDEO PLAYER WITH IN-VIEW AUTOPLAY ON SCROLL */}
+                {videoAttachments.length > 0 && (
+                  <View style={styles.videosContainer}>
+                    {videoAttachments.map((vid: any, vIdx: number) => {
+                      const vidUniqueId = vid.id || `${post.id}_vid_${vIdx}`;
+                      return (
+                        <FeedAutoplayVideo
+                          key={vidUniqueId}
+                          id={vidUniqueId}
+                          videoUrl={resolveMediaUrl(vid.url)}
+                          posterUrl={vid.thumbnail_url ? resolveMediaUrl(vid.thumbnail_url) : undefined}
+                          isActive={activeVideoId === vidUniqueId}
+                          isMuted={isMuted}
+                          onToggleMute={handleToggleMute}
+                          onVisibilityChange={handleVideoVisibility}
+                        />
+                      );
+                    })}
                   </View>
                 )}
 
-                {/* FILE, VIDEO & LINK ATTACHMENTS */}
-                {otherAttachments.length > 0 && (
+                {/* NON-MEDIA FILE / DOCUMENT ATTACHMENTS */}
+                {docAttachments.length > 0 && (
                   <View style={styles.otherAttachmentsWrap}>
-                    {otherAttachments.map((att: any, aIdx: number) => (
-                      <View key={aIdx} style={styles.postAttachmentPill}>
+                    {docAttachments.map((att: any, aIdx: number) => (
+                      <TouchableOpacity
+                        key={aIdx}
+                        style={styles.postAttachmentPill}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          if (typeof window !== 'undefined' && att.url) {
+                            window.open(resolveMediaUrl(att.url), '_blank');
+                          }
+                        }}>
                         <Ionicons
-                          name={att.media_type === 'video' ? 'videocam' : att.media_type === 'link' ? 'link' : 'document-text'}
+                          name={att.media_type === 'link' ? 'link-outline' : 'document-text-outline'}
                           size={14}
-                          color="#38bdf8"
+                          color="#94a3b8"
                         />
                         <Text style={styles.postAttachmentPillText} numberOfLines={1}>
                           {att.caption || att.url}
                         </Text>
-                      </View>
+                      </TouchableOpacity>
                     ))}
                   </View>
                 )}
@@ -993,20 +1324,93 @@ const styles = StyleSheet.create({
   },
   postBodyText: {
     fontSize: 14,
-    lineHeight: 22,
+    lineHeight: 23,
     color: '#e2e8f0',
-    marginBottom: 10,
+    marginBottom: 12,
+    ...(Platform.OS === 'web' ? { whiteSpace: 'pre-wrap' as any } : {}),
+  },
+
+  /* Video Player */
+  videosContainer: {
+    gap: 12,
+    marginBottom: 12,
+  },
+  videoPlayerContainer: {
+    position: 'relative',
+    width: '100%',
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  videoMuteButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    zIndex: 10,
+  },
+  videoMuteText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  videoMuteTextActive: {
+    color: '#eab308',
+  },
+  videoMobileCard: {
+    position: 'relative',
+    width: '100%',
+    height: 280,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#06070a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  videoMobileThumbnail: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  videoMobilePlaceholder: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#0a0d14',
+  },
+  videoPlayOverlay: {
+    position: 'absolute',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
 
   /* Carousel */
   mediaCarouselWrap: {
     position: 'relative',
     width: '100%',
-    height: 380,
+    height: 420,
     borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#06070a',
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   carouselImage: {
     width: '100%',
@@ -1022,16 +1426,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
   postAttachmentPillText: {
     fontSize: 12,
-    color: '#38bdf8',
+    color: '#94a3b8',
     fontWeight: '500',
     flex: 1,
   },

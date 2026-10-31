@@ -278,6 +278,10 @@ def run_tests():
     assert "admin_revoke_invitation" in actions_found, "Missing admin_revoke_invitation audit log"
     print("  [✓] Every administrative action accurately attributed to the performing admin")
 
+    # Clean up test event
+    request(f"/api/admin/events/{event_id}", method="DELETE", headers={"x-user-id": admin_alexandra})
+    print("  [✓] Test event cleaned up from database")
+
     print("\n" + "=" * 70)
     print("ALL TESTS PASSED SUCCESSFULLY (100% SPEC COMPLIANCE)")
     print("=" * 70)

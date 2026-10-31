@@ -81,7 +81,7 @@ interface PhoneAuthScreenProps {
   onGoToInvitation?: () => void;
 }
 
-type AuthStep = 'enter_phone' | 'enter_code';
+type AuthStep = 'enter_email' | 'enter_code';
 
 export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
   onBack,
@@ -99,25 +99,18 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
 
   const {
     switchPersona,
-    setVerifiedPhone,
     conditionsAgreed,
     setConditionsAgreedState,
     openConditions,
     authMode,
     setAuthMode,
     pendingAccessEmail,
-    verifiedPhone,
     invitationCode,
   } = useClub();
 
-  const [step, setStep] = useState<AuthStep>('enter_phone');
-  const [selectedCountry, setSelectedCountry] = useState<CountryItem>(COUNTRIES_LIST[0]);
-  const [phoneNumber, setPhoneNumber] = useState<string>(() => {
-    if (verifiedPhone) {
-      const cleaned = verifiedPhone.replace(/^\+?[0-9]{1,4}/, '').trim();
-      return cleaned || verifiedPhone.replace(/\D/g, '');
-    }
-    return '';
+  const [step, setStep] = useState<AuthStep>('enter_email');
+  const [email, setEmail] = useState<string>(() => {
+    return pendingAccessEmail || OzaraStorage.getItem(OZARA_STORAGE_KEYS.ACCOUNT_EMAIL) || '';
   });
   const [code, setCode] = useState<string>('');
 
@@ -128,32 +121,15 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
   const [countdown, setCountdown] = useState<number>(45);
   const [isResendActive, setIsResendActive] = useState<boolean>(false);
 
-  const [showCountryModal, setShowCountryModal] = useState<boolean>(false);
-  const [countrySearch, setCountrySearch] = useState<string>('');
   const [showContactModal, setShowContactModal] = useState<boolean>(false);
   const [showConditionsModal, setShowConditionsModal] = useState<boolean>(false);
 
-  const [whatsappEnabled, setWhatsappEnabled] = useState<boolean>(false);
   const [isTestMode, setIsTestMode] = useState<boolean>(() => {
     return typeof __DEV__ !== 'undefined' ? Boolean(__DEV__) : true;
   });
   const [testModeCode, setTestModeCode] = useState<string>('123456');
 
   const codeInputRef = useRef<TextInput>(null);
-
-  // Check backend auth config on mount
-  useEffect(() => {
-    ApiService.getPhoneAuthConfig()
-      .then((cfg: any) => {
-        if (cfg) {
-          setWhatsappEnabled(Boolean(cfg.whatsapp_verification_enabled));
-          if (cfg.is_test_mode !== undefined) {
-            setIsTestMode(Boolean(cfg.is_test_mode));
-          }
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   // Countdown timer for code resend
   useEffect(() => {
@@ -167,32 +143,25 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
     }
   }, [step, countdown]);
 
-  const fullNormalizedPhone = `${selectedCountry.dialCode}${phoneNumber.replace(/\D/g, '')}`;
-
-  // Validate phone number: minimum 7 digits
-  const rawDigits = phoneNumber.replace(/\D/g, '');
-  const isPhoneValid = rawDigits.length >= 7 && rawDigits.length <= 15;
+  const cleanEmail = email.trim().toLowerCase();
+  const isEmailValid = cleanEmail.length >= 4 && cleanEmail.includes('@') && cleanEmail.includes('.');
 
   const handleSendCode = async () => {
-    if (!isPhoneValid || isLoading) return;
+    if (!isEmailValid || isLoading) return;
 
     setErrorMessage(null);
     setErrorType(null);
     setIsLoading(true);
 
     try {
-      const res = await ApiService.sendPhoneVerificationCode({
-        phone: fullNormalizedPhone,
-        country_code: selectedCountry.code,
+      const res = await ApiService.sendEmailVerificationCode({
+        email: cleanEmail,
       });
 
       if (res && res.success) {
         if (res.mock_code || res.demoCode) {
           setIsTestMode(true);
           setTestModeCode(res.mock_code || res.demoCode || '123456');
-        } else if (res.is_test_mode) {
-          setIsTestMode(true);
-          setTestModeCode('123456');
         }
         setStep('enter_code');
         setCode('');
@@ -204,7 +173,7 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
         setErrorMessage(res?.message || 'Unable to deliver verification code. Please try again.');
       }
     } catch (err: any) {
-      console.error('[PhoneAuth] Send code error:', err);
+      console.error('[EmailAuth] Send code error:', err);
       setErrorType('delivery');
       setErrorMessage(err.message || 'Delivery error: Unable to dispatch verification code.');
     } finally {
@@ -221,25 +190,16 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
     setIsLoading(true);
 
     try {
-      const inviteToken =
-        invitationCode ||
-        OzaraStorage.getItem(OZARA_STORAGE_KEYS.INVITATION_CODE) ||
-        OzaraStorage.getItem(OZARA_STORAGE_KEYS.PENDING_TOKEN) ||
-        undefined;
-
-      const res = await ApiService.verifyPhoneCode({
-        phone: fullNormalizedPhone,
+      const res = await ApiService.verifyEmailCode({
+        email: cleanEmail,
         code: finalCode,
-        token: authMode === 'new_member' ? inviteToken : undefined,
       });
 
       if (res && res.verified) {
-        // Ownership verified
-        setVerifiedPhone(fullNormalizedPhone);
-
         if (res.user) {
           switchPersona(res.user.id);
           OzaraStorage.setItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID, res.user.id);
+          OzaraStorage.setItem(OZARA_STORAGE_KEYS.ACCOUNT_EMAIL, cleanEmail);
           OzaraStorage.setItem(OZARA_STORAGE_KEYS.TERMS_ACCEPTED_VERSION, '2026-10-v1');
           if (res.token || (res as any).session_token) {
             OzaraStorage.setItem('ozara_session_token', res.token || (res as any).session_token);
@@ -247,17 +207,8 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
         }
 
         if (res.onboarding_completed) {
-          // Returning approved member who has completed all onboarding steps
           onEnterClub();
         } else {
-          // Case B: Not an existing member and not registering with invitation
-          if (authMode === 'sign_in' && !res.is_existing_member && !res.user) {
-            setErrorType('invalid');
-            setErrorMessage('No active membership found for this number. Please check your phone or enter an invitation code to join.');
-            return;
-          }
-
-          // Case C: New user with invitation code, or incomplete profile -> proceed to questionnaire
           onGoToSignUp();
         }
       } else {
@@ -265,7 +216,7 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
         setErrorMessage('Invalid verification code. Please check and try again.');
       }
     } catch (err: any) {
-      console.error('[PhoneAuth] Verify error:', err);
+      console.error('[EmailAuth] Verify error:', err);
       if (err.message && err.message.toLowerCase().includes('expired')) {
         setErrorType('expired');
         setErrorMessage('Verification code has expired. Please request a new code.');
@@ -285,18 +236,14 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
     setIsLoading(true);
 
     try {
-      const res = await ApiService.sendPhoneVerificationCode({
-        phone: fullNormalizedPhone,
-        country_code: selectedCountry.code,
+      const res = await ApiService.sendEmailVerificationCode({
+        email: cleanEmail,
       });
 
       if (res && res.success) {
         if (res.mock_code || res.demoCode) {
           setIsTestMode(true);
           setTestModeCode(res.mock_code || res.demoCode || '123456');
-        } else if (res.is_test_mode) {
-          setIsTestMode(true);
-          setTestModeCode('123456');
         }
         setCode('');
         setCountdown(45);
@@ -313,12 +260,6 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
     }
   };
 
-  const filteredCountries = COUNTRIES_LIST.filter((c) =>
-    c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-    c.dialCode.includes(countrySearch) ||
-    c.code.toLowerCase().includes(countrySearch.toLowerCase())
-  );
-
   return (
     <View style={styles.container}>
       <View style={[styles.mainWrapper, { width: containerWidth }]}>
@@ -328,7 +269,7 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
             style={styles.backBtn}
             onPress={() => {
               if (step === 'enter_code') {
-                setStep('enter_phone');
+                setStep('enter_email');
                 setErrorMessage(null);
                 setErrorType(null);
               } else {
@@ -340,7 +281,7 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
             <Ionicons name="arrow-back" size={22} color="#ffffff" />
           </TouchableOpacity>
 
-          <Text style={styles.pageTitle}>Log in or sign up</Text>
+          <Text style={styles.pageTitle}>Sign In</Text>
 
           <View style={styles.topBarRightPlaceholder} />
         </View>
@@ -353,20 +294,16 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled">
-            {step === 'enter_phone' ? (
+            {step === 'enter_email' ? (
               /* ==============================================================
-                 STEP 1: ENTER PHONE NUMBER
+                 STEP 1: ENTER BUSINESS EMAIL
                  ============================================================== */
               <View style={styles.stepContent}>
                 {/* Headline & Description */}
                 <View style={styles.copyHeader}>
-                  <Text style={styles.headline}>
-                    {authMode === 'sign_in' ? 'Sign in to ÖZARA' : 'Enter your phone number'}
-                  </Text>
+                  <Text style={styles.headline}>Sign in to ÖZARA</Text>
                   <Text style={styles.description}>
-                    {authMode === 'sign_in' && pendingAccessEmail
-                      ? `Signing in as ${pendingAccessEmail}. We’ll send you a verification code via SMS.`
-                      : 'We’ll send you a verification code via SMS.'}
+                    Enter your registered email address. We’ll send you a verification code.
                   </Text>
                 </View>
 
@@ -374,36 +311,40 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
                 {errorMessage && (
                   <View style={styles.errorBanner}>
                     <Ionicons name="alert-circle" size={16} color="#ef4444" style={styles.errorIcon} />
-                    <Text style={styles.errorText}>{errorMessage}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.errorText}>{errorMessage}</Text>
+                      {onGoToInvitation && (
+                        <TouchableOpacity
+                          style={{ marginTop: 6 }}
+                          onPress={onGoToInvitation}
+                          activeOpacity={0.75}>
+                          <Text style={{ color: '#a78bfa', fontWeight: '700', fontSize: 13, textDecorationLine: 'underline' }}>
+                            Have an invitation code? Join the circle →
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 )}
 
-                {/* Phone Input Row */}
-                <View style={styles.phoneInputRow}>
-                  {/* Country Selector Button */}
-                  <TouchableOpacity
-                    style={styles.countryBtn}
-                    onPress={() => setShowCountryModal(true)}
-                    activeOpacity={0.75}>
-                    <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
-                    <Text style={styles.countryDialCode}>{selectedCountry.dialCode}</Text>
-                    <Ionicons name="chevron-down" size={14} color="#94a3b8" style={styles.chevron} />
-                  </TouchableOpacity>
-
-                  {/* Phone Number Field */}
+                {/* Email Input Row */}
+                <View style={styles.emailInputRow}>
+                  <Ionicons name="mail-outline" size={18} color="#a78bfa" style={{ marginRight: 10 }} />
                   <TextInput
-                    style={styles.phoneInput}
-                    placeholder={selectedCountry.format}
+                    style={styles.emailInput}
+                    placeholder="name@company.com"
                     placeholderTextColor="#64748b"
-                    value={phoneNumber}
+                    value={email}
                     onChangeText={(t) => {
-                      setPhoneNumber(t);
+                      setEmail(t);
                       if (errorMessage) {
                         setErrorMessage(null);
                         setErrorType(null);
                       }
                     }}
-                    keyboardType="phone-pad"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
                     autoFocus
                     editable={!isLoading}
                   />
@@ -417,11 +358,11 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
                 <View style={styles.copyHeader}>
                   <Text style={styles.headline}>Enter verification code</Text>
                   <Text style={styles.plainDescription}>
-                    Please check your phone. We sent a code via sms{'\n'}to your number {selectedCountry.dialCode} {phoneNumber}
+                    Please check your inbox. We sent a 6-digit code to{'\n'}{cleanEmail}
                   </Text>
                   <TouchableOpacity
                     onPress={() => {
-                      setStep('enter_phone');
+                      setStep('enter_email');
                       setCode('');
                       setErrorMessage(null);
                       setErrorType(null);
@@ -429,7 +370,7 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
                     style={styles.changeNumberContainer}
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Text style={styles.changeNumberOrange}>Change number</Text>
+                    <Text style={styles.changeNumberOrange}>Change email</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -439,12 +380,12 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
                     <View style={styles.testModeHeader}>
                       <View style={styles.testModeBadge}>
                         <Ionicons name="flask-outline" size={13} color="#f59e0b" style={{ marginRight: 5 }} />
-                        <Text style={styles.testModeBadgeText}>TEST MODE (DEV ONLY)</Text>
+                        <Text style={styles.testModeBadgeText}>TEST / DEV MODE</Text>
                       </View>
-                      <Text style={styles.testModeNotice}>SMS disabled • Inactive in production</Text>
+                      <Text style={styles.testModeNotice}>Universal code: 123456</Text>
                     </View>
                     <View style={styles.testCodeRow}>
-                      <Text style={styles.testCodeLabel}>Mock verification code:</Text>
+                      <Text style={styles.testCodeLabel}>Verification code:</Text>
                       <Text style={styles.testCodeNumber}>{testModeCode}</Text>
                       <TouchableOpacity
                         style={styles.autoFillBtn}
@@ -465,7 +406,7 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
                     <Ionicons name="alert-circle" size={16} color="#ef4444" style={styles.errorIcon} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.errorText}>{errorMessage}</Text>
-                      {authMode === 'sign_in' && onGoToInvitation && errorMessage.includes('invitation code') && (
+                      {onGoToInvitation && errorMessage.includes('invitation code') && (
                         <TouchableOpacity
                           style={{ marginTop: 6 }}
                           onPress={onGoToInvitation}
@@ -498,7 +439,7 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
                     );
                   })}
 
-                  {/* Hidden Overlay Input with SMS Autofill Support */}
+                  {/* Hidden Overlay Input with Autofill Support */}
                   <TextInput
                     ref={codeInputRef}
                     style={styles.hiddenCodeInput}
@@ -516,7 +457,6 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
                     }}
                     keyboardType="number-pad"
                     textContentType="oneTimeCode"
-                    autoComplete="sms-otp"
                     maxLength={6}
                     autoFocus
                     editable={!isLoading}
@@ -544,16 +484,16 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
 
           {/* Bottom Action Row (Fixed above safe area) */}
           <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + 6 }]}>
-            {step === 'enter_phone' ? (
+            {step === 'enter_email' ? (
               <View style={styles.actionRow}>
                 {/* Send Code Button */}
                 <TouchableOpacity
                   style={[
                     styles.primaryBtn,
-                    (!isPhoneValid || isLoading) && styles.primaryBtnDisabled,
+                    (!isEmailValid || isLoading) && styles.primaryBtnDisabled,
                   ]}
                   onPress={handleSendCode}
-                  disabled={!isPhoneValid || isLoading}
+                  disabled={!isEmailValid || isLoading}
                   activeOpacity={0.85}>
                   {isLoading ? (
                     <ActivityIndicator size="small" color="#ffffff" />
@@ -602,76 +542,6 @@ export const PhoneAuthScreen: React.FC<PhoneAuthScreenProps> = ({
           </View>
         </KeyboardAvoidingView>
       </View>
-
-      {/* Country Selector Modal */}
-      <Modal
-        visible={showCountryModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowCountryModal(false)}>
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowCountryModal(false)}
-          />
-
-          <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 20) + 10 }]}>
-            {/* Sheet Handle */}
-            <View style={styles.sheetHandleWrap}>
-              <View style={styles.sheetHandle} />
-            </View>
-
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Country</Text>
-              <TouchableOpacity
-                onPress={() => setShowCountryModal(false)}
-                style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={20} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Country Search Bar */}
-            <View style={styles.searchBar}>
-              <Ionicons name="search" size={17} color="#94a3b8" style={{ marginRight: 8 }} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search country or code..."
-                placeholderTextColor="#64748b"
-                value={countrySearch}
-                onChangeText={setCountrySearch}
-                autoFocus
-              />
-            </View>
-
-            <FlatList
-              data={filteredCountries}
-              keyExtractor={(item) => item.code}
-              renderItem={({ item }) => {
-                const isSelected = selectedCountry.code === item.code;
-                return (
-                  <TouchableOpacity
-                    style={[styles.countryItemRow, isSelected && styles.countryItemRowSelected]}
-                    onPress={() => {
-                      setSelectedCountry(item);
-                      setShowCountryModal(false);
-                      setCountrySearch('');
-                    }}
-                    activeOpacity={0.7}>
-                    <Text style={styles.itemFlag}>{item.flag}</Text>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemDialCode}>{item.dialCode}</Text>
-                    {isSelected && (
-                      <Ionicons name="checkmark" size={18} color={OzaraTheme.colors.accentViolet} style={{ marginLeft: 8 }} />
-                    )}
-                  </TouchableOpacity>
-                );
-              }}
-              style={styles.countryList}
-            />
-          </View>
-        </View>
-      </Modal>
 
       {/* Admin Contact Panel Modal (Accessible via small icon beside buttons) */}
       <ContactModal
@@ -879,6 +749,36 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 18,
     fontWeight: '500',
+  },
+  emailInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0e1428',
+    borderWidth: 1.5,
+    borderColor: 'rgba(124, 58, 237, 0.35)',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 54,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  emailInput: {
+    flex: 1,
+    height: '100%',
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '500',
+    fontFamily: OzaraTheme.typography.fontFamily,
+    paddingVertical: 0,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    ...Platform.select({
+      web: {
+        outlineStyle: 'none',
+        boxShadow: 'none',
+        cursor: 'text',
+      } as any,
+    }),
   },
   phoneInputRow: {
     flexDirection: 'row',
