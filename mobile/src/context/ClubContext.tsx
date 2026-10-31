@@ -11,6 +11,8 @@ export type AppView = 'welcome' | 'invitation' | 'phone_auth' | 'face_id_setup' 
 
 export type AuthMode = 'new_member' | 'sign_in';
 
+export type TabKey = 'community' | 'networking' | 'events' | 'investments';
+
 interface ClubContextType {
   personas: Persona[];
   currentUser: Persona | null;
@@ -24,6 +26,8 @@ interface ClubContextType {
   refreshUserData: () => Promise<void>;
   appView: AppView;
   setAppView: (view: AppView) => void;
+  activeTab: TabKey;
+  setActiveTab: (tab: TabKey) => void;
   conditionsReturnView: AppView;
   openConditions: (returnTo?: AppView) => void;
   closeConditions: () => void;
@@ -89,6 +93,42 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const saved = OzaraStorage.getItem(OZARA_STORAGE_KEYS.WELCOME_SLIDE_INDEX);
     return saved ? parseInt(saved, 10) : 0;
   });
+
+  const [activeTab, setActiveTabState] = useState<TabKey>(() => {
+    if (typeof window !== 'undefined' && window.location && window.location.hash) {
+      const h = window.location.hash.replace('#', '').toLowerCase();
+      if (['community', 'networking', 'events', 'investments'].includes(h)) {
+        return h as TabKey;
+      }
+    }
+    const saved = OzaraStorage.getItem('ozara_active_tab') as TabKey | null;
+    if (saved && ['community', 'networking', 'events', 'investments'].includes(saved)) {
+      return saved;
+    }
+    return 'community';
+  });
+
+  const setActiveTab = (tab: TabKey) => {
+    setActiveTabState(tab);
+    OzaraStorage.setItem('ozara_active_tab', tab);
+    if (typeof window !== 'undefined' && window.location) {
+      try {
+        window.location.hash = tab;
+      } catch (_) {}
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleHash = () => {
+      const h = window.location.hash.replace('#', '').toLowerCase();
+      if (['community', 'networking', 'events', 'investments'].includes(h)) {
+        setActiveTabState(h as TabKey);
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
 
   const setVerifiedPhone = (phone: string) => {
     setVerifiedPhoneState(phone);
@@ -284,6 +324,8 @@ export const ClubProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         refreshUserData,
         appView,
         setAppView,
+        activeTab,
+        setActiveTab,
         conditionsReturnView,
         openConditions,
         closeConditions,

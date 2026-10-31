@@ -640,8 +640,9 @@ export const EventsScreen: React.FC = () => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* 1. Header Banner */}
+    <View style={styles.screenRoot}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+        {/* 1. Header Banner */}
       <View style={styles.headerBlock}>
         <View style={styles.tagRow}>
           <View style={styles.tagDot} />
@@ -1024,20 +1025,43 @@ export const EventsScreen: React.FC = () => {
           )}
         </View>
       )}
+    </ScrollView>
 
-      {/* 6. Event Detail Modal */}
-      <Modal
-        visible={!!selectedEventForDetail}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setSelectedEventForDetail(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            {selectedEventForDetail && (
-              <ScrollView contentContainerStyle={styles.modalScroll}>
-                {/* Hero Image */}
-                <View style={styles.modalHeroWrap}>
-                  <Image
+    {/* 6. Event Detail Overlay (In-place so bottom navigation menu is always visible) */}
+    {selectedEventForDetail && (
+      <View style={styles.eventDetailOverlay}>
+        {/* Tap-out backdrop dismiss */}
+        <TouchableOpacity
+          style={styles.backdropDismiss}
+          activeOpacity={1}
+          onPress={() => setSelectedEventForDetail(null)}
+        />
+
+        <View style={styles.modalContainer}>
+          {/* Prominent Sticky Top Bar: Back to Events */}
+          <View style={styles.modalTopNavRow}>
+            <TouchableOpacity
+              style={styles.modalBackBtn}
+              onPress={() => setSelectedEventForDetail(null)}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to Events">
+              <Ionicons name="arrow-back" size={18} color="#38bdf8" />
+              <Text style={styles.modalBackBtnText}>Back to Events</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalNavCloseBtn}
+              onPress={() => setSelectedEventForDetail(null)}
+              activeOpacity={0.7}
+              accessibilityLabel="Close event details">
+              <Ionicons name="close" size={20} color="#94a3b8" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.modalScroll}>
+            {/* Hero Image */}
+            <View style={styles.modalHeroWrap}>
+              <Image
                     source={{ uri: selectedEventForDetail.hero_image || 'https://images.unsplash.com/photo-1506953823976-52e1fdc0149a?w=1200' }}
                     style={styles.modalHeroImage}
                     resizeMode="cover"
@@ -1193,10 +1217,9 @@ export const EventsScreen: React.FC = () => {
                   )}
                 </View>
               </ScrollView>
-            )}
+            </View>
           </View>
-        </View>
-      </Modal>
+        )}
 
       {/* 7. Administrator Edit Modal */}
       <Modal
@@ -1398,17 +1421,23 @@ export const EventsScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: '#080c18',
+    overflow: 'hidden',
+  },
   container: {
     flex: 1,
     backgroundColor: '#080c18',
   },
   contentContainer: {
-    paddingBottom: 60,
+    paddingBottom: 96,
   },
   headerBlock: {
     paddingHorizontal: 20,
@@ -2267,6 +2296,60 @@ const styles = StyleSheet.create({
   },
 
   // Modal Detail Styles
+  eventDetailOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 60, // keeps bottom navigation menu visible and interactive
+    zIndex: 900,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  backdropDismiss: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  modalTopNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#0b101e',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    zIndex: 10,
+  },
+  modalBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
+  modalBackBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#38bdf8',
+    letterSpacing: 0.2,
+  },
+  modalNavCloseBtn: {
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
@@ -2277,12 +2360,14 @@ const styles = StyleSheet.create({
   modalContainer: {
     width: '100%',
     maxWidth: 680,
-    maxHeight: '92%',
+    height: '100%',
+    maxHeight: '100%',
     backgroundColor: '#0c1222',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 18,
     overflow: 'hidden',
+    zIndex: 5,
   },
   modalScroll: {
     paddingBottom: 40,

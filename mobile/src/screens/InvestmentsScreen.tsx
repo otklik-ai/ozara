@@ -1247,21 +1247,24 @@ export const InvestmentsScreen: React.FC = () => {
       </Modal>
 
       {/* ============================================================== */}
-      {/* PROPERTY DETAIL MODAL / DRAWER                                  */}
+      {/* PROPERTY DETAIL IN-PLACE OVERLAY                                */}
       {/* ============================================================== */}
-      <Modal visible={Boolean(selectedListing)} animationType="slide" presentationStyle="pageSheet">
-        {selectedListing && (
+      {Boolean(selectedListing) && selectedListing && (
+        <View style={styles.detailOverlayWrap}>
           <View style={styles.detailContainer}>
-            {/* Header Bar */}
+            {/* Header Bar with Prominent Back Button */}
             <View style={styles.detailHeaderBar}>
               <TouchableOpacity
-                style={styles.detailCloseBtn}
+                style={styles.detailBackBtn}
                 onPress={() => {
                   setSelectedListing(null);
                   setSelectedUnit(null);
                 }}
+                activeOpacity={0.7}
+                accessibilityLabel="Back to Listings"
               >
-                <Ionicons name="close" size={20} color="#ffffff" />
+                <Ionicons name="arrow-back" size={18} color="#38bdf8" />
+                <Text style={styles.detailBackBtnText}>Back to Listings</Text>
               </TouchableOpacity>
 
               <Text style={styles.detailHeaderCategory}>{selectedListing.property_type}</Text>
@@ -1614,8 +1617,8 @@ export const InvestmentsScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
           </View>
-        )}
-      </Modal>
+        </View>
+      )}
 
       {/* ============================================================== */}
       {/* REQUEST DETAILS / INQUIRY MODAL                                */}
@@ -1766,7 +1769,9 @@ export const InvestmentsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    position: 'relative',
     backgroundColor: OzaraTheme.colors.background,
+    overflow: 'hidden',
   },
   header: {
     paddingHorizontal: 20,
@@ -1949,14 +1954,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   catalogContent: {
-    paddingBottom: 60,
+    paddingBottom: 96,
   },
 
   // Landing Page Styles
   landingScrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 60,
+    paddingBottom: 96,
   },
   landingHeroBlock: {
     marginBottom: 16,
@@ -1977,7 +1982,7 @@ const styles = StyleSheet.create({
   landingTwoSquaresContainer: {
     paddingHorizontal: 16,
     paddingTop: 20,
-    paddingBottom: 40,
+    paddingBottom: 96,
   },
   twoSquaresRow: {
     flexDirection: 'row',
@@ -3010,9 +3015,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Detail Modal
+  // Detail Modal / In-Place Overlay
+  detailOverlayWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 60, // keeps bottom navigation menu visible and interactive
+    zIndex: 900,
+    backgroundColor: OzaraTheme.colors.background,
+  },
   detailContainer: {
     flex: 1,
+    position: 'relative',
     backgroundColor: OzaraTheme.colors.background,
   },
   detailHeaderBar: {
@@ -3023,6 +3038,23 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: OzaraTheme.colors.borderSubtle,
+  },
+  detailBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
+  detailBackBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#38bdf8',
+    letterSpacing: 0.2,
   },
   detailCloseBtn: {
     width: 32,
@@ -3056,7 +3088,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailScrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 88,
   },
   galleryContainer: {
     width: '100%',

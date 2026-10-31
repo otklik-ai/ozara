@@ -1085,7 +1085,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 48,
+    paddingBottom: 96,
   },
   topBanner: {
     marginBottom: 16,

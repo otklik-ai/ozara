@@ -3,7 +3,7 @@
  * Combines OzaraHeader, 4 core screens, custom Bottom Tab Bar, and Profile Drawer Modal
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,16 +13,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OzaraTheme } from '../constants/ozara-theme';
+import { useClub, TabKey } from '../context/ClubContext';
 import { OzaraHeader } from './OzaraHeader';
 import { CommunityScreen } from '../screens/CommunityScreen';
 import { NetworkingScreen } from '../screens/NetworkingScreen';
 import { EventsScreen } from '../screens/EventsScreen';
 import { InvestmentsScreen } from '../screens/InvestmentsScreen';
-import { TeamScreen } from '../screens/TeamScreen';
 import { ProfileDrawerModal } from './ProfileDrawerModal';
 import { Ionicons } from '@expo/vector-icons';
-
-type TabKey = 'community' | 'networking' | 'events' | 'investments';
 
 interface TabConfig {
   key: TabKey;
@@ -60,7 +58,7 @@ const TABS: TabConfig[] = [
 
 export const OzaraTabs: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<TabKey>('community');
+  const { activeTab, setActiveTab } = useClub();
 
   return (
     <View style={styles.container}>
@@ -75,8 +73,7 @@ export const OzaraTabs: React.FC = () => {
         {activeTab === 'investments' && <InvestmentsScreen />}
       </View>
 
-
-      {/* Luxury Bottom Tab Bar */}
+      {/* Luxury Bottom Tab Bar (Pinned and visible at all times) */}
       <View style={[styles.bottomTabBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         {TABS.map(tab => {
           const isActive = activeTab === tab.key;
@@ -90,7 +87,7 @@ export const OzaraTabs: React.FC = () => {
                 <Ionicons
                   name={isActive ? tab.activeIcon : tab.icon}
                   size={20}
-                  color={isActive ? '#ffffff' : OzaraTheme.colors.textMuted}
+                  color={isActive ? '#38bdf8' : OzaraTheme.colors.textMuted}
                 />
               </View>
               <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
@@ -110,18 +107,33 @@ export const OzaraTabs: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    height: Platform.OS === 'web' ? ('100vh' as any) : '100%',
+    maxHeight: Platform.OS === 'web' ? ('100dvh' as any) : '100%',
     backgroundColor: OzaraTheme.colors.background,
+    overflow: 'hidden',
+    position: 'relative',
   },
   screenContainer: {
     flex: 1,
+    overflow: 'hidden',
+    position: 'relative',
   },
   bottomTabBar: {
+    position: Platform.OS === 'web' ? ('fixed' as any) : 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 99999,
     flexDirection: 'row',
-    backgroundColor: 'rgba(10, 11, 14, 0.96)',
+    backgroundColor: 'rgba(10, 11, 14, 0.95)',
     borderTopWidth: 1,
-    borderTopColor: OzaraTheme.colors.borderSubtle,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
     paddingTop: 8,
     paddingHorizontal: 8,
+    ...(Platform.OS === 'web' ? {
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+    } : {}),
   },
   tabBtn: {
     flex: 1,
@@ -134,7 +146,7 @@ const styles = StyleSheet.create({
     borderRadius: OzaraTheme.radius.full,
   },
   tabIconWrapActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
   },
   tabLabel: {
     fontSize: 10,
@@ -144,5 +156,6 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: '#ffffff',
+    fontWeight: '700',
   },
 });

@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Image,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useClub } from '../context/ClubContext';
@@ -21,7 +22,9 @@ import { InboxModal } from './InboxModal';
 
 export const OzaraHeader: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const { currentUser, openProfile } = useClub();
+  const { currentUser, openProfile, activeTab, setActiveTab } = useClub();
+  const { width } = useWindowDimensions();
+  const isDesktop = width > 768;
 
   const [unreadMsgCount, setUnreadMsgCount] = useState<number>(0);
   const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
@@ -56,6 +59,32 @@ export const OzaraHeader: React.FC = () => {
           <Text style={styles.brandTitle}>ÖZARA</Text>
           <Text style={styles.brandSub}>PRIVATE CLUB</Text>
         </View>
+
+        {/* Desktop Top Navigation Tabs */}
+        {isDesktop && (
+          <View style={styles.desktopTabsRow}>
+            {[
+              { key: 'community', label: 'Community' },
+              { key: 'networking', label: 'Network' },
+              { key: 'events', label: 'Events' },
+              { key: 'investments', label: 'Investments' },
+            ].map(tab => {
+              const active = activeTab === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={[styles.desktopTabBtn, active && styles.desktopTabBtnActive]}
+                  onPress={() => setActiveTab(tab.key as any)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.desktopTabText, active && styles.desktopTabTextActive]}>
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {/* Right Controls: Notifications Bell, Inbox Envelope & Authenticated Member Avatar */}
         <View style={styles.controlsRow}>
@@ -193,6 +222,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  desktopTabsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 24,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  desktopTabBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+  },
+  desktopTabBtnActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+  },
+  desktopTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: OzaraTheme.colors.textMuted,
+    letterSpacing: 0.2,
+  },
+  desktopTabTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   bellTouchWrapper: {
     position: 'relative',

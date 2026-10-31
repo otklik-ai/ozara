@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { useClub } from '../context/ClubContext';
 import { LimeIntroScreen } from './LimeIntroScreen';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
@@ -171,6 +171,9 @@ export const AppNavigator: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    height: Platform.OS === 'web' ? ('100vh' as any) : '100%',
+    maxHeight: Platform.OS === 'web' ? ('100dvh' as any) : '100%',
+    overflow: 'hidden',
     backgroundColor: OzaraTheme.colors.backgroundMidnight,
   },
 });
