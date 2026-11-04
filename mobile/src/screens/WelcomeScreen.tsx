@@ -69,13 +69,21 @@ const MarqueeRow: React.FC<MarqueeRowProps> = ({
   images,
   direction,
   rowId,
-  duration = 42000,
+  duration,
   isPaused = false,
 }) => {
   if (!images || images.length === 0) return null;
 
   const setWidth = images.length * (CARD_WIDTH + CARD_GAP);
-  const renderImages = [...images, ...images, ...images, ...images];
+  // Scale duration dynamically so animation speed remains calm (~45px/s) for any pool size
+  const perCardDuration = direction === 'left' ? 4000 : 4600;
+  const actualDuration = duration
+    ? Math.max(duration, Math.round(images.length * perCardDuration))
+    : Math.max(Math.round(images.length * perCardDuration), 38000);
+
+  // 2 repetitions is more than enough to seamlessly cover scrolling width without DOM bloat
+  const repeatCount = images.length < 8 ? 4 : images.length < 16 ? 3 : 2;
+  const renderImages = Array.from({ length: repeatCount }, () => images).flat();
 
   const animatedValue = useRef(
     new Animated.Value(direction === 'left' ? 0 : -setWidth)
@@ -95,7 +103,7 @@ const MarqueeRow: React.FC<MarqueeRowProps> = ({
     const animation = Animated.loop(
       Animated.timing(animatedValue, {
         toValue: toVal,
-        duration,
+        duration: actualDuration,
         easing: Easing.linear,
         useNativeDriver: true,
       })
@@ -103,7 +111,7 @@ const MarqueeRow: React.FC<MarqueeRowProps> = ({
     animation.start();
 
     return () => animation.stop();
-  }, [setWidth, direction, duration, isPaused]);
+  }, [setWidth, direction, actualDuration, isPaused]);
 
   const animationName = `marquee_${rowId}_${direction}`;
 
@@ -123,7 +131,7 @@ const MarqueeRow: React.FC<MarqueeRowProps> = ({
             display: flex;
             flex-direction: row;
             width: max-content;
-            animation: ${animationName} ${duration}ms linear infinite;
+            animation: ${animationName} ${actualDuration}ms linear infinite;
             animation-play-state: ${isPaused ? 'paused' : 'running'};
             will-change: transform;
           }
@@ -417,14 +425,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                   images={row1Images}
                   direction="left"
                   rowId="row1"
-                  duration={42000}
                   isPaused={currentIndex !== 0}
                 />
                 <MarqueeRow
                   images={row2Images}
                   direction="right"
                   rowId="row2"
-                  duration={48000}
                   isPaused={currentIndex !== 0}
                 />
               </View>
