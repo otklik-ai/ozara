@@ -75,11 +75,11 @@ const MarqueeRow: React.FC<MarqueeRowProps> = ({
   if (!images || images.length === 0) return null;
 
   const setWidth = images.length * (CARD_WIDTH + CARD_GAP);
-  // Scale duration dynamically so animation speed remains calm (~45px/s) for any pool size
-  const perCardDuration = direction === 'left' ? 4000 : 4600;
+  // Calmer, slower luxury pace: ~7.2s - 8.4s per card (~24-27px/s)
+  const perCardDuration = direction === 'left' ? 7200 : 8400;
   const actualDuration = duration
     ? Math.max(duration, Math.round(images.length * perCardDuration))
-    : Math.max(Math.round(images.length * perCardDuration), 38000);
+    : Math.max(Math.round(images.length * perCardDuration), 48000);
 
   // 2 repetitions is more than enough to seamlessly cover scrolling width without DOM bloat
   const repeatCount = images.length < 8 ? 4 : images.length < 16 ? 3 : 2;
@@ -193,6 +193,18 @@ const MarqueeRow: React.FC<MarqueeRowProps> = ({
 };
 
 // -------------------------------------------------------------
+// Helper: In-place Fisher-Yates shuffle for organic, non-repeating photo sequences
+// -------------------------------------------------------------
+function shuffleArray<T>(array: T[]): T[] {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+// -------------------------------------------------------------
 // Canonical Seed Pictures for Instant Marquee Render
 // -------------------------------------------------------------
 const DEFAULT_INTRO_PICS = [
@@ -287,12 +299,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   const [currentIndex, setCurrentIndex] = useState<number>(initialSlideIndex || 0);
   const [images, setImages] = useState<string[]>(() =>
-    DEFAULT_INTRO_PICS.map((pic) => resolveImageUrl(pic))
+    shuffleArray(DEFAULT_INTRO_PICS.map((pic) => resolveImageUrl(pic)))
   );
   const [showConditionsModal, setShowConditionsModal] = useState<boolean>(false);
   const [showContactModal, setShowContactModal] = useState<boolean>(false);
 
   const scrollRef = useRef<ScrollView>(null);
+  const hasFetchedRef = useRef<boolean>(false);
 
   // Sync initial slide index if passed (e.g. returning to Invest screen from Phone Auth)
   useEffect(() => {
@@ -305,7 +318,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     }
   }, [initialSlideIndex, containerWidth]);
 
-  // Fetch updated intro pics in background
+  // Fetch updated intro pics in background and shuffle once
   const fetchIntroPics = async () => {
     try {
       const serverPics = await ApiService.getIntroPics();
@@ -313,7 +326,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         const uniqueUrls = Array.from(
           new Set(serverPics.map((pic) => resolveImageUrl(pic)))
         );
-        setImages(uniqueUrls);
+        if (!hasFetchedRef.current || uniqueUrls.length !== images.length) {
+          hasFetchedRef.current = true;
+          setImages(shuffleArray(uniqueUrls));
+        }
       }
     } catch (err) {
       console.warn('[WelcomeScreen] Error fetching intro pics:', err);
@@ -322,12 +338,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   useEffect(() => {
     fetchIntroPics();
-    const interval = setInterval(fetchIntroPics, 8000);
+    const interval = setInterval(fetchIntroPics, 15000);
     return () => clearInterval(interval);
   }, []);
 
-  const row1Images = images.length > 1 ? images.filter((_, idx) => idx % 2 === 0) : images;
-  const row2Images = images.length > 1 ? images.filter((_, idx) => idx % 2 !== 0) : images;
+  // Split shuffled pool so row 1 and row 2 display completely non-overlapping photos
+  const mid = Math.ceil(images.length / 2);
+  const row1Images = images.length > 1 ? images.slice(0, mid) : images;
+  const row2Images = images.length > 1 ? images.slice(mid) : images;
 
   // Programmatic slide transition
   const goToSlide = (index: number) => {
