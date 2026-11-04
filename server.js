@@ -546,6 +546,11 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const mobileDistPath = path.join(__dirname, 'mobile', 'dist');
 const serveMobileRoot = process.env.SERVE_MOBILE_AS_ROOT !== 'false';
 
+// Canonical redirect: redirect /app and /preview directly to / so the browser URL is clean
+app.get(/^\/(app|preview)\/?$/, (req, res) => {
+  return res.redirect(302, '/');
+});
+
 if (fs.existsSync(mobileDistPath)) {
   app.use('/app', express.static(mobileDistPath));
   app.use('/preview', express.static(mobileDistPath));
@@ -561,9 +566,9 @@ app.use('/legacy', express.static(path.join(__dirname, 'public')));
 // Fallback static assets (avatars, icons, etc.) served from public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Client-side routing fallback for /app and /preview (Express 5 compatible RegExp)
+// Client-side routing fallback for /app and /preview subpaths (Express 5 compatible RegExp)
 if (fs.existsSync(mobileDistPath)) {
-  app.get(/^\/(app|preview)(\/.*)?$/, (req, res) => {
+  app.get(/^\/(app|preview)\/.+$/, (req, res) => {
     res.sendFile(path.join(mobileDistPath, 'index.html'));
   });
 }
