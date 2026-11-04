@@ -143,6 +143,40 @@ function synchronizePersistentData(targetDb, targetDbPath) {
       }
     }
 
+    try {
+      const postTable = targetDb.prepare("SELECT sql FROM sqlite_master WHERE name = 'community_posts'").get();
+      if (postTable && postTable.sql.includes('REFERENCES users')) {
+        targetDb.exec(`
+          CREATE TABLE IF NOT EXISTS community_posts_new (
+            id TEXT PRIMARY KEY,
+            author_id TEXT NOT NULL,
+            topic TEXT,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            source_type TEXT DEFAULT 'member',
+            author_label TEXT,
+            is_official INTEGER DEFAULT 0,
+            telegram_channel_id TEXT,
+            telegram_message_id INTEGER,
+            media_group_id TEXT,
+            original_content TEXT,
+            original_language TEXT,
+            translated INTEGER DEFAULT 0,
+            admin_corrected INTEGER DEFAULT 0,
+            source_modified_after_admin_edit INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'published',
+            telegram_author_id TEXT,
+            telegram_author_name TEXT
+          );
+          INSERT INTO community_posts_new SELECT * FROM community_posts;
+          DROP TABLE community_posts;
+          ALTER TABLE community_posts_new RENAME TO community_posts;
+          CREATE INDEX IF NOT EXISTS idx_community_posts_created_at ON community_posts(created_at DESC);
+        `);
+      }
+    } catch (e) {}
+
     targetDb.exec(`
       CREATE TABLE IF NOT EXISTS community_post_media (
         id TEXT PRIMARY KEY,
@@ -179,13 +213,47 @@ function synchronizePersistentData(targetDb, targetDbPath) {
     if (!eventCols.includes('hero_image')) try { targetDb.exec("ALTER TABLE events ADD COLUMN hero_image TEXT;"); } catch (e) {}
     if (!eventCols.includes('registration_count')) try { targetDb.exec("ALTER TABLE events ADD COLUMN registration_count INTEGER DEFAULT 0;"); } catch (e) {}
 
-    // 2. Clean up broken duplicate events, their registrations/invitations, and old mock seed posts from targetDb
+    // 2. Clean up all user accounts, user-related records, and broken duplicate events (clean slate)
+    const userTablesToWipe = [
+      'questionnaire_answers',
+      'taxonomies',
+      'taxonomy_notes',
+      'travel_plans',
+      'call_bookings',
+      'intro_requests',
+      'event_registrations',
+      'event_invitations',
+      'listing_inquiries',
+      'quarterly_pulses',
+      'chapter_lead_messages',
+      'profile_reports',
+      'saved_listings',
+      'community_comments',
+      'user_sessions',
+      'in_app_notifications',
+      'conversations',
+      'direct_messages',
+      'user_blocks',
+      'notification_preferences',
+      'email_delivery_queue',
+      'member_connections',
+      'contact_unlocks',
+      'invitation_tokens',
+      'phone_verifications',
+      'users'
+    ];
+    for (const tbl of userTablesToWipe) {
+      try {
+        const exists = targetDb.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`).get(tbl);
+        if (exists) targetDb.prepare(`DELETE FROM ${tbl}`).run();
+      } catch (err) {}
+    }
+
     targetDb.exec(`
-      DELETE FROM event_registrations WHERE event_id LIKE 'evt_mv%' OR event_id IN (SELECT id FROM events WHERE cover_image LIKE '/assets/%' OR ((cover_image IS NULL OR TRIM(cover_image) = '') AND (hero_image IS NULL OR TRIM(hero_image) = '')));
-      DELETE FROM event_invitations WHERE event_id LIKE 'evt_mv%' OR event_id IN (SELECT id FROM events WHERE cover_image LIKE '/assets/%' OR ((cover_image IS NULL OR TRIM(cover_image) = '') AND (hero_image IS NULL OR TRIM(hero_image) = '')));
       DELETE FROM events WHERE id LIKE 'evt_mv%' OR cover_image LIKE '/assets/%' OR ((cover_image IS NULL OR TRIM(cover_image) = '') AND (hero_image IS NULL OR TRIM(hero_image) = ''));
       DELETE FROM community_post_media WHERE post_id LIKE 'post_seed_%';
       DELETE FROM community_posts WHERE id LIKE 'post_seed_%';
+      UPDATE events SET registration_count = 0, registered_count = 0;
     `);
 
     // 3. If template database exists, synchronize canonical events, Telegram posts, media, and chapters
@@ -225,23 +293,6 @@ function synchronizePersistentData(targetDb, targetDbPath) {
           }
         } catch (e) {
           console.warn('[DATA SYNC] Warning syncing chapters:', e.message);
-        }
-
-        // Synchronize founder accounts to fulfill post author foreign keys
-        try {
-          const uCols = syncCols('users');
-          const tFounders = templateDb.prepare("SELECT * FROM users WHERE role IN ('FOUNDER', 'ADMIN')").all();
-          const syncFounderStmt = targetDb.prepare(`
-            INSERT OR IGNORE INTO users (${uCols.join(', ')})
-            VALUES (${uCols.map(c => '@' + c).join(', ')})
-          `);
-          for (const f of tFounders) {
-            const row = {};
-            for (const c of uCols) row[c] = f[c] !== undefined ? f[c] : null;
-            syncFounderStmt.run(row);
-          }
-        } catch (e) {
-          console.warn('[DATA SYNC] Warning syncing founder accounts:', e.message);
         }
 
         // Synchronize events
