@@ -21,9 +21,26 @@
   2. Data Schema is defined in `gemini.md`.
   3. `task_plan.md` has an approved Blueprint.
 - **Privacy & Security Mandates**:
-  - **Question 23 Permanent Lock**: No sharing toggle exists; permanently private. Only visible to Alexandra and Julia. Never exposed to search, public profiles, API payloads, or recommendations.
-  - **Question 18 Mandate**: Question 18 ("What can you offer other members?") is strictly required to mark a profile complete (`is_complete = 1`). A directory of askers without offers fails; offers are foundational.
-  - **The 24 Canonical Profile Questions**: The questionnaire covers exclusively the 24 canonical profile questions grouped into Sections A (Where you are), B (What you do), C (What you are working on now), D (Personal context), and E (Chapter and events). Field types: `text`, `long_text`, `single`, `multi`, `city_multi`, `country_multi`, `bracket`, `url`. Every question is skippable (stores as `skipped`, not null). Inline visibility control (`shared` vs `private`) with specified defaults.
+  - **25-Question, 6-Screen Member Onboarding Questionnaire**:
+    - 25 questions across 6 short screens (`1 of 6` to `6 of 6`), under 5 minutes.
+    - **Only 6 questions are required** to mark onboarding complete (`is_complete = 1`): Q1 (Full name), Q2 (Email), Q3 (Mobile phone), Q6 (How did you hear about us?), Q7 (How do you want to be on the platform?), and Q25 (What would you like next?), plus the required Consent checkbox on Screen 6 (*"I confirm my answers are accurate and agree to the privacy policy. Answers marked private are seen only by the team."*). Everything else is optional and can be filled in later from the profile.
+    - **Every sensitive dropdown has a `"Prefer not to say"` option.**
+    - **Visibility Rules (`Team only` vs `Switch`)**:
+      - `Team only`: Visible only to the member and named team members (never other members). Member cannot change visibility. Applies to Q1–Q7, Q13–Q23, and Q25.
+      - `Switch`: Every member-facing answer (Q8 Profile photo, Q9 Your main role, Q10 Company and short bio, Q11 What are you open to?, Q12 Where do you live?, Q24 What interests you?) has a `Private` / `Visible` switch, and **every switch starts on `Private` (`'private'`)**. The member turns on (`'shared'` / `Visible`) only what they want other members to see.
+      - **Profile mode (Q7) sits above all switches**:
+        - `Visible to members`: Other verified members can see whatever the member switched on (photo, role, bio, what they are open to, residence, interests).
+        - `Private (browse deals and events only)`: Browses deals and events only. All switches are forced to `Private` and the member does not appear in the directory. No photo needed.
+    - **Encryption, Named Team Access & Audit Logging (Screens 3 to 5)**:
+      - Screens 3 to 5 (Q12–Q23: residence, citizenships, tax residency, marital status, children, net worth, liquid investable assets, source of wealth, investor status, advisors, estate structures, upcoming 2-year events) are encrypted at rest (AES-256-GCM).
+      - Access to `Team only` answers is strictly restricted to Founders and Admins (`FOUNDER`, `ADMIN`: Alexandra Hill, Julia Shchukina, Elena Ermolov) and the member themselves, and every Founder/Admin view of Screen 3–5 answers is recorded in `audit_logs`.
+    - **Referral / Invitation-Only Gate & Referrer Privacy**:
+      - **Referral / Invitation-Only Is Enough**: There is no automated minimum net-worth floor to join; an approved referral / invitation is sufficient.
+      - **Referrer Join Status Remains Private**: Whether a referred person joined is strictly private to Founders/Admins (`Q6` is `Team only`). The referring member is never notified or shown that the person they referred joined.
+    - **No Free Text on Screens 4 and 5**:
+      - Strictly no free-text inputs on Screens 4 (Q17–Q20) and 5 (Q21–Q23) so members cannot type in account numbers, balances, passport numbers, or institution names.
+    - **Screen 5 Skip Action**: Screen 5 includes a `"Skip, discuss on a call"` button.
+    - **Save After Every Screen & Edit Anytime**: Progress is saved after every screen with a progress bar (`1 of 6`) and a finish-later option. Members can edit any answer and any visibility switch at any time from their profile.
   - **Minimalist Questionnaire Form Factor & In-Bar Placeholder Invariant**:
     - The questionnaire design must remain ultra-minimalistic, sleek, and dark luxury, avoiding clutter, unnecessary wrappers, cards, or excessive vertical spacing.
     - No "Option 1", "Option 2", "Option 3" card frames, borders, or sub-headers for multi-slot questions (such as Questions 3 & 4). Each slot renders directly as a compact, clean row.

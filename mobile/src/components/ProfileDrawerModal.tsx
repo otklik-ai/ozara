@@ -34,40 +34,22 @@ import {
 import { OzaraTheme } from '../constants/ozara-theme';
 import { AdminDashboardView } from './AdminDashboardView';
 import {
-  STANDARDIZED_FOCUS_PRIORITIES,
-  STANDARDIZED_INDUSTRIES,
-  STANDARDIZED_CONNECTION_TYPES,
-  STANDARDIZED_INTEREST_GROUPS,
-  STANDARDIZED_INTERESTS,
-  STANDARDIZED_CHAPTERS,
-  STANDARDIZED_INVOLVEMENT_ROLES,
-  STANDARDIZED_CITIES_Q3,
-  STANDARDIZED_COUNTRIES_Q4,
-  STANDARDIZED_LANGUAGES,
-  STANDARDIZED_REACH_CHANNELS,
-  STANDARDIZED_ROLES,
-  STANDARDIZED_OFFERS,
-  STANDARDIZED_DIRECT_CONTACT,
-  STANDARDIZED_AGE_BRACKETS,
-  STANDARDIZED_FAMILY_SITUATIONS,
-  STANDARDIZED_CONNECTION_COUNTRIES,
+  CANONICAL_QUESTIONS,
+  SCREEN_DEFINITIONS,
+  ALL_COUNTRIES_LIST,
+  US_STATES_LIST,
+  Q6_REFERRAL_OPTIONS,
 } from '../screens/SignUpScreen';
-import {
-  COUNTRY_DIAL_CODES,
-  parsePhoneNumber,
-  formatNationalNumber,
-  buildFullPhoneNumber,
-  formatWhatsAppNumber,
-} from '../utils/phoneFormatter';
 
-// Canonical sections for questionnaire editing
+// Canonical 6 screens for questionnaire editing
 const CANONICAL_SECTIONS = [
-  { id: 'all', title: 'All Sections' },
-  { id: 'A', title: 'A. Where You Are', questionIds: [1, 2, 3, 4, 5, 6] },
-  { id: 'B', title: 'B. What You Do', questionIds: [7, 25, 26, 27, 8, 10, 12, 13] },
-  { id: 'C', title: 'C. Current Focus', questionIds: [14, 15, 16, 17, 18, 19] },
-  { id: 'D', title: 'D. Personal Context', questionIds: [20, 21, 22, 23] },
-  { id: 'E', title: 'E. Chapter & Events', questionIds: [24] },
+  { id: 'all', title: 'All Screens (1–6)' },
+  { id: '1', title: '1. Contact', questionIds: [1, 2, 3, 4, 5, 6] },
+  { id: '2', title: '2. Profile', questionIds: [7, 8, 9, 10, 11] },
+  { id: '3', title: '3. Residence & Family', questionIds: [12, 13, 14, 15, 16] },
+  { id: '4', title: '4. Wealth Profile', questionIds: [17, 18, 19, 20] },
+  { id: '5', title: '5. Current Setup', questionIds: [21, 22, 23] },
+  { id: '6', title: '6. Interests & Next Step', questionIds: [24, 25] },
 ];
 
 export const ProfileDrawerModal: React.FC = () => {
@@ -315,12 +297,14 @@ export const ProfileDrawerModal: React.FC = () => {
       setConnectionStatus(data.connection_status || 'none');
       setLocalZoomLink(data.zoom_link || '');
 
-      // Populate local answer state
+      // Populate local answer state for all 25 questions
       const initialMap: Record<number, { value: string; visibility: 'shared' | 'private' }> = {};
       data.answers?.forEach(a => {
+        const qDef = CANONICAL_QUESTIONS.find(q => q.id === a.question_id);
+        const isSwitch = qDef?.visibility_mode === 'switch';
         initialMap[a.question_id] = {
           value: a.value_text || (typeof a.value === 'string' ? a.value : ''),
-          visibility: a.visibility || 'shared',
+          visibility: isSwitch ? (a.visibility || 'private') : 'private',
         };
       });
       setAnswersState(initialMap);
@@ -333,10 +317,10 @@ export const ProfileDrawerModal: React.FC = () => {
 
   useEffect(() => {
     if (isOpen) {
-      setViewMode('profile'); // Always default to polished networking profile view
+      setViewMode('profile');
       setEditorSection('all');
       loadProfile();
-      if (currentUser?.role === 'FOUNDER') {
+      if (currentUser?.role === 'FOUNDER' || currentUser?.role === 'ADMIN') {
         loadAccessRequests();
       }
     } else {
@@ -344,22 +328,16 @@ export const ProfileDrawerModal: React.FC = () => {
     }
   }, [profileDrawerUserId]);
 
-  const handleSaveAnswer = async (questionId: number, overrideVal?: string) => {
+  const handleSaveAnswer = async (questionId: number, overrideVal?: string, overrideVis?: 'shared' | 'private') => {
     if (!profileDrawerUserId || !isSelf) return;
     const item = answersState[questionId];
-    let valToSave = overrideVal !== undefined ? overrideVal : (item?.value || '');
-
-    // Normalize Question 13 (LinkedIn or website) with https://
-    if (questionId === 13 && valToSave && valToSave !== 'skipped') {
-      const trimmed = valToSave.trim();
-      if (trimmed && !/^[a-zA-Z]+:\/\//.test(trimmed)) {
-        valToSave = `https://${trimmed}`;
-        setAnswersState(prev => ({
-          ...prev,
-          [13]: { value: valToSave, visibility: item?.visibility || 'shared' },
-        }));
-      }
-    }
+    const valToSave = overrideVal !== undefined ? overrideVal : (item?.value || '');
+    const qDef = CANONICAL_QUESTIONS.find(q => q.id === questionId);
+    const isSwitch = qDef?.visibility_mode === 'switch';
+    const isPrivateMode =
+      (questionId === 7 ? valToSave : answersState[7]?.value) === 'Private (browse deals and events only)';
+    const visToSave: 'shared' | 'private' =
+      !isSwitch || isPrivateMode ? 'private' : (overrideVis || item?.visibility || 'private');
 
     try {
       setSavingQuestionId(questionId);
@@ -367,14 +345,25 @@ export const ProfileDrawerModal: React.FC = () => {
         profileDrawerUserId,
         questionId,
         valToSave,
-        item?.visibility || 'shared'
+        visToSave
       );
+      if (questionId === 7 && valToSave === 'Private (browse deals and events only)') {
+        setAnswersState(prev => {
+          const next = { ...prev };
+          for (const swId of [8, 9, 10, 11, 12, 24]) {
+            if (next[swId]) next[swId] = { ...next[swId], visibility: 'private' };
+          }
+          return next;
+        });
+      }
       if (res.success && res.is_complete !== undefined) {
         setProfile(prev => (prev ? { ...prev, is_complete: res.is_complete } : prev));
         refreshUserData();
       }
     } catch (err: any) {
-      Alert.alert('Save Error', err.message || 'Could not save answer');
+      const msg = err.message || 'Could not save answer';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Save Error', msg);
     } finally {
       setSavingQuestionId(null);
     }
@@ -382,12 +371,21 @@ export const ProfileDrawerModal: React.FC = () => {
 
   const handleToggleVisibility = async (questionId: number) => {
     if (!isSelf) return;
-    if (questionId === 23) {
-      Alert.alert('Confidential Field', 'Question 23 is permanently locked to Private for founder review only.');
+    const qDef = CANONICAL_QUESTIONS.find(q => q.id === questionId);
+    if (!qDef || qDef.visibility_mode !== 'switch') {
+      const msg = 'This question is Team only (visible only to Founders/Admins and you) and cannot be made public.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Team Only Field', msg);
+      return;
+    }
+    if (answersState[7]?.value === 'Private (browse deals and events only)') {
+      const msg = "Your profile mode (Question 7) is set to 'Private (browse deals and events only)'. Switch Question 7 to 'Visible to members' first to turn on individual visibility switches.";
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Profile Mode is Private', msg);
       return;
     }
     const current = answersState[questionId];
-    const newVis = current?.visibility === 'private' ? 'shared' : 'private';
+    const newVis = current?.visibility === 'shared' ? 'private' : 'shared';
     setAnswersState(prev => ({
       ...prev,
       [questionId]: {
@@ -404,6 +402,7 @@ export const ProfileDrawerModal: React.FC = () => {
         current?.value || '',
         newVis
       );
+      refreshUserData();
     } catch (err: any) {
       console.warn('Visibility error:', err);
     } finally {
@@ -474,152 +473,71 @@ export const ProfileDrawerModal: React.FC = () => {
     Linking.openURL(normalized).catch(err => console.warn('Could not open URL:', err));
   };
 
-  // Structured data fields parsed from questions
-  const q10Sentence = getAnswer(10);
-  const q12Background = getAnswer(12);
-  const q13Website = getAnswer(13);
-
-  // Q14 priorities & note
-  const rawQ14 = getAnswer(14);
-  let q14Tags: string[] = [];
-  let q14Note = '';
-  if (rawQ14) {
-    try {
-      if (rawQ14.startsWith('{') && rawQ14.endsWith('}')) {
-        const parsed = JSON.parse(rawQ14);
-        if (Array.isArray(parsed.tags)) q14Tags = parsed.tags;
-        if (typeof parsed.note === 'string') q14Note = parsed.note;
-      } else {
-        q14Note = rawQ14;
-      }
-    } catch {
-      q14Note = rawQ14;
-    }
-  }
-
-  // Q15 explored industries
-  const rawQ15 = getAnswer(15);
-  const q15Industries = rawQ15 ? rawQ15.split(';').map(s => s.trim()).filter(Boolean) : [];
-
-  // Q16 connection countries
-  const rawQ16 = getAnswer(16);
-  const q16Countries = rawQ16 ? rawQ16.split(';').map(s => s.trim()).filter(Boolean) : [];
-
-  // Q17 connection types & note
-  const rawQ17 = getAnswer(17);
-  let q17Tags: string[] = [];
-  let q17Note = '';
-  if (rawQ17) {
-    try {
-      if (rawQ17.startsWith('{') && rawQ17.endsWith('}')) {
-        const parsed = JSON.parse(rawQ17);
-        if (Array.isArray(parsed.tags)) q17Tags = parsed.tags;
-        if (typeof parsed.note === 'string') q17Note = parsed.note;
-      } else {
-        q17Note = rawQ17;
-      }
-    } catch {
-      q17Note = rawQ17;
-    }
-  }
-
-  // Q18 offers
-  const rawQ18 = getAnswer(18);
-  let q18OffersList: string[] = [];
-  let q18OfferNote = '';
-  if (rawQ18) {
-    try {
-      if (rawQ18.startsWith('{') && rawQ18.endsWith('}')) {
-        const parsed = JSON.parse(rawQ18);
-        if (Array.isArray(parsed.tags)) q18OffersList = parsed.tags;
-        if (typeof parsed.note === 'string') q18OfferNote = parsed.note;
-      } else {
-        q18OffersList = rawQ18.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-      }
-    } catch {
-      q18OffersList = rawQ18.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-    }
-  }
-  // Combine with taxonomies.offers if available
-  const combinedOffers = Array.from(new Set([
-    ...q18OffersList,
-    ...(profile?.taxonomies?.offers || [])
-  ]));
-
-  // Q22 interests
-  const rawQ22 = getAnswer(22);
-  const q22Interests = rawQ22 ? rawQ22.split(/[,;]/).map(s => s.trim()).filter(Boolean) : [];
-
-  // Q24 Chapter and involvement
-  const rawQ24 = getAnswer(24);
-  let q24Chapter = '';
-  let q24Involvement = '';
-  if (rawQ24) {
-    if (rawQ24.includes('—')) {
-      const parts = rawQ24.split('—').map(s => s.trim());
-      q24Chapter = parts[0] || '';
-      q24Involvement = parts[1] || '';
-    } else if (rawQ24.includes(',')) {
-      const parts = rawQ24.split(',').map(s => s.trim());
-      q24Chapter = parts[0] || '';
-      q24Involvement = parts[1] || '';
-    } else if (STANDARDIZED_CHAPTERS.includes(rawQ24)) {
-      q24Chapter = rawQ24;
-    } else if (STANDARDIZED_INVOLVEMENT_ROLES.includes(rawQ24)) {
-      q24Involvement = rawQ24;
-    }
-  }
-  const displayChapter = q24Chapter || profile?.chapter_name || profile?.city || '';
-
-  // Q25 Job title & Q26 Company
-  const q25JobTitle = getAnswer(25);
-  const q26Company = getAnswer(26);
-  const q27Institution = getAnswer(27);
-
-  // Professional Title & Organization composite
-  let professionalTitleAndOrg = '';
-  if (q25JobTitle && q26Company) {
-    professionalTitleAndOrg = `${q25JobTitle} at ${q26Company}`;
-  } else if (q25JobTitle) {
-    professionalTitleAndOrg = q25JobTitle;
-  } else if (q26Company) {
-    professionalTitleAndOrg = q26Company;
-  } else {
-    professionalTitleAndOrg = profile?.headline || '';
-  }
-
-  // Q7 Roles & Q8 Industries
-  const rawQ7 = getAnswer(7);
-  const q7Roles = rawQ7 ? rawQ7.split(';').map(s => s.trim()).filter(Boolean) : (profile?.taxonomies?.roles || []);
-  const rawQ8 = getAnswer(8);
-  const q8Industries = rawQ8 ? rawQ8.split(';').map(s => s.trim()).filter(Boolean) : (profile?.taxonomies?.industries || []);
-
-  // Locations Q2, Q3, Q4, Q5
-  const q2Location = getAnswer(2) || `${profile?.city || ''}${profile?.country ? `, ${profile.country}` : ''}`;
-  const rawQ3 = getAnswer(3);
-  const q3OtherCities = rawQ3 ? rawQ3.split(';').map(s => s.trim()).filter(Boolean) : [];
-  const rawQ4 = getAnswer(4);
-  const q4Bases = rawQ4 ? rawQ4.split(';').map(s => s.trim()).filter(Boolean) : [];
-  const rawQ5 = getAnswer(5);
-  const q5Languages = rawQ5 ? rawQ5.split(';').map(s => s.trim()).filter(Boolean) : [];
-
-  // Contact Q6 & Q19
-  const rawQ6 = getAnswer(6);
-  let q6Reach: string[] = [];
-  if (rawQ6) {
-    if (rawQ6.startsWith('{')) {
+  // Extract 25-question fields
+  const parseList = (raw: string): string[] => {
+    if (!raw || raw === 'skipped') return [];
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('[')) {
       try {
-        const p = JSON.parse(rawQ6);
-        if (Array.isArray(p.methods)) q6Reach = p.methods;
-        else if (Array.isArray(p.tags)) q6Reach = p.tags;
-      } catch {
-        q6Reach = rawQ6.split(/[,;/]/).map(s => s.trim()).filter(Boolean);
-      }
-    } else {
-      q6Reach = rawQ6.split(/[,;/]/).map(s => s.trim()).filter(Boolean);
+        const arr = JSON.parse(trimmed);
+        if (Array.isArray(arr)) return arr.map(String).filter(Boolean);
+      } catch {}
     }
-  }
-  const q19DirectContact = getAnswer(19);
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed.countries)) {
+          const states = Array.isArray(parsed.us_states) && parsed.us_states.length > 0
+            ? [`US States: ${parsed.us_states.join(', ')}`]
+            : [];
+          return [...parsed.countries, ...states];
+        }
+        if (Array.isArray(parsed.tags)) return parsed.tags.map(String).filter(Boolean);
+      } catch {}
+    }
+    return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+  };
+
+  const formatAnswerForDisplay = (qId: number, raw: string): string => {
+    if (!raw || raw === 'skipped' || raw === 'unanswered') return '';
+    if (qId === 4 && raw.startsWith('{')) {
+      try {
+        const p = JSON.parse(raw);
+        return [
+          p.telegram ? `Telegram: ${p.telegram}` : '',
+          p.whatsapp ? `WhatsApp: ${p.whatsapp}` : '',
+        ].filter(Boolean).join(' · ');
+      } catch {}
+    }
+    if (qId === 6 && raw.startsWith('{')) {
+      try {
+        const p = JSON.parse(raw);
+        return [p.source, p.detail].filter(Boolean).join(' — ');
+      } catch {}
+    }
+    if (qId === 14 && raw.startsWith('{')) {
+      try {
+        const p = JSON.parse(raw);
+        const c = Array.isArray(p.countries) ? p.countries.join(', ') : '';
+        const st = Array.isArray(p.us_states) && p.us_states.length > 0 ? ` (US State: ${p.us_states.join(', ')})` : '';
+        return `${c}${st}`;
+      } catch {}
+    }
+    return raw;
+  };
+
+  const q7ProfileMode = getAnswer(7) || profile?.profile_mode || 'Visible to members';
+  const isPrivateProfileMode = q7ProfileMode === 'Private (browse deals and events only)';
+  const q9MainRole = getAnswer(9);
+  const q10ShortBio = getAnswer(10);
+  const q11OpenTo = parseList(getAnswer(11));
+  const q12Residence = parseList(getAnswer(12));
+  const q24Interests = parseList(getAnswer(24));
+
+  const professionalTitleAndOrg = q9MainRole || profile?.headline || 'Verified Member';
+  const q2Location = q12Residence.length > 0
+    ? q12Residence.join(', ')
+    : `${profile?.city || ''}${profile?.country ? `, ${profile.country}` : ''}`;
 
   return (
     <Modal visible={isOpen} animationType="slide" transparent={false} onRequestClose={closeProfile}>
@@ -644,13 +562,13 @@ export const ProfileDrawerModal: React.FC = () => {
             <View style={styles.topBarTitleBox}>
               <Text style={styles.topBarTitle}>
                 {viewMode === 'editor'
-                  ? 'Edit Club Questionnaire'
+                  ? 'Edit Member Questionnaire (25 Questions)'
                   : isSelf
                   ? 'My Club Profile'
                   : `${profile?.full_name || 'Member'} Profile`}
               </Text>
               {viewMode === 'editor' && (
-                <Text style={styles.topBarSubTitle}>Changes autosave in real-time</Text>
+                <Text style={styles.topBarSubTitle}>Edit any answer or visibility switch at any time</Text>
               )}
             </View>
 
@@ -746,49 +664,19 @@ export const ProfileDrawerModal: React.FC = () => {
                         </View>
                       </View>
 
-                      {/* Current Professional Title & Organization */}
                       <Text style={styles.netHeadlineText} numberOfLines={2}>
                         {professionalTitleAndOrg}
                       </Text>
 
-                      {/* Location & Home Chapter */}
-                      <View style={styles.netLocationRow}>
-                        <Ionicons name="location-outline" size={12} color="#64748b" />
-                        <Text style={styles.netLocationText}>
-                          {q2Location || `${profile.city}, ${profile.country}`}
-                        </Text>
-                        {displayChapter ? (
-                          <>
-                            <Text style={styles.netDotDivider}>·</Text>
-                            <Ionicons name="business-outline" size={12} color="#8b5cf6" />
-                            <Text style={styles.netChapterText}>
-                              {displayChapter.includes('Chapter') ? displayChapter : `${displayChapter} Chapter`}
-                            </Text>
-                          </>
-                        ) : null}
-                      </View>
-
-                      {/* Clickable LinkedIn or Website Link */}
-                      {q13Website ? (
-                        <TouchableOpacity
-                          style={styles.netWebsiteLink}
-                          onPress={() => openExternalUrl(q13Website)}
-                          activeOpacity={0.75}>
-                          <Ionicons
-                            name={q13Website.toLowerCase().includes('linkedin') ? "logo-linkedin" : "globe-outline"}
-                            size={13}
-                            color="#38bdf8"
-                          />
-                          <Text style={styles.netWebsiteLinkText} numberOfLines={1}>
-                            {q13Website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
-                          </Text>
-                          <Ionicons name="open-outline" size={11} color="#38bdf8" />
-                        </TouchableOpacity>
+                      {q2Location ? (
+                        <View style={styles.netLocationRow}>
+                          <Ionicons name="location-outline" size={12} color="#64748b" />
+                          <Text style={styles.netLocationText}>{q2Location}</Text>
+                        </View>
                       ) : null}
                     </View>
                   </View>
 
-                  {/* Header Action: Only peer Connect / Message button for other members; No duplicate Edit Profile button for self */}
                   {!isSelf && (
                     <View style={styles.netHeaderActionRow}>
                       {connectionStatus === 'accepted' ? (
@@ -853,18 +741,18 @@ export const ProfileDrawerModal: React.FC = () => {
                   )}
                 </View>
 
-                {/* Question 18 Requirement Banner (Profile Owner Only) */}
+                {/* Incomplete Required Questions Banner (Profile Owner Only) */}
                 {!profile.is_complete && isSelf && (
                   <View style={styles.q18SlimBanner}>
                     <Ionicons name="warning-outline" size={15} color="#f59e0b" />
                     <Text style={styles.q18SlimText}>
-                      Question 18 ("What can you offer other members?") is required to mark your profile verified.
+                      Complete the 6 required onboarding questions (Name, Email, Phone, Referral, Profile Mode, Next Step) to mark your profile verified.
                     </Text>
                     <TouchableOpacity
                       style={styles.q18SlimBtn}
                       onPress={() => {
                         setViewMode('editor');
-                        setEditorSection('C');
+                        setEditorSection('all');
                       }}
                       activeOpacity={0.8}>
                       <Text style={styles.q18SlimBtnText}>Complete</Text>
@@ -872,334 +760,104 @@ export const ProfileDrawerModal: React.FC = () => {
                   </View>
                 )}
 
-                {/* 2. ABOUT ME */}
-                {(q10Sentence || q12Background) ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>About</Text>
-                    {q10Sentence ? (
-                      <Text style={styles.netLeadParagraph}>{q10Sentence}</Text>
-                    ) : null}
-                    {q12Background ? (
-                      <Text style={styles.netBodyParagraph}>{q12Background}</Text>
-                    ) : null}
-                  </View>
-                ) : isSelf ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>About</Text>
-                    <TouchableOpacity
-                      style={styles.netInlinePrompt}
-                      onPress={() => {
-                        setViewMode('editor');
-                        setEditorSection('B');
-                      }}
-                      activeOpacity={0.75}>
-                      <Ionicons name="add" size={14} color="#64748b" />
-                      <Text style={styles.netInlinePromptText}>Add your introduction &amp; professional background</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-
-                {/* 3. PROFESSIONAL BACKGROUND */}
-                {(q25JobTitle || q26Company || q7Roles.length > 0 || q8Industries.length > 0 || q27Institution || (profile.taxonomies?.expertise && profile.taxonomies.expertise.length > 0)) ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>Professional Background</Text>
-
-                    {(q25JobTitle || q26Company) && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Role</Text>
-                        <Text style={styles.netFieldValue}>
-                          {[q25JobTitle, q26Company].filter(Boolean).join(' at ')}
-                        </Text>
-                      </View>
-                    )}
-
-                    {q27Institution ? (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Institution</Text>
-                        <Text style={styles.netFieldValue}>{q27Institution}</Text>
-                      </View>
-                    ) : null}
-
-                    {q7Roles.length > 0 && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Roles</Text>
-                        <Text style={styles.netInlineTags}>{q7Roles.join(' · ')}</Text>
-                      </View>
-                    )}
-
-                    {q8Industries.length > 0 && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Industries</Text>
-                        <Text style={styles.netInlineTags}>{q8Industries.join(' · ')}</Text>
-                      </View>
-                    )}
-
-                    {profile.taxonomies?.expertise && profile.taxonomies.expertise.length > 0 && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Expertise</Text>
-                        <Text style={styles.netInlineTags}>{profile.taxonomies.expertise.join(' · ')}</Text>
-                      </View>
-                    )}
-                  </View>
-                ) : isSelf ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>Professional Background</Text>
-                    <TouchableOpacity
-                      style={styles.netInlinePrompt}
-                      onPress={() => {
-                        setViewMode('editor');
-                        setEditorSection('B');
-                      }}
-                      activeOpacity={0.75}>
-                      <Ionicons name="add" size={14} color="#64748b" />
-                      <Text style={styles.netInlinePromptText}>Add your professional roles, industries &amp; expertise</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-
-                {/* 4. CURRENT FOCUS */}
-                {(q14Tags.length > 0 || q14Note || q15Industries.length > 0) ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>Current Focus</Text>
-
-                    {q14Tags.length > 0 && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Focus Areas</Text>
-                        <Text style={styles.netInlineTags}>{q14Tags.join(' · ')}</Text>
-                      </View>
-                    )}
-
-                    {q14Note ? (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Milestone</Text>
-                        <Text style={styles.netFieldValue}>{q14Note}</Text>
-                      </View>
-                    ) : null}
-
-                    {q15Industries.length > 0 && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Exploring</Text>
-                        <Text style={styles.netInlineTags}>{q15Industries.join(' · ')}</Text>
-                      </View>
-                    )}
-                  </View>
-                ) : isSelf ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>Current Focus</Text>
-                    <TouchableOpacity
-                      style={styles.netInlinePrompt}
-                      onPress={() => {
-                        setViewMode('editor');
-                        setEditorSection('C');
-                      }}
-                      activeOpacity={0.75}>
-                      <Ionicons name="add" size={14} color="#64748b" />
-                      <Text style={styles.netInlinePromptText}>Add your current strategic focus &amp; milestones</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-
-                {/* 5. LET'S CONNECT */}
-                {(q17Tags.length > 0 || q17Note || q16Countries.length > 0) ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>Let's Connect</Text>
-                    <Text style={styles.netSectionSubtext}>
-                      Collaborators and people this member is interested in meeting right now:
-                    </Text>
-
-                    {q17Tags.length > 0 && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Looking For</Text>
-                        <Text style={styles.netInlineTags}>{q17Tags.join(' · ')}</Text>
-                      </View>
-                    )}
-
-                    {q17Note ? (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Specifics</Text>
-                        <Text style={styles.netFieldValue}>{q17Note}</Text>
-                      </View>
-                    ) : null}
-
-                    {q16Countries.length > 0 && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Geographies</Text>
-                        <Text style={styles.netInlineTags}>{q16Countries.join(' · ')}</Text>
-                      </View>
-                    )}
-                  </View>
-                ) : isSelf ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>Let's Connect</Text>
-                    <TouchableOpacity
-                      style={styles.netInlinePrompt}
-                      onPress={() => {
-                        setViewMode('editor');
-                        setEditorSection('C');
-                      }}
-                      activeOpacity={0.75}>
-                      <Ionicons name="add" size={14} color="#64748b" />
-                      <Text style={styles.netInlinePromptText}>Share who you would like to connect with</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-
-                {/* 6. WHAT I CAN OFFER */}
-                {(combinedOffers.length > 0 || q18OfferNote) ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>What I Can Offer</Text>
-                    <Text style={styles.netSectionSubtext}>
-                      Foundational contributions shared with peers in the club:
-                    </Text>
-
-                    {combinedOffers.length > 0 && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Offers</Text>
-                        <Text style={styles.netInlineTags}>{combinedOffers.join(' · ')}</Text>
-                      </View>
-                    )}
-
-                    {q18OfferNote ? (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Details</Text>
-                        <Text style={styles.netFieldValue}>{q18OfferNote}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                ) : isSelf ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>What I Can Offer</Text>
-                    <TouchableOpacity
-                      style={styles.netInlinePrompt}
-                      onPress={() => {
-                        setViewMode('editor');
-                        setEditorSection('C');
-                      }}
-                      activeOpacity={0.75}>
-                      <Ionicons name="add" size={14} color="#10b981" />
-                      <Text style={[styles.netInlinePromptText, { color: '#10b981' }]}>
-                        Complete Question 18: What can you offer other members? (Required)
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-
-                {/* 7. LOCATIONS & COMMUNITY */}
-                {(q2Location || q3OtherCities.length > 0 || q4Bases.length > 0 || q5Languages.length > 0 || displayChapter || q24Involvement || (profile.travel_plans && profile.travel_plans.length > 0)) ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>Locations &amp; Community</Text>
-
-                    {q2Location ? (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Primary City</Text>
-                        <Text style={styles.netFieldValue}>{q2Location}</Text>
-                      </View>
-                    ) : null}
-
-                    {displayChapter ? (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Home Chapter</Text>
-                        <Text style={styles.netFieldValue}>
-                          {displayChapter} {q24Involvement ? `(${q24Involvement})` : ''}
-                        </Text>
-                      </View>
-                    ) : null}
-
-                    {q3OtherCities.length > 0 && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Other Cities</Text>
-                        <Text style={styles.netInlineTags}>{q3OtherCities.join(' · ')}</Text>
-                      </View>
-                    )}
-
-                    {q4Bases.length > 0 && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Bases</Text>
-                        <Text style={styles.netInlineTags}>{q4Bases.join(' · ')}</Text>
-                      </View>
-                    )}
-
-                    {q5Languages.length > 0 && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Languages</Text>
-                        <Text style={styles.netInlineTags}>{q5Languages.join(' · ')}</Text>
-                      </View>
-                    )}
-
-                    {profile.travel_plans && profile.travel_plans.length > 0 && (
-                      <View style={styles.netFieldRow}>
-                        <Text style={styles.netFieldLabel}>Travel</Text>
-                        <View style={{ flex: 1, gap: 4 }}>
-                          {profile.travel_plans.map((t, idx) => (
-                            <Text key={idx} style={styles.netTravelLine}>
-                              <Text style={styles.netTravelCityText}>{t.city}, {t.country}</Text>
-                              <Text style={styles.netTravelDatesText}> · {t.start_date} → {t.end_date}</Text>
-                            </Text>
-                          ))}
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                ) : null}
-
-                {/* 8. BEYOND WORK */}
-                {q22Interests.length > 0 ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>Beyond Work</Text>
-                    <View style={styles.netFieldRow}>
-                      <Text style={styles.netFieldLabel}>Interests</Text>
-                      <Text style={styles.netInlineTags}>{q22Interests.join(' · ')}</Text>
-                    </View>
-                  </View>
-                ) : isSelf ? (
-                  <View style={styles.netSection}>
-                    <Text style={styles.netSectionTitle}>Beyond Work</Text>
-                    <TouchableOpacity
-                      style={styles.netInlinePrompt}
-                      onPress={() => {
-                        setViewMode('editor');
-                        setEditorSection('D');
-                      }}
-                      activeOpacity={0.75}>
-                      <Ionicons name="add" size={14} color="#64748b" />
-                      <Text style={styles.netInlinePromptText}>Add your interests outside work (sports, outdoors, arts)</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-
-                {/* 9. CONTACT & COMMUNICATION */}
+                {/* 2. VISIBLE MEMBER PROFILE (What the member switched on in Screen 2, Q12, Q24) */}
                 <View style={styles.netSection}>
-                  <Text style={styles.netSectionTitle}>Contact &amp; Communication</Text>
-
-                  <View style={styles.netFieldRow}>
-                    <Text style={styles.netFieldLabel}>Preference</Text>
-                    <Text style={styles.netFieldValue}>
-                      {profile.contact_preference === 'direct_contact'
-                        ? 'Open to direct member contact'
-                        : profile.contact_preference === 'through_team'
-                        ? 'Through Chapter Leadership / Team'
-                        : 'Currently unavailable'}
+                  <Text style={styles.netSectionTitle}>Member Profile</Text>
+                  {isSelf && (
+                    <Text style={styles.netSectionSubtext}>
+                      Profile Mode (Q7): {q7ProfileMode}. Other verified members see only the answers you switch to Visible.
                     </Text>
-                  </View>
-
-                  {q6Reach.length > 0 && (
-                    <View style={styles.netFieldRow}>
-                      <Text style={styles.netFieldLabel}>Reach Via</Text>
-                      <Text style={styles.netInlineTags}>{q6Reach.join(' · ')}</Text>
-                    </View>
                   )}
 
-                  {q19DirectContact ? (
+                  {q9MainRole ? (
                     <View style={styles.netFieldRow}>
-                      <Text style={styles.netFieldLabel}>Outreach</Text>
-                      <Text style={styles.netFieldValue}>{q19DirectContact}</Text>
+                      <Text style={styles.netFieldLabel}>Main Role</Text>
+                      <Text style={styles.netFieldValue}>
+                        {q9MainRole}
+                        {(isSelf || isFounder) && isFieldPrivate(9) ? ' (Private)' : ''}
+                      </Text>
                     </View>
                   ) : null}
 
-                  <Text style={styles.netPrivacyNotice}>
-                    Member contact details are confidential. Direct and team outreach follow declared preferences.
-                  </Text>
+                  {q10ShortBio ? (
+                    <View style={styles.netFieldRow}>
+                      <Text style={styles.netFieldLabel}>Bio</Text>
+                      <Text style={styles.netFieldValue}>
+                        {q10ShortBio}
+                        {(isSelf || isFounder) && isFieldPrivate(10) ? ' (Private)' : ''}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {q11OpenTo.length > 0 && (
+                    <View style={styles.netFieldRow}>
+                      <Text style={styles.netFieldLabel}>Open To</Text>
+                      <Text style={styles.netInlineTags}>
+                        {q11OpenTo.join(' · ')}
+                        {(isSelf || isFounder) && isFieldPrivate(11) ? ' (Private)' : ''}
+                      </Text>
+                    </View>
+                  )}
+
+                  {q12Residence.length > 0 && (
+                    <View style={styles.netFieldRow}>
+                      <Text style={styles.netFieldLabel}>Residence</Text>
+                      <Text style={styles.netInlineTags}>
+                        {q12Residence.join(' · ')}
+                        {(isSelf || isFounder) && isFieldPrivate(12) ? ' (Private)' : ''}
+                      </Text>
+                    </View>
+                  )}
+
+                  {q24Interests.length > 0 && (
+                    <View style={styles.netFieldRow}>
+                      <Text style={styles.netFieldLabel}>Interests</Text>
+                      <Text style={styles.netInlineTags}>
+                        {q24Interests.join(' · ')}
+                        {(isSelf || isFounder) && isFieldPrivate(24) ? ' (Private)' : ''}
+                      </Text>
+                    </View>
+                  )}
+
+                  {!q9MainRole && !q10ShortBio && q11OpenTo.length === 0 && q12Residence.length === 0 && q24Interests.length === 0 && (
+                    <Text style={styles.netPrivacyNotice}>
+                      {isSelf
+                        ? 'Your switchable profile fields (Q8–Q12, Q24) are currently empty or set to Private. Click Edit to update or switch on what other members can see.'
+                        : 'This member keeps their detailed profile fields private.'}
+                    </Text>
+                  )}
                 </View>
+
+                {/* 3. TEAM-ONLY ANSWERS (Strictly Restricted to Founders/Admins & Self) */}
+                {(isSelf || isFounder) && (
+                  <View style={styles.netSection}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Text style={styles.netSectionTitle}>Team-Only Answers (Confidential)</Text>
+                      <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.14)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.35)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
+                        <Text style={{ color: '#fbbf24', fontSize: 10, fontWeight: '700' }}>
+                          🔒 FOUNDERS/ADMINS &amp; YOU ONLY
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.netSectionSubtext}>
+                      Screens 3 to 5 are AES-256-GCM encrypted at rest and never visible to other members.
+                    </Text>
+
+                    {[1, 2, 3, 4, 5, 6, 7, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25].map((qId) => {
+                      const qDef = CANONICAL_QUESTIONS.find((x) => x.id === qId);
+                      const val = formatAnswerForDisplay(qId, getAnswer(qId));
+                      if (!val) return null;
+                      return (
+                        <View key={qId} style={styles.netFieldRow}>
+                          <Text style={[styles.netFieldLabel, { width: 130 }]} numberOfLines={2}>
+                            Q{qId}. {qDef?.prompt}
+                          </Text>
+                          <Text style={styles.netFieldValue}>{val}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
 
                 {/* Account Governance & Legal */}
                 <View style={styles.legalSettingsCard}>
@@ -1263,7 +921,6 @@ export const ProfileDrawerModal: React.FC = () => {
                       Confidential applicant queue and invitation governance for Alexandra, Julia, and Elena.
                     </Text>
 
-                    {/* Launch Full Admin Dashboard */}
                     <TouchableOpacity
                       style={styles.openAdminDeskBtn}
                       onPress={() => setViewMode('admin')}
@@ -1272,147 +929,6 @@ export const ProfileDrawerModal: React.FC = () => {
                       <Text style={styles.openAdminDeskBtnText}>Open Admin Dashboard &amp; Events Desk</Text>
                       <Ionicons name="arrow-forward" size={14} color="#000000" />
                     </TouchableOpacity>
-
-                    {/* Generate New Invitation Toggle */}
-                    <TouchableOpacity
-                      style={styles.toggleCreateInviteBtn}
-                      onPress={() => setShowCreateInvite(!showCreateInvite)}
-                      activeOpacity={0.8}>
-                      <Ionicons name={showCreateInvite ? 'close-circle-outline' : 'add-circle-outline'} size={15} color="#38bdf8" />
-                      <Text style={styles.toggleCreateInviteText}>
-                        {showCreateInvite ? 'Cancel Invitation Issuance' : '+ Generate Single-Use Invitation'}
-                      </Text>
-                    </TouchableOpacity>
-
-                    {showCreateInvite && (
-                      <View style={styles.createInviteForm}>
-                        <Text style={styles.createInviteHeader}>Issue Expirable Invitation</Text>
-                        <TextInput
-                          style={styles.createInviteInput}
-                          placeholder="Applicant Email (e.g. founder@venture.co)"
-                          placeholderTextColor="#64748b"
-                          value={newInviteEmail}
-                          onChangeText={setNewInviteEmail}
-                          keyboardType="email-address"
-                          autoCapitalize="none"
-                        />
-                        <TextInput
-                          style={styles.createInviteInput}
-                          placeholder="Applicant Name (optional)"
-                          placeholderTextColor="#64748b"
-                          value={newInviteName}
-                          onChangeText={setNewInviteName}
-                        />
-                        <View style={styles.expirationRow}>
-                          <Text style={styles.expirationLabel}>Expires in (days):</Text>
-                          {['7', '14', '30'].map((d) => (
-                            <TouchableOpacity
-                              key={d}
-                              style={[styles.dayChoiceBtn, newInviteDays === d && styles.dayChoiceBtnActive]}
-                              onPress={() => setNewInviteDays(d)}>
-                              <Text style={[styles.dayChoiceText, newInviteDays === d && styles.dayChoiceTextActive]}>
-                                {d}d
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                        <TouchableOpacity
-                          style={[styles.generateInviteBtn, isCreatingInvite && { opacity: 0.6 }]}
-                          onPress={handleCreateNewInvite}
-                          disabled={isCreatingInvite}
-                          activeOpacity={0.85}>
-                          {isCreatingInvite ? (
-                            <ActivityIndicator size="small" color="#ffffff" />
-                          ) : (
-                            <Text style={styles.generateInviteBtnText}>Generate &amp; Issue Token</Text>
-                          )}
-                        </TouchableOpacity>
-                      </View>
-                    )}
-
-                    {accessRequests.length === 0 ? (
-                      <Text style={styles.emptyRequestsText}>No access requests in queue.</Text>
-                    ) : (
-                      accessRequests.slice(0, 10).map((reqItem) => (
-                        <View key={reqItem.id} style={styles.reqItemCard}>
-                          <View style={styles.reqItemTop}>
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.reqItemName}>{reqItem.full_name || 'Prospective Member'}</Text>
-                              <Text style={styles.reqItemEmail}>{reqItem.email}</Text>
-                              {!!reqItem.role_or_headline && (
-                                <Text style={styles.reqItemRole}>{reqItem.role_or_headline}</Text>
-                              )}
-                              {!!reqItem.linkedin_or_background && (
-                                <Text style={styles.reqItemLinkedin}>LinkedIn: {reqItem.linkedin_or_background}</Text>
-                              )}
-                              {!!reqItem.what_brings_you && (
-                                <Text style={styles.reqItemNotes}>"{reqItem.what_brings_you}"</Text>
-                              )}
-                              {!!reqItem.expires_at && (
-                                <Text style={styles.reqItemExpires}>Expires: {reqItem.expires_at.split('T')[0]}</Text>
-                              )}
-                            </View>
-                            <View style={[
-                              styles.reqStatusBadge,
-                              reqItem.status === 'approved' ? styles.reqStatusApproved :
-                              reqItem.status === 'claimed' ? styles.reqStatusClaimed :
-                              reqItem.status === 'declined' ? styles.reqStatusDeclined :
-                              reqItem.status === 'revoked' ? styles.reqStatusRevoked : styles.reqStatusPending
-                            ]}>
-                              <Text style={styles.reqStatusBadgeText}>
-                                {reqItem.status === 'approved' ? 'APPROVED' :
-                                 reqItem.status === 'claimed' ? 'CLAIMED' :
-                                 reqItem.status === 'declined' ? 'DECLINED' :
-                                 reqItem.status === 'revoked' ? 'REVOKED' : 'PENDING'}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {reqItem.status === 'approved' && !reqItem.is_claimed && (
-                            <View style={styles.approvedActionRow}>
-                              <View style={styles.issuedTokenRow}>
-                                <Text style={styles.issuedTokenLabel}>Token:</Text>
-                                <Text style={styles.issuedTokenCode}>{reqItem.token}</Text>
-                              </View>
-                              <TouchableOpacity
-                                style={styles.revokeBtn}
-                                onPress={() => handleRevokeInvitation(reqItem.id, reqItem.token)}
-                                disabled={revokingTokenId === reqItem.id}
-                                activeOpacity={0.8}>
-                                <Text style={styles.revokeBtnText}>
-                                  {revokingTokenId === reqItem.id ? 'Revoking...' : 'Revoke'}
-                                </Text>
-                              </TouchableOpacity>
-                            </View>
-                          )}
-
-                          {reqItem.status === 'pending_admin_approval' && (
-                            <View style={styles.pendingActionRow}>
-                              <TouchableOpacity
-                                style={[styles.approveReqBtn, approvingRequestId === reqItem.id && { opacity: 0.6 }]}
-                                onPress={() => handleApproveRequest(reqItem.id, reqItem.email)}
-                                disabled={approvingRequestId === reqItem.id || decliningRequestId === reqItem.id}
-                                activeOpacity={0.85}>
-                                <Ionicons name="checkmark-circle-outline" size={14} color="#000000" style={{ marginRight: 4 }} />
-                                <Text style={styles.approveReqBtnText}>
-                                  {approvingRequestId === reqItem.id ? 'Issuing...' : 'Approve & Send Token'}
-                                </Text>
-                              </TouchableOpacity>
-
-                              <TouchableOpacity
-                                style={[styles.declineReqBtn, decliningRequestId === reqItem.id && { opacity: 0.6 }]}
-                                onPress={() => handleDeclineRequest(reqItem.id, reqItem.email)}
-                                disabled={approvingRequestId === reqItem.id || decliningRequestId === reqItem.id}
-                                activeOpacity={0.85}>
-                                <Text style={styles.declineReqBtnText}>
-                                  {decliningRequestId === reqItem.id ? '...' : 'Decline'}
-                                </Text>
-                              </TouchableOpacity>
-                            </View>
-                          )}
-                        </View>
-                      ))
-                    )}
                   </View>
                 )}
 
@@ -1435,18 +951,17 @@ export const ProfileDrawerModal: React.FC = () => {
             )}
 
             {/* ========================================================================= */}
-            {/* VIEW MODE: QUESTIONNAIRE EDITOR (EDIT PROFILE)                            */}
+            {/* VIEW MODE: 25-QUESTION, 6-SCREEN QUESTIONNAIRE EDITOR                     */}
             {/* ========================================================================= */}
             {viewMode === 'editor' && (
               <View style={styles.editorContainer}>
-                {/* Editor Header Banner */}
                 <View style={styles.editorBanner}>
                   <View style={styles.editorBannerLeft}>
                     <Ionicons name="sparkles" size={16} color="#38bdf8" />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.editorBannerTitle}>Questionnaire Source of Truth</Text>
+                      <Text style={styles.editorBannerTitle}>25-Question Member Onboarding &amp; Profile</Text>
                       <Text style={styles.editorBannerDesc}>
-                        Updates immediately refresh your professional networking profile. Every change autosaves on blur.
+                        Edit any answer and any visibility switch at any time. Team-only answers are seen only by Founders/Admins.
                       </Text>
                     </View>
                   </View>
@@ -1461,7 +976,7 @@ export const ProfileDrawerModal: React.FC = () => {
                   </TouchableOpacity>
                 </View>
 
-                {/* Section Filter Pills */}
+                {/* Screen Filter Pills (1 to 6) */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sectionTabsScroll}>
                   {CANONICAL_SECTIONS.map(sec => {
                     const isActive = editorSection === sec.id;
@@ -1479,1264 +994,405 @@ export const ProfileDrawerModal: React.FC = () => {
                   })}
                 </ScrollView>
 
-                {/* Question Cards Stack */}
+                {editorSection === '4' && (
+                  <View style={[styles.q23ShieldBox, { marginBottom: 14 }]}>
+                    <Ionicons name="shield-checkmark" size={14} color="#38bdf8" />
+                    <Text style={[styles.q23ShieldText, { color: '#e2e8f0' }]}>
+                      Only our team sees this. It helps us show you relevant deals and services.
+                    </Text>
+                  </View>
+                )}
+
+                {/* Question Cards Stack (Q1 to Q25) */}
                 <View style={styles.questionsContainer}>
-                  {profile.answers
-                    ?.filter(q => {
-                      if (editorSection === 'all') return true;
-                      const targetSec = CANONICAL_SECTIONS.find(s => s.id === editorSection);
-                      return targetSec && targetSec.questionIds ? targetSec.questionIds.includes(q.question_id) : true;
-                    })
-                    .map(q => {
-                      const local = answersState[q.question_id] || {
-                        value: q.value_text || '',
-                        visibility: q.visibility || 'shared',
-                      };
-                      const isQ3 = q.question_id === 3;
-                      const isQ4 = q.question_id === 4;
-                      const isQ5 = q.question_id === 5;
-                      const isQ6 = q.question_id === 6;
-                      const isQ7 = q.question_id === 7;
-                      const isQ8 = q.question_id === 8;
-                      const isQ12 = q.question_id === 12;
-                      const isQ13 = q.question_id === 13;
-                      const isQ14 = q.question_id === 14;
-                      const isQ15 = q.question_id === 15;
-                      const isQ16 = q.question_id === 16;
-                      const isQ17 = q.question_id === 17;
-                      const isQ18 = q.question_id === 18;
-                      const isQ19 = q.question_id === 19;
-                      const isQ20 = q.question_id === 20;
-                      const isQ21 = q.question_id === 21;
-                      const isQ22 = q.question_id === 22;
-                      const isQ23 = q.question_id === 23;
-                      const isQ24 = q.question_id === 24;
-                      const isSaving = savingQuestionId === q.question_id;
+                  {CANONICAL_QUESTIONS.filter(qDef => {
+                    if (editorSection === 'all') return true;
+                    const targetSec = CANONICAL_SECTIONS.find(s => s.id === editorSection);
+                    return targetSec && targetSec.questionIds ? targetSec.questionIds.includes(qDef.id) : true;
+                  }).map(qDef => {
+                    const qId = qDef.id;
+                    const local = answersState[qId] || {
+                      value: '',
+                      visibility: 'private',
+                    };
+                    const currentVal = local.value === 'skipped' ? '' : (local.value || '');
+                    const isSwitchable = qDef.visibility_mode === 'switch';
+                    const effectiveVis: 'shared' | 'private' =
+                      !isSwitchable || isPrivateProfileMode ? 'private' : (local.visibility || 'private');
+                    const isSaving = savingQuestionId === qId;
 
-                      // Parse Q3 cities
-                      let itemQ3List: string[] = [];
-                      if (isQ3 && local.value && local.value !== 'skipped') {
-                        if (local.value.startsWith('[') && local.value.endsWith(']')) {
-                          try {
-                            const arr = JSON.parse(local.value);
-                            if (Array.isArray(arr)) itemQ3List = arr.map(String);
-                          } catch {}
-                        }
-                        if (itemQ3List.length === 0) {
-                          itemQ3List = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
-                        }
-                      }
+                    const exclusiveOptions = [
+                      'Prefer not to say',
+                      'None yet',
+                      'Nobody yet',
+                      'None of these',
+                      'Not sure',
+                    ];
 
-                      // Parse Q4 countries
-                      let itemQ4List: string[] = [];
-                      if (isQ4 && local.value && local.value !== 'skipped') {
-                        if (local.value.startsWith('[') && local.value.endsWith(']')) {
-                          try {
-                            const arr = JSON.parse(local.value);
-                            if (Array.isArray(arr)) itemQ4List = arr.map(String);
-                          } catch {}
-                        }
-                        if (itemQ4List.length === 0) {
-                          itemQ4List = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
-                        }
-                      }
-
-                      // Parse Q5 languages
-                      let itemQ5List: string[] = [];
-                      if (isQ5 && local.value && local.value !== 'skipped') {
-                        itemQ5List = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
-                      }
-
-                      // Parse Q6 contact methods and details
-                      let itemQ6Methods: string[] = [];
-                      let itemQ6Details: Record<string, string> = {
-                        whatsapp: '',
-                        telegram: '',
-                        email: '',
-                        zoom: '',
-                      };
-                      if (isQ6 && local.value && local.value !== 'skipped') {
-                        if (local.value.startsWith('{')) {
-                          try {
-                            const p = JSON.parse(local.value);
-                            if (Array.isArray(p.methods)) itemQ6Methods = p.methods;
-                            else if (Array.isArray(p.tags)) itemQ6Methods = p.tags;
-
-                            const d = p.details || {};
-                            itemQ6Details = {
-                              whatsapp: (d.whatsapp || p.whatsapp) ? formatWhatsAppNumber(d.whatsapp || p.whatsapp) : '',
-                              telegram: d.telegram || p.telegram || '',
-                              email: d.email || p.email || '',
-                              zoom: d.zoom || p.zoom_link || p.zoom || '',
-                            };
-                          } catch {}
-                        } else {
-                          itemQ6Methods = local.value.split(/[,;/]/).map((s: string) => s.trim()).filter(Boolean);
-                        }
-                      }
-
-                      // Parse Q7 roles
-                      let itemQ7List: string[] = [];
-                      if (isQ7 && local.value && local.value !== 'skipped') {
-                        itemQ7List = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
-                      }
-
-                      // Parse Q8 industries
-                      let itemQ8List: string[] = [];
-                      if (isQ8 && local.value && local.value !== 'skipped') {
-                        itemQ8List = local.value.split(';').map((s: string) => s.trim()).filter(Boolean);
-                      }
-
-                      // Parse Q16 connection countries
-                      let itemQ16List: string[] = [];
-                      if (isQ16 && local.value && local.value !== 'skipped') {
-                        itemQ16List = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
-                      }
-
-                      // Parse Q18 offers & note
-                      let itemQ18Tags: string[] = [];
-                      let itemQ18Note = '';
-                      if (isQ18 && local.value && local.value !== 'skipped') {
-                        try {
-                          if (local.value.startsWith('{') && local.value.endsWith('}')) {
-                            const p = JSON.parse(local.value);
-                            if (Array.isArray(p.tags)) itemQ18Tags = p.tags;
-                            if (typeof p.note === 'string') itemQ18Note = p.note;
-                          } else {
-                            itemQ18Tags = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
-                          }
-                        } catch {
-                          itemQ18Tags = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
-                        }
-                      }
-
-                      // Parse Q24 chapter and involvement
-                      let itemQ24Chapter = '';
-                      let itemQ24Involvement = '';
-                      if (isQ24 && local.value && local.value !== 'skipped') {
-                        if (local.value.includes('—')) {
-                          const parts = local.value.split('—').map((s: string) => s.trim());
-                          itemQ24Chapter = parts[0] || '';
-                          itemQ24Involvement = parts[1] || '';
-                        } else if (local.value.includes(',')) {
-                          const parts = local.value.split(',').map((s: string) => s.trim());
-                          itemQ24Chapter = parts[0] || '';
-                          itemQ24Involvement = parts[1] || '';
-                        } else if (STANDARDIZED_CHAPTERS.includes(local.value)) {
-                          itemQ24Chapter = local.value;
-                        } else if (STANDARDIZED_INVOLVEMENT_ROLES.includes(local.value)) {
-                          itemQ24Involvement = local.value;
-                        }
-                      }
-
-                      // Parse Q22 interests
-                      let itemQ22List: string[] = [];
-                      if (isQ22 && local.value && local.value !== 'skipped') {
-                        itemQ22List = local.value.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean);
-                      }
-
-                      // Parse Q14 priorities & note
-                      let itemQ14Tags: string[] = [];
-                      let itemQ14Note = '';
-                      if (isQ14 && local.value) {
-                        try {
-                          if (local.value.startsWith('{') && local.value.endsWith('}')) {
-                            const p = JSON.parse(local.value);
-                            if (Array.isArray(p.tags)) itemQ14Tags = p.tags;
-                            if (typeof p.note === 'string') itemQ14Note = p.note;
-                          } else {
-                            itemQ14Note = local.value;
-                          }
-                        } catch {
-                          itemQ14Note = local.value;
-                        }
-                      }
-
-                      // Parse Q15 explored industries
-                      let itemQ15List: string[] = [];
-                      if (isQ15 && local.value && local.value !== 'skipped') {
-                        itemQ15List = local.value.split(';').map((s: string) => s.trim()).filter(Boolean);
-                      }
-
-                      // Parse Q17 connection types & note
-                      let itemQ17Tags: string[] = [];
-                      let itemQ17Note = '';
-                      if (isQ17 && local.value) {
-                        try {
-                          if (local.value.startsWith('{') && local.value.endsWith('}')) {
-                            const p = JSON.parse(local.value);
-                            if (Array.isArray(p.tags)) itemQ17Tags = p.tags;
-                            if (typeof p.note === 'string') itemQ17Note = p.note;
-                          } else {
-                            itemQ17Note = local.value;
-                          }
-                        } catch {
-                          itemQ17Note = local.value;
-                        }
-                      }
-
-                      return (
-                        <View
-                          key={q.question_id}
-                          style={[
-                            styles.questionCard,
-                            isQ18 && styles.questionCardQ18,
-                            isQ23 && styles.questionCardQ23,
-                          ]}>
-                          {/* Question Top Row */}
-                          <View style={styles.questionHeader}>
+                    return (
+                      <View key={qId} style={styles.questionCard}>
+                        {/* Top Row: Question Number, Required Badge, and Visibility Control */}
+                        <View style={styles.questionHeader}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                             <View style={styles.questionNumBadge}>
-                              <Text style={styles.questionNumText}>Q{q.question_id}</Text>
+                              <Text style={styles.questionNumText}>
+                                Screen {qDef.screen} · Q{qId}
+                              </Text>
                             </View>
-                            {isQ18 && (
+                            {qDef.is_required && (
                               <View style={styles.mandatoryBadge}>
-                                <Text style={styles.mandatoryBadgeText}>★ REQUIRED FOR COMPLETION</Text>
+                                <Text style={styles.mandatoryBadgeText}>REQUIRED</Text>
                               </View>
                             )}
+                          </View>
 
-                            {/* Visibility Pill Toggle */}
-                            {isSelf && (
+                          {isSelf && (
+                            qDef.visibility_mode === 'team_only' ? (
+                              <View style={[styles.visibilityPill, styles.visPrivate]}>
+                                <Ionicons name="lock-closed" size={11} color="#f59e0b" />
+                                <Text style={[styles.visibilityText, styles.textAmber]}>
+                                  Team only
+                                </Text>
+                              </View>
+                            ) : (
                               <TouchableOpacity
                                 style={[
                                   styles.visibilityPill,
-                                  local.visibility === 'private' ? styles.visPrivate : styles.visShared,
+                                  effectiveVis === 'private' ? styles.visPrivate : styles.visShared,
                                 ]}
-                                onPress={() => handleToggleVisibility(q.question_id)}
-                                disabled={isQ23}>
+                                onPress={() => handleToggleVisibility(qId)}>
                                 <Ionicons
-                                  name={local.visibility === 'private' ? 'lock-closed' : 'globe-outline'}
+                                  name={effectiveVis === 'private' ? 'lock-closed' : 'eye-outline'}
                                   size={11}
-                                  color={local.visibility === 'private' ? '#f59e0b' : '#38bdf8'}
+                                  color={effectiveVis === 'private' ? '#f59e0b' : '#38bdf8'}
                                 />
                                 <Text
                                   style={[
                                     styles.visibilityText,
-                                    local.visibility === 'private' ? styles.textAmber : styles.textCyan,
+                                    effectiveVis === 'private' ? styles.textAmber : styles.textCyan,
                                   ]}>
-                                  {local.visibility === 'private' ? 'Private' : 'Shared'}
+                                  {isPrivateProfileMode
+                                    ? 'Private (locked by Q7)'
+                                    : effectiveVis === 'private'
+                                    ? 'Private · Switch'
+                                    : 'Visible · Switch'}
                                 </Text>
                               </TouchableOpacity>
-                            )}
-                          </View>
+                            )
+                          )}
+                        </View>
 
-                          {/* Question Prompt */}
-                          <Text style={styles.questionPrompt}>{q.question_prompt}</Text>
+                        <Text style={styles.questionPrompt}>{qDef.prompt}</Text>
 
-                          {/* Helpers */}
-                          {isQ8 && (
-                            <Text style={styles.questionHelperText}>
-                              Choose up to 3 industries that reflect your primary expertise.
-                            </Text>
-                          )}
-                          {isQ12 && (
-                            <Text style={styles.questionHelperText}>
-                              Share previous companies, education, research, or projects you’re proud of.
-                            </Text>
-                          )}
-                          {isQ16 && (
-                            <Text style={styles.questionHelperText}>
-                              Choose up to five countries where introductions or connections are most useful.
-                            </Text>
-                          )}
-                          {isQ17 && (
-                            <Text style={styles.questionHelperText}>
-                              Choose up to five types of connections.
-                            </Text>
-                          )}
-                          {isQ18 && (
-                            <Text style={styles.questionHelperText}>
-                              Choose the areas where you can share experience, help, or introductions.
-                            </Text>
-                          )}
-                          {isQ22 && (
-                            <Text style={styles.questionHelperText}>
-                              Select personal interests, sports, and creative pursuits outside of work.
-                            </Text>
-                          )}
-                          {isQ23 && (
-                            <>
-                              <Text style={styles.questionHelperText}>
-                                Optional. Share any context or preferences you’d rather leave off your member profile.
-                              </Text>
-                              <View style={styles.q23ShieldBox}>
-                                <Ionicons name="shield-checkmark" size={13} color="#f59e0b" />
-                                <Text style={styles.q23ShieldText}>
-                                  Confidential to founders (Alexandra, Julia, Elena). Never exposed to search, public profiles, or AI match payloads.
-                                </Text>
-                              </View>
-                            </>
+                        <View style={styles.inputWrap}>
+                          {/* Q1, Q2, Q3: Text / Email / Phone */}
+                          {(qId === 1 || qId === 2 || qId === 3) && (
+                            <TextInput
+                              style={[styles.answerInput, { minHeight: 42, paddingVertical: 10 }]}
+                              placeholder={qDef.placeholder || ''}
+                              placeholderTextColor={OzaraTheme.colors.textMuted}
+                              value={currentVal}
+                              onChangeText={val =>
+                                setAnswersState(prev => ({
+                                  ...prev,
+                                  [qId]: { ...local, value: val },
+                                }))
+                              }
+                              onBlur={() => handleSaveAnswer(qId)}
+                            />
                           )}
 
-                          {/* Input Fields */}
-                          <View style={styles.inputWrap}>
-                            {isQ3 ? (
-                              <View style={styles.chipsWrap}>
-                                {STANDARDIZED_CITIES_Q3.map((city, idx) => {
-                                  const isSel = itemQ3List.includes(city);
-                                  return (
-                                    <TouchableOpacity
-                                      key={idx}
-                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
-                                      onPress={() => {
-                                        const nextList = isSel
-                                          ? itemQ3List.filter(c => c !== city)
-                                          : [...itemQ3List, city];
-                                        const valStr = nextList.join(', ');
-                                        setAnswersState(prev => ({
-                                          ...prev,
-                                          [3]: { ...local, value: valStr },
-                                        }));
-                                        handleSaveAnswer(3, valStr);
-                                      }}
-                                      activeOpacity={0.7}>
-                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                        {city}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
+                          {/* Q4: Telegram and WhatsApp (Two text fields) */}
+                          {qId === 4 && (() => {
+                            let tgVal = '';
+                            let waVal = '';
+                            if (currentVal) {
+                              try {
+                                const p = JSON.parse(currentVal);
+                                tgVal = p.telegram || '';
+                                waVal = p.whatsapp || '';
+                              } catch {
+                                tgVal = currentVal;
+                              }
+                            }
+                            const updateQ4 = (nextTg: string, nextWa: string, saveNow = false) => {
+                              const nextStr = (!nextTg.trim() && !nextWa.trim())
+                                ? ''
+                                : JSON.stringify({ telegram: nextTg, whatsapp: nextWa });
+                              setAnswersState(prev => ({
+                                ...prev,
+                                [4]: { ...local, value: nextStr },
+                              }));
+                              if (saveNow) handleSaveAnswer(4, nextStr);
+                            };
+                            return (
+                              <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <TextInput
+                                  style={[styles.answerInput, { flex: 1, minHeight: 42, paddingVertical: 10 }]}
+                                  placeholder="Telegram: @handle or number"
+                                  placeholderTextColor={OzaraTheme.colors.textMuted}
+                                  value={tgVal}
+                                  onChangeText={txt => updateQ4(txt, waVal, false)}
+                                  onBlur={() => updateQ4(tgVal, waVal, true)}
+                                />
+                                <TextInput
+                                  style={[styles.answerInput, { flex: 1, minHeight: 42, paddingVertical: 10 }]}
+                                  placeholder="WhatsApp: @handle or number"
+                                  placeholderTextColor={OzaraTheme.colors.textMuted}
+                                  value={waVal}
+                                  onChangeText={txt => updateQ4(tgVal, txt, false)}
+                                  onBlur={() => updateQ4(tgVal, waVal, true)}
+                                />
                               </View>
-                            ) : isQ4 ? (
-                              <View style={styles.chipsWrap}>
-                                {STANDARDIZED_COUNTRIES_Q4.map((country, idx) => {
-                                  const isSel = itemQ4List.includes(country);
-                                  return (
-                                    <TouchableOpacity
-                                      key={idx}
-                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
-                                      onPress={() => {
-                                        const nextList = isSel
-                                          ? itemQ4List.filter(c => c !== country)
-                                          : [...itemQ4List, country];
-                                        const valStr = nextList.join(', ');
-                                        setAnswersState(prev => ({
-                                          ...prev,
-                                          [4]: { ...local, value: valStr },
-                                        }));
-                                        handleSaveAnswer(4, valStr);
-                                      }}
-                                      activeOpacity={0.7}>
-                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                        {country}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-                            ) : isQ5 ? (
-                              <View style={styles.chipsWrap}>
-                                {STANDARDIZED_LANGUAGES.map((lang, idx) => {
-                                  const isSel = itemQ5List.includes(lang);
-                                  return (
-                                    <TouchableOpacity
-                                      key={idx}
-                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
-                                      onPress={() => {
-                                        const nextList = isSel
-                                          ? itemQ5List.filter(l => l !== lang)
-                                          : [...itemQ5List, lang];
-                                        const valStr = nextList.join(', ');
-                                        setAnswersState(prev => ({
-                                          ...prev,
-                                          [5]: { ...local, value: valStr },
-                                        }));
-                                        handleSaveAnswer(5, valStr);
-                                      }}
-                                      activeOpacity={0.7}>
-                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                        {lang}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-                            ) : isQ6 ? (
-                              <View>
-                                <Text style={styles.subFieldLabel}>Select Approved Contact Channels:</Text>
+                            );
+                          })()}
+
+                          {/* Q6: How did you hear about us? (Dropdown + text) */}
+                          {qId === 6 && (() => {
+                            let sourceVal = '';
+                            let detailVal = '';
+                            if (currentVal) {
+                              try {
+                                const p = JSON.parse(currentVal);
+                                sourceVal = p.source || '';
+                                detailVal = p.detail || '';
+                              } catch {
+                                sourceVal = currentVal;
+                              }
+                            }
+                            const updateQ6 = (nextSource: string, nextDetail: string, saveNow = false) => {
+                              const nextStr = (!nextSource && !nextDetail)
+                                ? ''
+                                : JSON.stringify({ source: nextSource, detail: nextDetail });
+                              setAnswersState(prev => ({
+                                ...prev,
+                                [6]: { ...local, value: nextStr },
+                              }));
+                              if (saveNow) handleSaveAnswer(6, nextStr);
+                            };
+                            return (
+                              <View style={{ gap: 8 }}>
                                 <View style={styles.chipsWrap}>
-                                  {STANDARDIZED_REACH_CHANNELS.map((method, idx) => {
-                                    const isSel = itemQ6Methods.includes(method);
+                                  {Q6_REFERRAL_OPTIONS.map(opt => {
+                                    const isSel = sourceVal === opt;
                                     return (
                                       <TouchableOpacity
-                                        key={idx}
+                                        key={opt}
                                         style={[styles.chipPill, isSel && styles.chipPillSelected]}
-                                        onPress={() => {
-                                          const next = isSel ? itemQ6Methods.filter(m => m !== method) : [...itemQ6Methods, method];
-                                          const payload = {
-                                            methods: next,
-                                            details: itemQ6Details,
-                                            whatsapp: itemQ6Details.whatsapp?.trim() || null,
-                                            telegram: itemQ6Details.telegram?.trim() || null,
-                                            email: itemQ6Details.email?.trim() || null,
-                                            zoom_link: itemQ6Details.zoom?.trim() || localZoomLink?.trim() || null,
-                                          };
-                                          const valStr = JSON.stringify(payload);
-                                          setAnswersState(prev => ({
-                                            ...prev,
-                                            [6]: { ...local, value: valStr },
-                                          }));
-                                          handleSaveAnswer(6, valStr);
-                                        }}
-                                        activeOpacity={0.7}>
+                                        onPress={() => updateQ6(opt, detailVal, true)}>
                                         <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                          {method}
+                                          {opt}
                                         </Text>
                                       </TouchableOpacity>
                                     );
                                   })}
                                 </View>
-
-                                {/* WhatsApp Input with Separate Country Calling Code & National Number */}
-                                {itemQ6Methods.some(m => /whatsapp/i.test(m)) && (() => {
-                                  const parsedWhatsApp = parsePhoneNumber(itemQ6Details.whatsapp);
-                                  const whatsAppCountry = parsedWhatsApp.country;
-                                  const whatsAppNational = parsedWhatsApp.nationalNumber;
-
-                                  const qSearch = drawerWhatsAppCountrySearchQuery.trim().toLowerCase();
-                                  const filteredCountries = qSearch
-                                    ? COUNTRY_DIAL_CODES.filter(c =>
-                                        c.name.toLowerCase().includes(qSearch) ||
-                                        c.dialCode.includes(qSearch) ||
-                                        c.code.toLowerCase().includes(qSearch)
-                                      )
-                                    : COUNTRY_DIAL_CODES;
-
-                                  const handleUpdateWhatsApp = (dialCode: string, national: string) => {
-                                    const formatted = formatNationalNumber(national, dialCode);
-                                    const full = buildFullPhoneNumber(dialCode, formatted);
-                                    const updatedDetails = { ...itemQ6Details, whatsapp: full };
-                                    const payload = {
-                                      methods: itemQ6Methods,
-                                      details: updatedDetails,
-                                      whatsapp: full.trim() || null,
-                                      telegram: itemQ6Details.telegram?.trim() || null,
-                                      email: itemQ6Details.email?.trim() || null,
-                                      zoom_link: itemQ6Details.zoom?.trim() || localZoomLink?.trim() || null,
-                                    };
-                                    const valStr = JSON.stringify(payload);
-                                    setAnswersState(prev => ({
-                                      ...prev,
-                                      [6]: { ...local, value: valStr },
-                                    }));
-                                    handleSaveAnswer(6, valStr);
-                                  };
-
-                                  return (
-                                    <View style={[{ marginTop: 10 }, isDrawerWhatsAppCountryPickerOpen && { zIndex: 9999 }]}>
-                                      <Text style={styles.subFieldLabel}>WhatsApp:</Text>
-                                      <View style={[styles.phoneInputRow, isDrawerWhatsAppCountryPickerOpen && { zIndex: 9999 }]}>
-                                        {/* Country Dial Code Trigger */}
-                                        <View style={[styles.phoneCountryPickerContainer, isDrawerWhatsAppCountryPickerOpen && { zIndex: 9999 }]}>
-                                          <TouchableOpacity
-                                            style={[
-                                              styles.phoneCountryTrigger,
-                                              isDrawerWhatsAppCountryPickerOpen && styles.phoneCountryTriggerActive,
-                                            ]}
-                                            onPress={() => {
-                                              setIsDrawerWhatsAppCountryPickerOpen(prev => !prev);
-                                              setDrawerWhatsAppCountrySearchQuery('');
-                                            }}
-                                            activeOpacity={0.75}>
-                                            <Text style={styles.phoneCountryFlag}>{whatsAppCountry.flag}</Text>
-                                            <Text style={styles.phoneCountryDialCode}>{whatsAppCountry.dialCode}</Text>
-                                            <Ionicons
-                                              name={isDrawerWhatsAppCountryPickerOpen ? "chevron-up" : "chevron-down"}
-                                              size={12}
-                                              color={isDrawerWhatsAppCountryPickerOpen ? OzaraTheme.colors.accentCyan : "#94a3b8"}
-                                            />
-                                          </TouchableOpacity>
-
-                                          {/* Floating Country Picker Dropdown */}
-                                          {isDrawerWhatsAppCountryPickerOpen && (
-                                            <View style={styles.phoneCountryDropdownMenu}>
-                                              <View style={styles.dropdownSearchHeader}>
-                                                <Ionicons name="search" size={13} color="#94a3b8" style={{ marginRight: 6 }} />
-                                                <TextInput
-                                                  style={styles.dropdownSearchInput}
-                                                  placeholder="Search country or code..."
-                                                  placeholderTextColor="#64748b"
-                                                  value={drawerWhatsAppCountrySearchQuery}
-                                                  onChangeText={setDrawerWhatsAppCountrySearchQuery}
-                                                  autoFocus={true}
-                                                  autoCorrect={false}
-                                                  autoCapitalize="none"
-                                                  clearButtonMode="while-editing"
-                                                />
-                                              </View>
-                                              <ScrollView
-                                                style={{ maxHeight: 200, padding: 4 }}
-                                                nestedScrollEnabled
-                                                showsVerticalScrollIndicator={true}
-                                                keyboardShouldPersistTaps="handled">
-                                                {filteredCountries.map((c, cIdx) => {
-                                                  const isSelected = c.code === whatsAppCountry.code && c.dialCode === whatsAppCountry.dialCode;
-                                                  return (
-                                                    <TouchableOpacity
-                                                      key={cIdx}
-                                                      style={[
-                                                        styles.drawerDropdownOption,
-                                                        isSelected && styles.drawerDropdownOptionSelected,
-                                                        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-                                                      ]}
-                                                      onPress={() => {
-                                                        handleUpdateWhatsApp(c.dialCode, whatsAppNational);
-                                                        setIsDrawerWhatsAppCountryPickerOpen(false);
-                                                        setDrawerWhatsAppCountrySearchQuery('');
-                                                      }}
-                                                      activeOpacity={0.7}>
-                                                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
-                                                        <Text style={{ fontSize: 15, marginRight: 8 }}>{c.flag}</Text>
-                                                        <Text
-                                                          style={[
-                                                            styles.drawerDropdownOptionText,
-                                                            isSelected && styles.drawerDropdownOptionTextSelected,
-                                                            { flex: 1 },
-                                                          ]}
-                                                          numberOfLines={1}>
-                                                          {c.name}
-                                                        </Text>
-                                                      </View>
-                                                      <Text style={{ color: isSelected ? OzaraTheme.colors.accentCyan : '#94a3b8', fontSize: 12, fontWeight: '600' }}>
-                                                        {c.dialCode}
-                                                      </Text>
-                                                    </TouchableOpacity>
-                                                  );
-                                                })}
-                                              </ScrollView>
-                                            </View>
-                                          )}
-                                        </View>
-
-                                        {/* National Number Input */}
-                                        <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' }}>
-                                          <TextInput
-                                            style={[styles.answerInput, { flex: 1, minHeight: 40, paddingVertical: 8 }]}
-                                            placeholder={whatsAppCountry.placeholder || "xxx-xxx-xxxx"}
-                                            placeholderTextColor={OzaraTheme.colors.textMuted}
-                                            keyboardType="phone-pad"
-                                            value={whatsAppNational}
-                                            onChangeText={(txt) => {
-                                              handleUpdateWhatsApp(whatsAppCountry.dialCode, txt);
-                                            }}
-                                          />
-                                          {whatsAppNational.length > 0 && (
-                                            <TouchableOpacity
-                                              onPress={() => {
-                                                handleUpdateWhatsApp(whatsAppCountry.dialCode, '');
-                                              }}
-                                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                              style={{ position: 'absolute', right: 10 }}>
-                                              <Ionicons name="close-circle" size={14} color="#64748b" />
-                                            </TouchableOpacity>
-                                          )}
-                                        </View>
-                                      </View>
-                                    </View>
-                                  );
-                                })()}
-
-                                {/* Telegram Account / Username Input */}
-                                {itemQ6Methods.some(m => /telegram/i.test(m)) && (
-                                  <View style={{ marginTop: 10 }}>
-                                    <Text style={styles.subFieldLabel}>Telegram Account / Username:</Text>
-                                    <TextInput
-                                      style={[styles.answerInput, { minHeight: 40, paddingVertical: 8 }]}
-                                      placeholder="e.g. @username"
-                                      placeholderTextColor={OzaraTheme.colors.textMuted}
-                                      autoCapitalize="none"
-                                      value={itemQ6Details.telegram}
-                                      onChangeText={val => {
-                                        const updatedDetails = { ...itemQ6Details, telegram: val };
-                                        const payload = {
-                                          methods: itemQ6Methods,
-                                          details: updatedDetails,
-                                          whatsapp: itemQ6Details.whatsapp?.trim() || null,
-                                          telegram: val.trim() || null,
-                                          email: itemQ6Details.email?.trim() || null,
-                                          zoom_link: itemQ6Details.zoom?.trim() || localZoomLink?.trim() || null,
-                                        };
-                                        const valStr = JSON.stringify(payload);
-                                        setAnswersState(prev => ({
-                                          ...prev,
-                                          [6]: { ...local, value: valStr },
-                                        }));
-                                        handleSaveAnswer(6, valStr);
-                                      }}
-                                    />
-                                  </View>
-                                )}
-
-                                {/* Email Address Input */}
-                                {itemQ6Methods.some(m => /email/i.test(m)) && (
-                                  <View style={{ marginTop: 10 }}>
-                                    <Text style={styles.subFieldLabel}>Preferred Email Address:</Text>
-                                    <TextInput
-                                      style={[styles.answerInput, { minHeight: 40, paddingVertical: 8 }]}
-                                      placeholder="e.g. name@domain.com"
-                                      placeholderTextColor={OzaraTheme.colors.textMuted}
-                                      autoCapitalize="none"
-                                      keyboardType="email-address"
-                                      value={itemQ6Details.email}
-                                      onChangeText={val => {
-                                        const updatedDetails = { ...itemQ6Details, email: val };
-                                        const payload = {
-                                          methods: itemQ6Methods,
-                                          details: updatedDetails,
-                                          whatsapp: itemQ6Details.whatsapp?.trim() || null,
-                                          telegram: itemQ6Details.telegram?.trim() || null,
-                                          email: val.trim() || null,
-                                          zoom_link: itemQ6Details.zoom?.trim() || localZoomLink?.trim() || null,
-                                        };
-                                        const valStr = JSON.stringify(payload);
-                                        setAnswersState(prev => ({
-                                          ...prev,
-                                          [6]: { ...local, value: valStr },
-                                        }));
-                                        handleSaveAnswer(6, valStr);
-                                      }}
-                                    />
-                                  </View>
-                                )}
-
-                                {itemQ6Methods.includes('Zoom') && (
-                                  <View style={{ marginTop: 12 }}>
-                                    <Text style={styles.subFieldLabel}>Personal Zoom Meeting Link (Optional):</Text>
-                                    <TextInput
-                                      style={[styles.answerInput, { minHeight: 42, paddingVertical: 10 }]}
-                                      placeholder="https://zoom.us/j/... or your personal meeting room"
-                                      placeholderTextColor={OzaraTheme.colors.textMuted}
-                                      autoCapitalize="none"
-                                      keyboardType="url"
-                                      value={localZoomLink}
-                                      onChangeText={val => setLocalZoomLink(val)}
-                                      onBlur={async () => {
-                                        try {
-                                          if (profileDrawerUserId) {
-                                            await ApiService.updateProfile(profileDrawerUserId, { zoom_link: localZoomLink.trim() });
-                                          }
-                                        } catch (e) {
-                                          console.warn('Failed to update zoom_link', e);
-                                        }
-                                      }}
-                                    />
-                                    <Text style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
-                                      If omitted, members can request a Zoom call through your other approved contact methods.
-                                    </Text>
-                                  </View>
-                                )}
-                              </View>
-                            ) : isQ7 ? (
-                              <View style={styles.chipsWrap}>
-                                {STANDARDIZED_ROLES.map((role, idx) => {
-                                  const isSel = itemQ7List.includes(role);
-                                  return (
-                                    <TouchableOpacity
-                                      key={idx}
-                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
-                                      onPress={() => {
-                                        const nextList = isSel
-                                          ? itemQ7List.filter(r => r !== role)
-                                          : [...itemQ7List, role];
-                                        const valStr = nextList.join(', ');
-                                        setAnswersState(prev => ({
-                                          ...prev,
-                                          [7]: { ...local, value: valStr },
-                                        }));
-                                        handleSaveAnswer(7, valStr);
-                                      }}
-                                      activeOpacity={0.7}>
-                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                        {role}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-                            ) : isQ8 ? (
-                              <View style={styles.chipsWrap}>
-                                {STANDARDIZED_INDUSTRIES.map((ind, idx) => {
-                                  const isSel = itemQ8List.includes(ind);
-                                  return (
-                                    <TouchableOpacity
-                                      key={idx}
-                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
-                                      onPress={() => {
-                                        let nextList: string[];
-                                        if (isSel) {
-                                          nextList = itemQ8List.filter(i => i !== ind);
-                                        } else {
-                                          if (itemQ8List.length >= 3) {
-                                            Alert.alert('Selection Limit', 'You can choose up to 3 primary industries.');
-                                            return;
-                                          }
-                                          nextList = [...itemQ8List, ind];
-                                        }
-                                        const valStr = nextList.join('; ');
-                                        setAnswersState(prev => ({
-                                          ...prev,
-                                          [8]: { ...local, value: valStr },
-                                        }));
-                                        handleSaveAnswer(8, valStr);
-                                      }}
-                                      activeOpacity={0.7}>
-                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                        {ind}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-                            ) : isQ12 ? (
-                              <View>
-                                <TextInput
-                                  style={[styles.answerInput, { minHeight: 90 }]}
-                                  placeholder="Share previous companies, education, research, or projects you’re proud of."
-                                  placeholderTextColor={OzaraTheme.colors.textMuted}
-                                  multiline
-                                  maxLength={600}
-                                  value={local.value === 'skipped' ? '' : local.value}
-                                  onChangeText={val => {
-                                    if (val.length <= 600) {
-                                      setAnswersState(prev => ({
-                                        ...prev,
-                                        [12]: { ...local, value: val },
-                                      }));
-                                    }
-                                  }}
-                                  onBlur={() => handleSaveAnswer(12)}
-                                />
-                                <View style={styles.charCounterRow}>
-                                  <Text style={styles.charCounterText}>
-                                    {(local.value === 'skipped' ? '' : local.value).length}/600
-                                  </Text>
-                                </View>
-                              </View>
-                            ) : isQ13 ? (
-                              <View>
                                 <TextInput
                                   style={[styles.answerInput, { minHeight: 42, paddingVertical: 10 }]}
-                                  placeholder="linkedin.com/in/yourname or your website"
+                                  placeholder="Referrer name or details (Team only — referrer is never notified)"
                                   placeholderTextColor={OzaraTheme.colors.textMuted}
-                                  multiline={false}
-                                  keyboardType="url"
-                                  autoCapitalize="none"
-                                  autoCorrect={false}
-                                  value={local.value === 'skipped' ? '' : local.value}
-                                  onChangeText={val =>
+                                  value={detailVal}
+                                  onChangeText={txt => updateQ6(sourceVal, txt, false)}
+                                  onBlur={() => updateQ6(sourceVal, detailVal, true)}
+                                />
+                              </View>
+                            );
+                          })()}
+
+                          {/* Q8: Profile photo */}
+                          {qId === 8 && (
+                            <Text style={styles.questionHelperText}>
+                              {isPrivateProfileMode
+                                ? 'Profile mode is set to Private — no photo is shown to other members.'
+                                : 'Your profile portrait visibility is controlled by the Private / Visible switch above.'}
+                            </Text>
+                          )}
+
+                          {/* Q10: Company and short bio (300 chars max) */}
+                          {qId === 10 && (
+                            <View>
+                              <TextInput
+                                style={[styles.answerInput, { minHeight: 80 }]}
+                                placeholder={qDef.placeholder || 'Company and short bio (max 300 characters)'}
+                                placeholderTextColor={OzaraTheme.colors.textMuted}
+                                multiline
+                                maxLength={300}
+                                value={currentVal}
+                                onChangeText={val => {
+                                  if (val.length <= 300) {
                                     setAnswersState(prev => ({
                                       ...prev,
-                                      [13]: { ...local, value: val },
-                                    }))
+                                      [10]: { ...local, value: val },
+                                    }));
                                   }
-                                  onBlur={() => {
-                                    let val = (local.value || '').trim();
-                                    if (val && val !== 'skipped' && !/^[a-zA-Z]+:\/\//.test(val)) {
-                                      val = `https://${val}`;
+                                }}
+                                onBlur={() => handleSaveAnswer(10)}
+                              />
+                              <View style={styles.charCounterRow}>
+                                <Text style={styles.charCounterText}>{currentVal.length}/300</Text>
+                              </View>
+                            </View>
+                          )}
+
+                          {/* Single-Select & Dropdown Questions: Q5, Q7, Q9, Q15, Q16, Q17, Q18, Q25 (Zero free text on Screens 4 & 5) */}
+                          {(qDef.field_type === 'dropdown' || qDef.field_type === 'single') && (
+                            <View style={styles.chipsWrap}>
+                              {(qDef.options || []).map(opt => {
+                                const isSel = currentVal === opt;
+                                return (
+                                  <TouchableOpacity
+                                    key={opt}
+                                    style={[styles.chipPill, isSel && styles.chipPillSelected]}
+                                    onPress={() => {
                                       setAnswersState(prev => ({
                                         ...prev,
-                                        [13]: { ...local, value: val },
+                                        [qId]: { ...local, value: opt },
                                       }));
-                                    }
-                                    handleSaveAnswer(13, val);
-                                  }}
-                                />
-                              </View>
-                            ) : isQ14 ? (
-                              <View>
-                                <Text style={styles.subFieldLabel}>1. Select Strategic Priorities:</Text>
-                                <View style={styles.chipsWrap}>
-                                  {STANDARDIZED_FOCUS_PRIORITIES.map((chip, idx) => {
-                                    const isSel = itemQ14Tags.includes(chip);
-                                    return (
-                                      <TouchableOpacity
-                                        key={idx}
-                                        style={[styles.chipPill, isSel && styles.chipPillSelected]}
-                                        onPress={() => {
-                                          const nextTags = isSel
-                                            ? itemQ14Tags.filter(t => t !== chip)
-                                            : [...itemQ14Tags, chip];
-                                          const composite = JSON.stringify({ tags: nextTags, note: itemQ14Note });
-                                          setAnswersState(prev => ({
-                                            ...prev,
-                                            [14]: { ...local, value: composite },
-                                          }));
-                                          handleSaveAnswer(14, composite);
-                                        }}
-                                        activeOpacity={0.7}>
-                                        <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                          {chip}
-                                        </Text>
-                                      </TouchableOpacity>
-                                    );
-                                  })}
-                                </View>
-                                <Text style={[styles.subFieldLabel, { marginTop: 10 }]}>2. Specific Focus Details:</Text>
-                                <TextInput
-                                  style={[styles.answerInput, { minHeight: 60 }]}
-                                  placeholder="e.g. Scaling enterprise partnerships in the GCC region"
-                                  placeholderTextColor={OzaraTheme.colors.textMuted}
-                                  multiline
-                                  value={itemQ14Note}
-                                  onChangeText={val => {
-                                    const composite = JSON.stringify({ tags: itemQ14Tags, note: val });
-                                    setAnswersState(prev => ({
-                                      ...prev,
-                                      [14]: { ...local, value: composite },
-                                    }));
-                                  }}
-                                  onBlur={() => {
-                                    const composite = JSON.stringify({ tags: itemQ14Tags, note: itemQ14Note });
-                                    handleSaveAnswer(14, composite);
-                                  }}
-                                />
-                              </View>
-                            ) : isQ15 ? (
-                              <View>
-                                <View style={styles.chipsWrap}>
-                                  {STANDARDIZED_INDUSTRIES.map((ind, idx) => {
-                                    const isSel = itemQ15List.includes(ind);
-                                    return (
-                                      <TouchableOpacity
-                                        key={idx}
-                                        style={[styles.chipPill, isSel && styles.chipPillSelected]}
-                                        onPress={() => {
-                                          const nextList = isSel
-                                            ? itemQ15List.filter(i => i !== ind)
-                                            : [...itemQ15List, ind];
-                                          const valStr = nextList.join('; ');
-                                          setAnswersState(prev => ({
-                                            ...prev,
-                                            [15]: { ...local, value: valStr },
-                                          }));
-                                          handleSaveAnswer(15, valStr);
-                                        }}
-                                        activeOpacity={0.7}>
-                                        <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                          {ind}
-                                        </Text>
-                                      </TouchableOpacity>
-                                    );
-                                  })}
-                                </View>
-                              </View>
-                            ) : isQ16 ? (
+                                      handleSaveAnswer(qId, opt);
+                                    }}
+                                    activeOpacity={0.75}>
+                                    <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
+                                      {opt}
+                                    </Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          )}
+
+                          {/* Multi-Select Questions: Q11, Q19, Q20, Q21, Q22, Q23, Q24 (Zero free text on Screens 4 & 5) */}
+                          {qDef.field_type === 'multi' && (() => {
+                            const selectedList = parseList(currentVal);
+                            return (
                               <View style={styles.chipsWrap}>
-                                {STANDARDIZED_CONNECTION_COUNTRIES.map((ctry, idx) => {
-                                  const isSel = itemQ16List.includes(ctry);
+                                {(qDef.options || []).map(opt => {
+                                  const isSel = selectedList.includes(opt);
                                   return (
                                     <TouchableOpacity
-                                      key={idx}
+                                      key={opt}
                                       style={[styles.chipPill, isSel && styles.chipPillSelected]}
                                       onPress={() => {
-                                        let nextList: string[];
+                                        let next: string[];
                                         if (isSel) {
-                                          nextList = itemQ16List.filter(c => c !== ctry);
+                                          next = selectedList.filter(x => x !== opt);
+                                        } else if (exclusiveOptions.includes(opt)) {
+                                          next = [opt];
                                         } else {
-                                          if (itemQ16List.length >= 5) {
-                                            Alert.alert('Selection Limit', 'You can choose up to 5 countries.');
-                                            return;
-                                          }
-                                          nextList = [...itemQ16List, ctry];
+                                          next = [
+                                            ...selectedList.filter(x => !exclusiveOptions.includes(x)),
+                                            opt,
+                                          ];
                                         }
-                                        const valStr = nextList.join(', ');
+                                        const valStr = next.join(', ');
                                         setAnswersState(prev => ({
                                           ...prev,
-                                          [16]: { ...local, value: valStr },
+                                          [qId]: { ...local, value: valStr },
                                         }));
-                                        handleSaveAnswer(16, valStr);
+                                        handleSaveAnswer(qId, valStr);
                                       }}
-                                      activeOpacity={0.7}>
+                                      activeOpacity={0.75}>
                                       <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                        {ctry}
+                                        {isSel ? `✓ ${opt}` : opt}
                                       </Text>
                                     </TouchableOpacity>
                                   );
                                 })}
                               </View>
-                            ) : isQ17 ? (
-                              <View>
-                                <Text style={styles.subFieldLabel}>1. Connection Types (Up to 5):</Text>
+                            );
+                          })()}
+
+                          {/* Country Multi-Select Questions: Q12, Q13, Q14 */}
+                          {(qDef.field_type === 'country_multi' || qDef.field_type === 'country_tax_multi') && (() => {
+                            let selectedCountries: string[] = [];
+                            let selectedUsStates: string[] = [];
+                            if (qId === 14 && currentVal.trim().startsWith('{')) {
+                              try {
+                                const p = JSON.parse(currentVal);
+                                selectedCountries = Array.isArray(p.countries) ? p.countries : [];
+                                selectedUsStates = Array.isArray(p.us_states) ? p.us_states : [];
+                              } catch {}
+                            } else {
+                              selectedCountries = parseList(currentVal);
+                            }
+
+                            const updateCountries = (nextC: string[], nextSt: string[]) => {
+                              let valStr = '';
+                              if (qId === 14) {
+                                const cleanSt = nextC.includes('United States') ? nextSt : [];
+                                valStr = cleanSt.length > 0
+                                  ? JSON.stringify({ countries: nextC, us_states: cleanSt })
+                                  : nextC.join(', ');
+                              } else {
+                                valStr = nextC.join(', ');
+                              }
+                              setAnswersState(prev => ({
+                                ...prev,
+                                [qId]: { ...local, value: valStr },
+                              }));
+                              handleSaveAnswer(qId, valStr);
+                            };
+
+                            return (
+                              <View style={{ gap: 8 }}>
                                 <View style={styles.chipsWrap}>
-                                  {STANDARDIZED_CONNECTION_TYPES.map((chip, idx) => {
-                                    const isSel = itemQ17Tags.includes(chip);
+                                  {ALL_COUNTRIES_LIST.slice(0, 30).map(country => {
+                                    const isSel = selectedCountries.includes(country);
                                     return (
                                       <TouchableOpacity
-                                        key={idx}
+                                        key={country}
                                         style={[styles.chipPill, isSel && styles.chipPillSelected]}
                                         onPress={() => {
-                                          let nextTags: string[];
-                                          if (isSel) {
-                                            nextTags = itemQ17Tags.filter(t => t !== chip);
-                                          } else {
-                                            if (itemQ17Tags.length >= 5) {
-                                              Alert.alert('Selection Limit', 'You can choose up to five types of connections.');
-                                              return;
-                                            }
-                                            nextTags = [...itemQ17Tags, chip];
-                                          }
-                                          const composite = JSON.stringify({ tags: nextTags, note: itemQ17Note });
-                                          setAnswersState(prev => ({
-                                            ...prev,
-                                            [17]: { ...local, value: composite },
-                                          }));
-                                          handleSaveAnswer(17, composite);
-                                        }}
-                                        activeOpacity={0.7}>
+                                          const nextC = isSel
+                                            ? selectedCountries.filter(c => c !== country)
+                                            : [...selectedCountries, country];
+                                          updateCountries(nextC, selectedUsStates);
+                                        }}>
                                         <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                          {chip}
+                                          {isSel ? `✓ ${country}` : country}
                                         </Text>
                                       </TouchableOpacity>
                                     );
                                   })}
                                 </View>
-                                <Text style={[styles.subFieldLabel, { marginTop: 10 }]}>2. Anyone Specific (Max 200 chars):</Text>
-                                <TextInput
-                                  style={[styles.answerInput, { minHeight: 60 }]}
-                                  placeholder="e.g. Founders with experience expanding AI products into the UK"
-                                  placeholderTextColor={OzaraTheme.colors.textMuted}
-                                  multiline
-                                  maxLength={200}
-                                  value={itemQ17Note}
-                                  onChangeText={val => {
-                                    if (val.length <= 200) {
-                                      const composite = JSON.stringify({ tags: itemQ17Tags, note: val });
-                                      setAnswersState(prev => ({
-                                        ...prev,
-                                        [17]: { ...local, value: composite },
-                                      }));
-                                    }
-                                  }}
-                                  onBlur={() => {
-                                    const composite = JSON.stringify({ tags: itemQ17Tags, note: itemQ17Note });
-                                    handleSaveAnswer(17, composite);
-                                  }}
-                                />
-                                <View style={styles.charCounterRow}>
-                                  <Text style={styles.charCounterText}>{itemQ17Note.length}/200</Text>
-                                </View>
-                              </View>
-                            ) : isQ18 ? (
-                              <View>
-                                <Text style={styles.subFieldLabel}>1. Select Core Areas of Help / Introductions:</Text>
-                                <View style={styles.chipsWrap}>
-                                  {STANDARDIZED_OFFERS.map((offer, idx) => {
-                                    const isSel = itemQ18Tags.includes(offer);
-                                    return (
-                                      <TouchableOpacity
-                                        key={idx}
-                                        style={[styles.chipPill, isSel && styles.chipPillSelected]}
-                                        onPress={() => {
-                                          const nextTags = isSel
-                                            ? itemQ18Tags.filter(t => t !== offer)
-                                            : [...itemQ18Tags, offer];
-                                          const composite = JSON.stringify({ tags: nextTags, note: itemQ18Note });
-                                          setAnswersState(prev => ({
-                                            ...prev,
-                                            [18]: { ...local, value: composite },
-                                          }));
-                                          handleSaveAnswer(18, composite);
-                                        }}
-                                        activeOpacity={0.7}>
-                                        <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                          {offer}
-                                        </Text>
-                                      </TouchableOpacity>
-                                    );
-                                  })}
-                                </View>
-                                <Text style={[styles.subFieldLabel, { marginTop: 10 }]}>2. Specific Details (Optional):</Text>
-                                <TextInput
-                                  style={[styles.answerInput, { minHeight: 60 }]}
-                                  placeholder="Tell us a little more about what other members can turn to you for..."
-                                  placeholderTextColor={OzaraTheme.colors.textMuted}
-                                  multiline
-                                  value={itemQ18Note}
-                                  onChangeText={val => {
-                                    const composite = JSON.stringify({ tags: itemQ18Tags, note: val });
-                                    setAnswersState(prev => ({
-                                      ...prev,
-                                      [18]: { ...local, value: composite },
-                                    }));
-                                  }}
-                                  onBlur={() => {
-                                    const composite = JSON.stringify({ tags: itemQ18Tags, note: itemQ18Note });
-                                    handleSaveAnswer(18, composite);
-                                  }}
-                                />
-                              </View>
-                            ) : isQ19 ? (
-                              <View style={styles.chipsWrap}>
-                                {STANDARDIZED_DIRECT_CONTACT.map((opt, idx) => {
-                                  const isSel = local.value === opt;
-                                  return (
-                                    <TouchableOpacity
-                                      key={idx}
-                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
-                                      onPress={() => {
-                                        setAnswersState(prev => ({
-                                          ...prev,
-                                          [19]: { ...local, value: opt },
-                                        }));
-                                        handleSaveAnswer(19, opt);
-                                      }}
-                                      activeOpacity={0.7}>
-                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                        {opt}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-                            ) : isQ20 ? (
-                              <View style={styles.chipsWrap}>
-                                {STANDARDIZED_AGE_BRACKETS.map((opt, idx) => {
-                                  const isSel = local.value === opt;
-                                  return (
-                                    <TouchableOpacity
-                                      key={idx}
-                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
-                                      onPress={() => {
-                                        setAnswersState(prev => ({
-                                          ...prev,
-                                          [20]: { ...local, value: opt },
-                                        }));
-                                        handleSaveAnswer(20, opt);
-                                      }}
-                                      activeOpacity={0.7}>
-                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                        {opt}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-                            ) : isQ21 ? (
-                              <View style={styles.chipsWrap}>
-                                {STANDARDIZED_FAMILY_SITUATIONS.map((opt, idx) => {
-                                  const isSel = local.value === opt;
-                                  return (
-                                    <TouchableOpacity
-                                      key={idx}
-                                      style={[styles.chipPill, isSel && styles.chipPillSelected]}
-                                      onPress={() => {
-                                        setAnswersState(prev => ({
-                                          ...prev,
-                                          [21]: { ...local, value: opt },
-                                        }));
-                                        handleSaveAnswer(21, opt);
-                                      }}
-                                      activeOpacity={0.7}>
-                                      <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                        {opt}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-                            ) : isQ22 ? (
-                              <View>
-                                {STANDARDIZED_INTEREST_GROUPS.map((group, gIdx) => (
-                                  <View key={gIdx} style={{ marginBottom: 12 }}>
-                                    <Text style={styles.subFieldLabel}>{group.category}:</Text>
+                                {qId === 14 && selectedCountries.includes('United States') && (
+                                  <View style={{ marginTop: 6 }}>
+                                    <Text style={styles.subFieldLabel}>Select US State(s) for Tax Residency:</Text>
                                     <View style={styles.chipsWrap}>
-                                      {group.options.map((opt, oIdx) => {
-                                        const isSel = itemQ22List.includes(opt);
+                                      {US_STATES_LIST.map(st => {
+                                        const isStSel = selectedUsStates.includes(st);
                                         return (
                                           <TouchableOpacity
-                                            key={oIdx}
-                                            style={[styles.chipPill, isSel && styles.chipPillSelected]}
+                                            key={st}
+                                            style={[styles.chipPill, isStSel && styles.chipPillSelected]}
                                             onPress={() => {
-                                              const nextList = isSel
-                                                ? itemQ22List.filter(i => i !== opt)
-                                                : [...itemQ22List, opt];
-                                              const valStr = nextList.join('; ');
-                                              setAnswersState(prev => ({
-                                                ...prev,
-                                                [22]: { ...local, value: valStr },
-                                              }));
-                                              handleSaveAnswer(22, valStr);
-                                            }}
-                                            activeOpacity={0.7}>
-                                            <Text style={[styles.chipText, isSel && styles.chipTextSelected]}>
-                                              {opt}
+                                              const nextSt = isStSel
+                                                ? selectedUsStates.filter(x => x !== st)
+                                                : [...selectedUsStates, st];
+                                              updateCountries(selectedCountries, nextSt);
+                                            }}>
+                                            <Text style={[styles.chipText, isStSel && styles.chipTextSelected]}>
+                                              {isStSel ? `✓ ${st}` : st}
                                             </Text>
                                           </TouchableOpacity>
                                         );
                                       })}
                                     </View>
                                   </View>
-                                ))}
+                                )}
                               </View>
-                            ) : isQ23 ? (
-                              <View>
-                                <TextInput
-                                  style={[styles.answerInput, { minHeight: 110 }]}
-                                  placeholder="Share any context or preferences you’d rather leave off your member profile."
-                                  placeholderTextColor={OzaraTheme.colors.textMuted}
-                                  multiline
-                                  maxLength={1000}
-                                  value={local.value === 'skipped' ? '' : local.value}
-                                  onChangeText={val => {
-                                    if (val.length <= 1000) {
-                                      setAnswersState(prev => ({
-                                        ...prev,
-                                        [23]: { ...local, value: val, visibility: 'private' },
-                                      }));
-                                    }
-                                  }}
-                                  onBlur={() => handleSaveAnswer(23)}
-                                />
-                                <View style={styles.charCounterRow}>
-                                  <Text style={styles.charCounterText}>
-                                    {(local.value === 'skipped' ? '' : local.value).length}/1000
-                                  </Text>
-                                </View>
-                              </View>
-                            ) : isQ24 ? (
-                              <View style={styles.twoDropdownRow}>
-                                <View style={styles.twoDropdownCol}>
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.drawerDropdownTrigger,
-                                      openQ24Dropdown === 'chapter' && styles.drawerDropdownTriggerActive,
-                                    ]}
-                                    onPress={() => setOpenQ24Dropdown(openQ24Dropdown === 'chapter' ? null : 'chapter')}
-                                    activeOpacity={0.75}>
-                                    <Text
-                                      style={[
-                                        styles.drawerDropdownTriggerText,
-                                        !itemQ24Chapter && styles.drawerDropdownPlaceholder,
-                                      ]}
-                                      numberOfLines={1}>
-                                      {itemQ24Chapter || 'Select chapter...'}
-                                    </Text>
-                                    <Ionicons
-                                      name={openQ24Dropdown === 'chapter' ? "chevron-up" : "chevron-down"}
-                                      size={14}
-                                      color="#94a3b8"
-                                    />
-                                  </TouchableOpacity>
+                            );
+                          })()}
 
-                                  {openQ24Dropdown === 'chapter' && (
-                                    <View style={styles.drawerDropdownMenu}>
-                                      {STANDARDIZED_CHAPTERS.map((ch, idx) => {
-                                        const isSel = itemQ24Chapter === ch;
-                                        return (
-                                          <TouchableOpacity
-                                            key={idx}
-                                            style={[
-                                              styles.drawerDropdownOption,
-                                              isSel && styles.drawerDropdownOptionSelected,
-                                            ]}
-                                            onPress={() => {
-                                              const nextVal = itemQ24Involvement ? `${ch} — ${itemQ24Involvement}` : ch;
-                                              setAnswersState(prev => ({
-                                                ...prev,
-                                                [24]: { ...local, value: nextVal },
-                                              }));
-                                              handleSaveAnswer(24, nextVal);
-                                              setOpenQ24Dropdown(null);
-                                            }}
-                                            activeOpacity={0.7}>
-                                            <Text
-                                              style={[
-                                                styles.drawerDropdownOptionText,
-                                                isSel && styles.drawerDropdownOptionTextSelected,
-                                              ]}>
-                                              {ch}
-                                            </Text>
-                                          </TouchableOpacity>
-                                        );
-                                      })}
-                                    </View>
-                                  )}
-                                </View>
-
-                                <View style={styles.twoDropdownCol}>
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.drawerDropdownTrigger,
-                                      openQ24Dropdown === 'involvement' && styles.drawerDropdownTriggerActive,
-                                    ]}
-                                    onPress={() => setOpenQ24Dropdown(openQ24Dropdown === 'involvement' ? null : 'involvement')}
-                                    activeOpacity={0.75}>
-                                    <Text
-                                      style={[
-                                        styles.drawerDropdownTriggerText,
-                                        !itemQ24Involvement && styles.drawerDropdownPlaceholder,
-                                      ]}
-                                      numberOfLines={1}>
-                                      {itemQ24Involvement || 'Select involvement...'}
-                                    </Text>
-                                    <Ionicons
-                                      name={openQ24Dropdown === 'involvement' ? "chevron-up" : "chevron-down"}
-                                      size={14}
-                                      color="#94a3b8"
-                                    />
-                                  </TouchableOpacity>
-
-                                  {openQ24Dropdown === 'involvement' && (
-                                    <View style={styles.drawerDropdownMenu}>
-                                      {STANDARDIZED_INVOLVEMENT_ROLES.map((role, idx) => {
-                                        const isSel = itemQ24Involvement === role;
-                                        return (
-                                          <TouchableOpacity
-                                            key={idx}
-                                            style={[
-                                              styles.drawerDropdownOption,
-                                              isSel && styles.drawerDropdownOptionSelected,
-                                            ]}
-                                            onPress={() => {
-                                              const nextVal = itemQ24Chapter ? `${itemQ24Chapter} — ${role}` : role;
-                                              setAnswersState(prev => ({
-                                                ...prev,
-                                                [24]: { ...local, value: nextVal },
-                                              }));
-                                              handleSaveAnswer(24, nextVal);
-                                              setOpenQ24Dropdown(null);
-                                            }}
-                                            activeOpacity={0.7}>
-                                            <Text
-                                              style={[
-                                                styles.drawerDropdownOptionText,
-                                                isSel && styles.drawerDropdownOptionTextSelected,
-                                              ]}>
-                                              {role}
-                                            </Text>
-                                          </TouchableOpacity>
-                                        );
-                                      })}
-                                    </View>
-                                  )}
-                                </View>
-                              </View>
-                            ) : (
-                              <TextInput
-                                style={styles.answerInput}
-                                placeholder="Share your perspective or operating experience..."
-                                placeholderTextColor={OzaraTheme.colors.textMuted}
-                                multiline
-                                value={local.value === 'skipped' ? '' : local.value}
-                                onChangeText={val =>
-                                  setAnswersState(prev => ({
-                                    ...prev,
-                                    [q.question_id]: { ...local, value: val },
-                                  }))
-                                }
-                                onBlur={() => handleSaveAnswer(q.question_id)}
-                              />
-                            )}
-
-                            <View style={styles.autosaveRow}>
-                              <Text style={styles.autosaveHint}>
-                                {isSaving ? 'Autosaving changes...' : 'Autosaved on blur'}
-                              </Text>
-                              {isSaving && <ActivityIndicator size="small" color={OzaraTheme.colors.accentCyan} />}
-                            </View>
+                          <View style={styles.autosaveRow}>
+                            <Text style={styles.autosaveHint}>
+                              {isSaving ? 'Saving changes...' : 'Saved automatically'}
+                            </Text>
+                            {isSaving && <ActivityIndicator size="small" color={OzaraTheme.colors.accentCyan} />}
                           </View>
                         </View>
-                      );
-                    })}
+                      </View>
+                    );
+                  })}
                 </View>
 
                 {/* Floating Bottom Done Editing Button */}
@@ -2748,14 +1404,14 @@ export const ProfileDrawerModal: React.FC = () => {
                       loadProfile();
                     }}
                     activeOpacity={0.85}>
-                    <Ionicons name="checkmark-circle" size={18} color="#000000" style={{ marginRight: 6 }} />
-                    <Text style={styles.editorBottomDoneBtnText}>Done Editing — View Club Profile</Text>
+                    <Ionicons name="checkmark-circle" size={18} color="#000000" />
+                    <Text style={styles.editorBottomDoneBtnText}>Done Editing — View Profile</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             )}
           </ScrollView>
-        )}
+            )}
           </>
         )}
 

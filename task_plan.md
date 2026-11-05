@@ -598,3 +598,20 @@
   - [ ] Verify image serving and 304 caching via curl.
   - [ ] Verify mobile web build `npx expo export --platform web` and TypeScript compilation `npx tsc --noEmit`.
   - [ ] Test desktop and mobile browsing, image swiping, server restart, and redeployment.
+
+
+## Phase 10: 25-Question, 6-Screen Member Onboarding Questionnaire Refactor
+- [x] 10.1 Update `gemini.md` and `architecture/02_questionnaire_and_profile.md` with the 25-question, 6-screen specification.
+- [x] 10.2 Backend (`server.js`):
+  - Update `CANONICAL_QUESTIONS` to the 25 canonical questions across Screens 1 to 6 with exact types, options, `is_required` (Q1, Q2, Q3, Q6, Q7, Q25), and visibility rules (`Team only` vs `Switch`, where `Switch` defaults to `'private'`).
+  - Implement AES-256-GCM encryption at rest (`encryptScreen3To5Value` / `decryptScreen3To5Value`) for Screens 3 to 5 (Q12–Q23).
+  - Restrict access to `Team only` questions (Q1–Q7, Q13–Q23, Q25) strictly to the profile owner and named team members, logging every team view of Screens 3 to 5 in `audit_logs`.
+  - Enforce "No free text on Screens 4 and 5" (Q17–Q23) on server save endpoints.
+  - Enforce Profile Mode (Q7): when `Private (browse deals and events only)` is selected, force all switches to `'private'` and exclude the member from directory (`/api/members`) and recommendations (`/api/recommendations`).
+  - Update onboarding completion check (`is_complete = 1`) when the 6 required questions (Q1, Q2, Q3, Q6, Q7, Q25) and consent are completed, while preserving existing completed members.
+- [x] 10.3 Mobile & Web Frontend (`mobile/src/screens/SignUpScreen.tsx`, `mobile/src/components/ProfileDrawerModal.tsx`, `mobile/src/services/api.ts`):
+  - Implement the 6-screen stepped questionnaire in `SignUpScreen.tsx` with progress bar (`Screen 1 of 6` .. `Screen 6 of 6`), save after every screen, and "Save & finish later" action.
+  - Implement Screen 1 (Contact Q1–Q6), Screen 2 (Profile Q7–Q11 with Profile Mode master control and Private/Visible switches starting on Private), Screen 3 (Residence & family Q12–Q16 with US state support on Q14), Screen 4 (Wealth profile Q17–Q20 with top banner and no free text), Screen 5 (Your current setup Q21–Q23 with `"Skip, discuss on a call"` button and no free text), and Screen 6 (Interests & next step Q24–Q25 + required Consent checkbox).
+  - Update `ProfileDrawerModal.tsx` so members can edit any of the 25 answers and any visibility switch at any time from their profile, and peer profile views strictly display only switched-on fields when Q7 is `Visible to members`.
+- [x] 10.4 Verification & Automated Testing:
+  - Write and run comprehensive verification script testing all 25 questions, 6 required questions, Screen 3–5 encryption at rest, audit logging, Q7 Private vs Visible directory filtering, and no-free-text enforcement on Screens 4 & 5.

@@ -151,12 +151,18 @@ export interface Recommendation {
 
 export interface QuestionDefinition {
   id: number;
+  screen?: number;
   section?: string;
   prompt: string;
   type?: string;
+  field_type?: string;
+  options?: string[];
   is_required: boolean;
   is_confidential: boolean;
+  visibility_mode?: 'team_only' | 'switch';
   default_visibility: 'shared' | 'private';
+  is_encrypted?: boolean;
+  no_free_text?: boolean;
   char_limit?: number;
   placeholder?: string;
   helper?: string;
@@ -164,11 +170,16 @@ export interface QuestionDefinition {
 
 export interface QuestionnaireAnswer {
   question_id: number;
+  screen?: number;
   question_prompt: string;
   answer_state: 'answered' | 'unanswered' | 'deliberately_skipped';
   value: any;
   value_text: string;
   visibility: 'shared' | 'private';
+  visibility_mode?: 'team_only' | 'switch';
+  is_confidential?: boolean;
+  is_encrypted?: boolean;
+  no_free_text?: boolean;
   is_redacted?: boolean;
 }
 
@@ -184,6 +195,9 @@ export interface UserProfile {
   contact_preference: string;
   role: string;
   is_complete: boolean;
+  onboarding_screen?: number;
+  questionnaire_consent?: boolean;
+  profile_mode?: string;
   taxonomies: {
     roles: string[];
     industries: string[];
@@ -1179,13 +1193,14 @@ export const ApiService = {
 
   saveAnswersBulk: (
     userId: string,
-    answers: Array<{ question_id: number; value: string; visibility: 'shared' | 'private' }>
+    answers: Array<{ question_id: number; value: string; visibility: 'shared' | 'private' }>,
+    extra?: { onboarding_screen?: number; questionnaire_consent?: boolean }
   ) =>
-    request<{ success: boolean; count: number; is_complete: boolean }>(
+    request<{ success: boolean; count: number; is_complete: boolean; onboarding_screen?: number; questionnaire_consent?: boolean; profile_mode?: string }>(
       `/api/profile/${userId}/answers-bulk`,
       {
         method: 'POST',
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ answers, ...(extra || {}) }),
       }
     ),
 

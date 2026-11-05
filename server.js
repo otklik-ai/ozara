@@ -514,6 +514,16 @@ try {
     db.exec("UPDATE users SET onboarding_step = 'completed' WHERE is_complete = 1;");
     db.exec("UPDATE users SET onboarding_step = 'questionnaire' WHERE is_complete = 0;");
   }
+  if (!userCols.includes('onboarding_screen')) {
+    db.exec("ALTER TABLE users ADD COLUMN onboarding_screen INTEGER DEFAULT 1;");
+  }
+  if (!userCols.includes('questionnaire_consent')) {
+    db.exec("ALTER TABLE users ADD COLUMN questionnaire_consent BOOLEAN DEFAULT 0;");
+    db.exec("UPDATE users SET questionnaire_consent = 1 WHERE is_complete = 1;");
+  }
+  if (!userCols.includes('profile_mode')) {
+    db.exec("ALTER TABLE users ADD COLUMN profile_mode TEXT DEFAULT 'Visible to members';");
+  }
 
   const inviteCols = db.prepare("PRAGMA table_info(invitation_tokens)").all().map(c => c.name);
   if (!inviteCols.includes('membership_tier')) {
@@ -1094,22 +1104,28 @@ const PROHIBITED_PATTERNS = [
   { regex: /[$€£]\s*\d+[\d,.]*(?:\s*(?:k|m|b|million|billion))?/i, message: "Specific investment amounts and currency figures are prohibited in profile free text." }
 ];
 
-function validateContent(text) {
+function validateContent(text, questionId) {
   if (!text) return null;
+  // Only validate free-text fields (e.g. Q10 Company & short bio, Q6 referral text, or general notes).
+  // Standardized option selections on dropdown/multi-select questions (e.g. Q11 "Raising capital", Q17 "$1M to $5M", Q18 "$500K to $2M", Q23 "Raising capital") are exempt.
+  if (questionId && ![6, 10].includes(Number(questionId))) {
+    return null;
+  }
   let textToValidate = text;
   if (typeof text === 'string' && text.startsWith('{') && text.endsWith('}')) {
     try {
       const parsed = JSON.parse(text);
       if (parsed && typeof parsed.note === 'string') {
         textToValidate = parsed.note;
+      } else if (parsed && typeof parsed.detail === 'string') {
+        textToValidate = parsed.detail;
       } else {
-        // If it's a JSON composite without a free text note, don't validate standardized tag arrays
         textToValidate = '';
       }
     } catch {}
   }
-  // Standardized system tag selection 'Raising funding' is not a deal solicitation posting
-  if (typeof textToValidate === 'string' && textToValidate.trim().toLowerCase() === 'raising funding') {
+  const cleanLower = typeof textToValidate === 'string' ? textToValidate.trim().toLowerCase() : '';
+  if (cleanLower === 'raising funding' || cleanLower === 'raising capital') {
     return null;
   }
   for (const rule of PROHIBITED_PATTERNS) {
@@ -1118,6 +1134,62 @@ function validateContent(text) {
     }
   }
   return null;
+}
+
+// -------------------------------------------------------------
+// ENCRYPTION AT REST & ACCESS CONTROL FOR SCREENS 3 TO 5 (Q12–Q23)
+// -------------------------------------------------------------
+const QUESTIONNAIRE_ENC_KEY = crypto
+  .createHash('sha256')
+  .update(process.env.QUESTIONNAIRE_ENCRYPTION_KEY || process.env.SESSION_SECRET || 'ozara-screens-3-5-vault-key-2026')
+  .digest();
+
+const ENCRYPTED_QUESTION_IDS = new Set([12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]);
+const SWITCH_QUESTION_IDS = new Set([8, 9, 10, 11, 12, 24]);
+const TEAM_ONLY_QUESTION_IDS = new Set([1, 2, 3, 4, 5, 6, 7, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25]);
+const REQUIRED_QUESTION_IDS = [1, 2, 3, 6, 7, 25];
+const NO_FREE_TEXT_QUESTION_IDS = new Set([17, 18, 19, 20, 21, 22, 23]);
+const NAMED_TEAM_EMAILS = new Set([
+  'agniyahill@gmail.com',
+  'iuliiashchukinainvest@gmail.com',
+  'ermolov.elena@gmail.com'
+]);
+
+function isNamedTeamMember(userObj) {
+  if (!userObj) return false;
+  if (userObj.role === 'FOUNDER' || userObj.role === 'ADMIN') return true;
+  if (userObj.email && NAMED_TEAM_EMAILS.has(String(userObj.email).toLowerCase().trim())) return true;
+  return false;
+}
+
+function encryptScreen3To5Value(plainText) {
+  if (plainText === null || plainText === undefined || plainText === '') return '';
+  const str = String(plainText);
+  if (str === 'skipped' || str.startsWith('enc:v1:')) return str;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', QUESTIONNAIRE_ENC_KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(str, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `enc:v1:${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`;
+}
+
+function decryptScreen3To5Value(storedText) {
+  if (!storedText || typeof storedText !== 'string') return storedText || '';
+  if (!storedText.startsWith('enc:v1:')) return storedText;
+  try {
+    const parts = storedText.split(':');
+    if (parts.length !== 5) return '';
+    const iv = Buffer.from(parts[2], 'hex');
+    const tag = Buffer.from(parts[3], 'hex');
+    const encrypted = Buffer.from(parts[4], 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', QUESTIONNAIRE_ENC_KEY, iv);
+    decipher.setAuthTag(tag);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    return decrypted.toString('utf8');
+  } catch (err) {
+    console.warn('[DECRYPT ERROR] Failed to decrypt Screen 3-5 value:', err.message);
+    return '';
+  }
 }
 
 function escapeHtml(str) {
@@ -1543,13 +1615,22 @@ app.post('/api/auth/phone/verify-code', (req, res) => {
             tier, subStatus
           );
 
-          // Seed canonical question rows
+          // Seed canonical question rows (every switch starts on Private)
           const insertAnswer = db.prepare(`
             INSERT OR IGNORE INTO questionnaire_answers (user_id, question_id, prompt, answer_state, visibility, value_text)
-            VALUES (?, ?, ?, 'unanswered', ?, NULL)
+            VALUES (?, ?, ?, 'unanswered', 'private', NULL)
           `);
           for (const q of CANONICAL_QUESTIONS) {
-            insertAnswer.run(newId, q.id, q.prompt, q.id === 23 ? 'private' : 'shared');
+            insertAnswer.run(newId, q.id, q.prompt);
+          }
+          if (invite.full_name) {
+            db.prepare("UPDATE questionnaire_answers SET value_text = ?, answer_state = 'answered', visibility = 'private' WHERE user_id = ? AND question_id = 1").run(invite.full_name, newId);
+          }
+          if (invite.email) {
+            db.prepare("UPDATE questionnaire_answers SET value_text = ?, answer_state = 'answered', visibility = 'private' WHERE user_id = ? AND question_id = 2").run(invite.email.toLowerCase(), newId);
+          }
+          if (cleanPhone) {
+            db.prepare("UPDATE questionnaire_answers SET value_text = ?, answer_state = 'answered', visibility = 'private' WHERE user_id = ? AND question_id = 3").run(cleanPhone, newId);
           }
 
           member = db.prepare("SELECT * FROM users WHERE id = ?").get(newId);
@@ -1800,55 +1881,134 @@ app.post('/api/auth/email/verify-code', (req, res) => {
 // Access Conditions Active Version
 const CURRENT_ACCESS_CONDITIONS_VERSION = '2026-10-v1';
 
-// Canonical 24 Member Profile Questions (Sections A, B, C, D, E)
+// Canonical 25 Member Onboarding Questions (Screens 1 to 6)
 const CANONICAL_QUESTIONS = [
-  // Section A. Where you are (Default: shared)
-  { id: 1, section: "Section A. Where you are", prompt: "Full name", type: "text", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 2, section: "Section A. Where you are", prompt: "Location where you reside", type: "text", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 3, section: "Section A. Where you are", prompt: "Other locations where you spend real time each year", type: "city_multi", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 4, section: "Section A. Where you are", prompt: "Locations where you have a base, work, or run something", type: "country_multi", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 5, section: "Section A. Where you are", prompt: "Languages you do business in", type: "multi", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 6, section: "Section A. Where you are", prompt: "Best way to reach you", type: "multi", default_visibility: "shared", is_required: false, is_confidential: false },
+  // Screen 1: Contact (All Team only)
+  { id: 1, screen: 1, section: "Screen 1: Contact", prompt: "Full name", type: "text", visibility_mode: "team_only", default_visibility: "private", is_required: true, is_confidential: true },
+  { id: 2, screen: 1, section: "Screen 1: Contact", prompt: "Email", type: "email", visibility_mode: "team_only", default_visibility: "private", is_required: true, is_confidential: true },
+  { id: 3, screen: 1, section: "Screen 1: Contact", prompt: "Mobile phone", type: "phone", visibility_mode: "team_only", default_visibility: "private", is_required: true, is_confidential: true },
+  { id: 4, screen: 1, section: "Screen 1: Contact", prompt: "Telegram and WhatsApp", type: "two_text", placeholder: "@handle or number", visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true },
+  { id: 5, screen: 1, section: "Screen 1: Contact", prompt: "Preferred language", type: "dropdown", options: ["English", "Russian", "Other"], visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true },
+  { id: 6, screen: 1, section: "Screen 1: Contact", prompt: "How did you hear about us?", type: "dropdown_text", options: ["Referred by a member (name)", "Event", "Partner", "Other"], visibility_mode: "team_only", default_visibility: "private", is_required: true, is_confidential: true },
 
-  // Section B. What you do (Default: shared. This is the LinkedIn layer.)
-  { id: 7, section: "Section B. What you do", prompt: "Professional role", type: "multi", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 25, section: "Section B. What you do", prompt: "Job title", type: "text", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 26, section: "Section B. What you do", prompt: "Company / Organization", type: "text", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 27, section: "Section B. What you do", prompt: "Institution / University", type: "text", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 8, section: "Section B. What you do", prompt: "Industry & Sector", type: "multi", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 10, section: "Section B. What you do", prompt: "What do you do, in one sentence?", type: "text", default_visibility: "shared", is_required: false, is_confidential: false, char_limit: 200 },
-  { id: 12, section: "Section B. What you do", prompt: "Your background", type: "long_text", default_visibility: "shared", is_required: false, is_confidential: false, char_limit: 600 },
-  { id: 13, section: "Section B. What you do", prompt: "LinkedIn or website", type: "url", default_visibility: "shared", is_required: false, is_confidential: false },
+  // Screen 2: Profile (The only screen other members can ever see, and only what the member switches on)
+  { id: 7, screen: 2, section: "Screen 2: Profile", prompt: "How do you want to be on the platform?", type: "single", options: ["Visible to members", "Private (browse deals and events only)"], visibility_mode: "team_only", default_visibility: "private", is_required: true, is_confidential: true },
+  { id: 8, screen: 2, section: "Screen 2: Profile", prompt: "Profile photo", type: "upload", visibility_mode: "switch", default_visibility: "private", is_required: false, is_confidential: false },
+  { id: 9, screen: 2, section: "Screen 2: Profile", prompt: "Your main role", type: "dropdown", options: ["Business owner or founder", "Investor", "Fund manager or GP", "Executive", "Family office principal", "Real estate developer", "Professional advisor (lawyer, CPA, banker)", "Other"], visibility_mode: "switch", default_visibility: "private", is_required: false, is_confidential: false },
+  { id: 10, screen: 2, section: "Screen 2: Profile", prompt: "Company and short bio", type: "text", char_limit: 300, visibility_mode: "switch", default_visibility: "private", is_required: false, is_confidential: false },
+  { id: 11, screen: 2, section: "Screen 2: Profile", prompt: "What are you open to?", type: "multi", options: ["Raising capital", "Investing or co-investing", "Selling a business", "Buying a business", "Partnerships", "Hiring", "Speaking", "Networking"], visibility_mode: "switch", default_visibility: "private", is_required: false, is_confidential: false },
 
-  // Section C. What you are working on now (Default: shared)
-  { id: 14, section: "Section C. What you are working on now", prompt: "What are you focused on right now?", type: "multi_with_note", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 15, section: "Section C. What you are working on now", prompt: "Which industries would you like to explore?", type: "multi", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 16, section: "Section C. What you are working on now", prompt: "Where would you like to build connections?", helper: "Choose up to five countries, or select open anywhere.", type: "country_multi", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 17, section: "Section C. What you are working on now", prompt: "Who would you like to connect with right now?", helper: "Choose up to five types of connections.", type: "multi_with_note", default_visibility: "shared", is_required: false, is_confidential: false, char_limit: 200 },
-  { id: 18, section: "Section C. What you are working on now", prompt: "What can other members turn to you for?", helper: "Choose the areas where you can share experience, help, or introductions.", type: "multi_with_note", default_visibility: "shared", is_required: true, is_confidential: false },
-  { id: 19, section: "Section C. What you are working on now", prompt: "Are you open to direct contact from other members?", type: "single", default_visibility: "shared", is_required: false, is_confidential: false },
+  // Screen 3: Residence and family (All optional. Residence can be shown; everything else is Team only. Encrypted at rest.)
+  { id: 12, screen: 3, section: "Screen 3: Residence and family", prompt: "Where do you live?", type: "country_multi", helper: "Country list (allow 2+ for people who split time)", visibility_mode: "switch", default_visibility: "private", is_required: false, is_confidential: false, is_encrypted: true },
+  { id: 13, screen: 3, section: "Screen 3: Residence and family", prompt: "Citizenships", type: "country_multi", helper: "Countries only, never passport numbers", visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true, is_encrypted: true },
+  { id: 14, screen: 3, section: "Screen 3: Residence and family", prompt: "Where do you pay tax?", type: "tax_country_multi", helper: "Country list, plus US state if US", visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true, is_encrypted: true },
+  { id: 15, screen: 3, section: "Screen 3: Residence and family", prompt: "Marital status", type: "dropdown", options: ["Single", "Married", "Partnered", "Divorced", "Widowed", "Prefer not to say"], visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true, is_encrypted: true },
+  { id: 16, screen: 3, section: "Screen 3: Residence and family", prompt: "Children", type: "dropdown", options: ["None", "Under 18", "Adult", "Both", "Prefer not to say"], visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true, is_encrypted: true },
 
-  // Section D. Personal context (Default: private)
-  { id: 20, section: "Section D. Personal context", prompt: "Age bracket", type: "bracket", default_visibility: "private", is_required: false, is_confidential: false },
-  { id: 21, section: "Section D. Personal context", prompt: "Family situation, if you want to say", type: "single", default_visibility: "private", is_required: false, is_confidential: false },
-  { id: 22, section: "Section D. Personal context", prompt: "What are your interests outside work?", helper: "Select personal interests, sports, and creative pursuits outside of work.", type: "multi", default_visibility: "shared", is_required: false, is_confidential: false },
-  { id: 23, section: "Section D. Personal context", prompt: "Is there anything else you’d like our team to know?", helper: "Optional. Share any context or preferences you’d rather leave off your member profile.", placeholder: "Share any context or preferences you’d rather leave off your member profile.", type: "long_text", default_visibility: "private", is_required: false, is_confidential: true, char_limit: 1000 },
+  // Screen 4: Wealth profile (All optional and all Team only, locked. Encrypted at rest. No free text.)
+  { id: 17, screen: 4, section: "Screen 4: Wealth profile", prompt: "Approximate net worth", type: "dropdown", options: ["Under $1M", "$1M to $5M", "$5M to $10M", "$10M to $30M", "$30M to $100M", "Over $100M", "Prefer not to say"], visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true, is_encrypted: true, no_free_text: true },
+  { id: 18, screen: 4, section: "Screen 4: Wealth profile", prompt: "Liquid investable assets", type: "dropdown", options: ["Under $500K", "$500K to $2M", "$2M to $10M", "$10M to $25M", "Over $25M", "Prefer not to say"], visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true, is_encrypted: true, no_free_text: true },
+  { id: 19, screen: 4, section: "Screen 4: Wealth profile", prompt: "Main source of wealth", type: "multi", options: ["Operating business", "Sale of a business", "Real estate", "Investments", "Inheritance", "Salary and equity compensation", "Other"], visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true, is_encrypted: true, no_free_text: true },
+  { id: 20, screen: 4, section: "Screen 4: Wealth profile", prompt: "Investor status", type: "multi", options: ["US accredited investor", "US qualified purchaser", "Professional investor (UK or EU)", "Not sure", "None of these"], visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true, is_encrypted: true, no_free_text: true },
 
-  // Section E. Chapter and events (Default: shared)
-  { id: 24, section: "Section E. Chapter and events", prompt: "Your home chapter, and how would you like to be involved?", type: "single_two_part", default_visibility: "shared", is_required: false, is_confidential: false }
+  // Screen 5: Your current setup (All optional and Team only. Encrypted at rest. No free text.)
+  { id: 21, screen: 5, section: "Screen 5: Your current setup", prompt: "Who advises you today?", type: "multi", options: ["Private bank or wealth manager", "CPA or tax advisor", "Estate attorney", "Insurance broker", "Family office", "Nobody yet", "Prefer not to say"], visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true, is_encrypted: true, no_free_text: true },
+  { id: 22, screen: 5, section: "Screen 5: Your current setup", prompt: "What do you already have in place?", type: "multi", options: ["Will", "Trust(s)", "Life insurance", "Holding company or other structures", "Business succession plan", "None yet", "Prefer not to say"], visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true, is_encrypted: true, no_free_text: true },
+  { id: 23, screen: 5, section: "Screen 5: Your current setup", prompt: "Anything coming up in the next 2 years?", type: "multi", options: ["Selling a business or liquidity event", "Moving country", "Buying property", "Inheritance", "Marriage or divorce", "Children's education", "Raising capital", "None of these"], visibility_mode: "team_only", default_visibility: "private", is_required: false, is_confidential: true, is_encrypted: true, no_free_text: true },
+
+  // Screen 6: Interests and next step
+  { id: 24, screen: 6, section: "Screen 6: Interests and next step", prompt: "What interests you?", type: "multi", options: ["Private deals", "Real estate", "Venture and startups", "Private credit", "Tax and relocation planning", "Estate and succession", "Insurance", "Next-generation education", "Concierge and lifestyle", "Events and networking"], visibility_mode: "switch", default_visibility: "private", is_required: false, is_confidential: false },
+  { id: 25, screen: 6, section: "Screen 6: Interests and next step", prompt: "What would you like next?", type: "single", options: ["Book a private call", "Show me deals and events only", "Just browsing for now"], visibility_mode: "team_only", default_visibility: "private", is_required: true, is_confidential: true }
 ];
+
+function validateNoFreeTextScreen4And5(questionId, valueText) {
+  const qNum = Number(questionId);
+  if (!NO_FREE_TEXT_QUESTION_IDS.has(qNum)) return null;
+  if (!valueText || valueText === 'skipped' || valueText === 'Discuss on a call') return null;
+  const qDef = CANONICAL_QUESTIONS.find(q => q.id === qNum);
+  if (!qDef || !Array.isArray(qDef.options)) return null;
+  const allowedSet = new Set(qDef.options.map(o => o.trim()));
+  const submittedItems = String(valueText)
+    .split(/[;,]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+  for (const item of submittedItems) {
+    if (item === 'skipped' || item === 'Discuss on a call') continue;
+    if (!allowedSet.has(item)) {
+      return `Question ${qNum} ("${qDef.prompt}") on Screen ${qDef.screen} does not allow free text ("${item}"). Please choose from the provided options only.`;
+    }
+  }
+  return null;
+}
+
+function checkUserQuestionnaireComplete(userId) {
+  const user = db.prepare("SELECT full_name, email, phone, is_complete, questionnaire_consent FROM users WHERE id = ?").get(userId);
+  if (!user) return false;
+  const rows = db.prepare("SELECT question_id, answer_state, value_text FROM questionnaire_answers WHERE user_id = ?").all(userId);
+  const ansMap = new Map();
+  for (const r of rows) {
+    if (r.value_text && String(r.value_text).trim() && String(r.value_text).trim() !== 'skipped') {
+      ansMap.set(r.question_id, String(r.value_text).trim());
+    }
+  }
+  const hasQ1 = Boolean(ansMap.get(1) || (user.full_name && user.full_name.trim() && user.full_name !== 'Member'));
+  const hasQ2 = Boolean(ansMap.get(2) || (user.email && user.email.trim()));
+  const hasQ3 = Boolean(ansMap.get(3) || (user.phone && user.phone.trim()));
+  const hasQ6 = Boolean(ansMap.get(6));
+  const hasQ7 = Boolean(ansMap.get(7));
+  const hasQ25 = Boolean(ansMap.get(25));
+
+  if (hasQ1 && hasQ2 && hasQ3 && hasQ6 && hasQ7 && hasQ25) {
+    return true;
+  }
+  // Preserve existing completed members so editing a single profile field doesn't reset onboarding
+  if (user.is_complete === 1 && !hasQ7 && !hasQ25) {
+    return true;
+  }
+  return false;
+}
+
+// Encrypt any existing plaintext rows for Screens 3 to 5 (Q12–Q23) at startup
+try {
+  const unencryptedScreen3To5 = db.prepare(`
+    SELECT user_id, question_id, value_text
+    FROM questionnaire_answers
+    WHERE question_id BETWEEN 12 AND 23
+      AND value_text IS NOT NULL
+      AND value_text != ''
+      AND value_text != 'skipped'
+      AND value_text NOT LIKE 'enc:v1:%'
+  `).all();
+  if (unencryptedScreen3To5.length > 0) {
+    const updEnc = db.prepare("UPDATE questionnaire_answers SET value_text = ? WHERE user_id = ? AND question_id = ?");
+    const encTx = db.transaction((items) => {
+      for (const row of items) {
+        updEnc.run(encryptScreen3To5Value(row.value_text), row.user_id, row.question_id);
+      }
+    });
+    encTx(unencryptedScreen3To5);
+    console.log(`[SECURITY] Encrypted ${unencryptedScreen3To5.length} Screen 3–5 questionnaire rows at rest.`);
+  }
+} catch (encErr) {
+  console.warn('[SECURITY] Screen 3–5 startup encryption check warning:', encErr.message);
+}
 
 app.get('/api/questions', (req, res) => {
   res.json(CANONICAL_QUESTIONS.map(q => ({
     id: q.id,
+    screen: q.screen,
     section: q.section,
     prompt: q.prompt,
     helper: q.helper || null,
     type: q.type,
-    is_required: q.id === 18,
-    is_confidential: q.id === 23,
+    options: q.options || null,
+    visibility_mode: q.visibility_mode,
+    is_required: Boolean(q.is_required),
+    is_confidential: Boolean(q.is_confidential),
+    is_encrypted: Boolean(q.is_encrypted),
+    no_free_text: Boolean(q.no_free_text),
     default_visibility: q.default_visibility,
-    char_limit: q.char_limit,
+    char_limit: q.char_limit || null,
     placeholder: q.placeholder || null
   })));
 });
@@ -2529,9 +2689,9 @@ app.get('/api/members', (req, res) => {
 
   const today = new Date().toISOString().split('T')[0];
 
-  // Retrieve admitted members excluding viewer
+  // Retrieve admitted members excluding viewer and excluding Private mode members (Q7 = 'Private (browse deals and events only)')
   const members = db.prepare(`
-    SELECT u.id, u.full_name, u.headline, u.avatar_url, u.city, u.country, u.state, u.contact_preference, u.role, u.is_complete, u.is_test,
+    SELECT u.id, u.full_name, u.headline, u.avatar_url, u.city, u.country, u.state, u.contact_preference, u.role, u.is_complete, u.is_test, u.profile_mode,
            c.name as chapter_name, c.id as chapter_id
     FROM users u
     LEFT JOIN chapters c ON u.chapter_id = c.id
@@ -2539,8 +2699,16 @@ app.get('/api/members', (req, res) => {
     ORDER BY u.is_test ASC, u.full_name ASC
   `).all(viewer.id);
 
+  // Filter out members who chose Private profile mode (Q7)
+  const visibleMembers = members.filter(m => {
+    if (m.profile_mode === 'Private (browse deals and events only)') return false;
+    const q7 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 7").get(m.id);
+    if (q7 && q7.value_text === 'Private (browse deals and events only)') return false;
+    return true;
+  });
+
   // Load taxonomies, active travel, answers, and connection state for each
-  const result = members.map(m => {
+  const result = visibleMembers.map(m => {
     // 1. Connection status with viewer
     const conn = db.prepare(`
       SELECT id, requester_id, recipient_id, status
@@ -2570,27 +2738,33 @@ app.get('/api/members', (req, res) => {
       if (taxMap[t.category]) taxMap[t.category].push({ slug: t.slug, label: t.label });
     });
 
-    // 3. Answers for display
-    const q12 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 12 AND visibility = 'shared'").get(m.id);
-    const q14 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 14 AND visibility = 'shared'").get(m.id);
-    const q18 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 18 AND visibility = 'shared'").get(m.id);
-    const q22 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 22 AND visibility = 'shared'").get(m.id);
-    const q25 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 25 AND visibility = 'shared'").get(m.id);
+    // 3. Switched-on (Visible) answers only (Q8 photo, Q9 role, Q10 bio, Q11 open to, Q12 residence, Q24 interests)
+    const q8 = db.prepare("SELECT value_text, visibility, answer_state FROM questionnaire_answers WHERE user_id = ? AND question_id = 8").get(m.id);
+    const q9 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 9 AND visibility = 'shared'").get(m.id);
+    const q10 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 10 AND visibility = 'shared'").get(m.id);
+    const q11 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 11 AND visibility = 'shared'").get(m.id);
+    const q12Row = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 12 AND visibility = 'shared'").get(m.id);
+    const q24 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 24 AND visibility = 'shared'").get(m.id);
     const q26 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 26 AND visibility = 'shared'").get(m.id);
     const q27 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 27 AND visibility = 'shared'").get(m.id);
 
+    const q12Decrypted = q12Row && q12Row.value_text ? decryptScreen3To5Value(q12Row.value_text) : null;
+
+    // Respect Q8 Profile photo switch if answered and set to private
+    const effectiveAvatar = (q8 && q8.answer_state === 'answered' && q8.visibility === 'private') ? null : m.avatar_url;
+
     // Parse role / company
-    let roleTitle = q25 ? q25.value_text : null;
-    let companyName = q26 ? q26.value_text : null;
+    let roleTitle = (q9 && q9.value_text && q9.value_text !== 'skipped') ? q9.value_text : null;
+    let companyName = (q10 && q10.value_text && q10.value_text !== 'skipped') ? q10.value_text : (q26 ? q26.value_text : null);
     if (!roleTitle && m.headline) {
       if (m.headline.includes(' at ')) {
         const parts = m.headline.split(' at ');
         roleTitle = parts[0].trim();
-        companyName = parts[1].split('|')[0].trim();
+        companyName = companyName || parts[1].split('|')[0].trim();
       } else if (m.headline.includes(' @ ')) {
         const parts = m.headline.split(' @ ');
         roleTitle = parts[0].trim();
-        companyName = parts[1].split('|')[0].trim();
+        companyName = companyName || parts[1].split('|')[0].trim();
       } else {
         roleTitle = m.headline;
       }
@@ -2602,24 +2776,26 @@ app.get('/api/members', (req, res) => {
       university = taxMap.institutions[0].label;
     }
 
-    // Up to 2 relevant interests or expertise tags
+    // Up to 2 relevant interests or open-to tags
     const relevantTags = [];
-    if (taxMap.expertise.length > 0) {
+    if (q11 && q11.value_text && q11.value_text !== 'skipped') {
+      q11.value_text.split(/[,;]/).map(s => s.trim()).filter(Boolean).slice(0, 2).forEach(t => relevantTags.push(t));
+    }
+    if (relevantTags.length < 2 && q24 && q24.value_text && q24.value_text !== 'skipped') {
+      q24.value_text.split(/[,;]/).map(s => s.trim()).filter(Boolean).forEach(t => {
+        if (relevantTags.length < 2 && !relevantTags.includes(t)) relevantTags.push(t);
+      });
+    }
+    if (relevantTags.length < 2 && taxMap.expertise.length > 0) {
       relevantTags.push(taxMap.expertise[0].label);
     }
-    if (taxMap.interests.length > 0) {
+    if (relevantTags.length < 2 && taxMap.interests.length > 0) {
       relevantTags.push(taxMap.interests[0].label);
-    } else if (taxMap.expertise.length > 1) {
-      relevantTags.push(taxMap.expertise[1].label);
-    } else if (q22 && q22.value_text && q22.value_text !== 'skipped') {
-      const interestsSplit = q22.value_text.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-      if (interestsSplit.length > 0 && !relevantTags.includes(interestsSplit[0])) {
-        relevantTags.push(interestsSplit[0]);
-      }
     }
 
     return {
       ...m,
+      avatar_url: effectiveAvatar,
       role_title: roleTitle,
       company: companyName,
       university,
@@ -2627,9 +2803,10 @@ app.get('/api/members', (req, res) => {
       connection_status,
       connection_id,
       taxonomies: taxMap,
-      focus: q14 ? q14.value_text : null,
-      offers: q18 ? q18.value_text : null,
-      interests_outside_work: q22 ? q22.value_text : null
+      focus: (q11 && q11.value_text && q11.value_text !== 'skipped') ? q11.value_text : null,
+      offers: (q11 && q11.value_text && q11.value_text !== 'skipped') ? q11.value_text : null,
+      residence: (q12Decrypted && q12Decrypted !== 'skipped') ? q12Decrypted : null,
+      interests_outside_work: (q24 && q24.value_text && q24.value_text !== 'skipped') ? q24.value_text : null
     };
   });
 
@@ -2751,14 +2928,21 @@ app.get('/api/recommendations', (req, res) => {
     } catch {}
   }
 
-  // Candidates (all other verified members)
-  const candidates = db.prepare(`
-    SELECT u.id, u.full_name, u.headline, u.avatar_url, u.city, u.country, u.contact_preference,
+  // Candidates (all other verified members who are not in Private profile mode)
+  const rawCandidates = db.prepare(`
+    SELECT u.id, u.full_name, u.headline, u.avatar_url, u.city, u.country, u.contact_preference, u.profile_mode,
            c.name as chapter_name, c.id as chapter_id
     FROM users u
     LEFT JOIN chapters c ON u.chapter_id = c.id
     WHERE u.role = 'MEMBER' AND u.id != ?
   `).all(viewerId);
+
+  const candidates = rawCandidates.filter(cand => {
+    if (cand.profile_mode === 'Private (browse deals and events only)') return false;
+    const q7 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 7").get(cand.id);
+    if (q7 && q7.value_text === 'Private (browse deals and events only)') return false;
+    return true;
+  });
 
   const scoredRecommendations = [];
 
@@ -3117,7 +3301,7 @@ app.get('/api/profile/:userId', (req, res) => {
     return res.status(401).json({ error: "Access Denied: Community membership required." });
   }
   const cleanViewer = viewerId.startsWith('Bearer ') ? viewerId.slice(7).trim() : viewerId.trim();
-  const viewer = db.prepare("SELECT id, role, is_admitted FROM users WHERE (id = ? OR LOWER(email) = ?) AND (is_admitted = 1 OR role IN ('FOUNDER', 'ADMIN'))").get(cleanViewer, cleanViewer.toLowerCase());
+  const viewer = db.prepare("SELECT id, email, role, is_admitted FROM users WHERE (id = ? OR LOWER(email) = ?) AND (is_admitted = 1 OR role IN ('FOUNDER', 'ADMIN'))").get(cleanViewer, cleanViewer.toLowerCase());
   if (!viewer) {
     return res.status(401).json({ error: "Access Denied: Community membership required." });
   }
@@ -3125,7 +3309,8 @@ app.get('/api/profile/:userId', (req, res) => {
 
   const user = db.prepare(`
     SELECT u.id, u.email, u.phone, u.zoom_link, u.full_name, u.headline, u.avatar_url, u.city, u.state, u.country, u.industry, u.contact_preference,
-           u.role, u.is_admitted, u.admitted_by, u.admitted_at, u.is_complete, u.membership_tier, u.subscription_status, u.onboarding_step, c.name as chapter_name, c.id as chapter_id
+           u.role, u.is_admitted, u.admitted_by, u.admitted_at, u.is_complete, u.membership_tier, u.subscription_status, u.onboarding_step,
+           u.onboarding_screen, u.questionnaire_consent, u.profile_mode, c.name as chapter_name, c.id as chapter_id
     FROM users u
     LEFT JOIN chapters c ON u.chapter_id = c.id
     WHERE u.id = ?
@@ -3133,7 +3318,7 @@ app.get('/api/profile/:userId', (req, res) => {
 
   if (!user) return res.status(404).json({ error: "User not found" });
 
-  const isFounder = viewer.role === 'FOUNDER' || viewer.role === 'ADMIN';
+  const isFounder = isNamedTeamMember(viewer);
   const isOwner = viewer.id === targetId;
 
   // Check connection status between viewer and profile owner
@@ -3168,44 +3353,56 @@ app.get('/api/profile/:userId', (req, res) => {
   const canonicalOrderMap = new Map(CANONICAL_QUESTIONS.map((q, idx) => [q.id, idx]));
   answers.sort((a, b) => (canonicalOrderMap.get(a.question_id) ?? 999) - (canonicalOrderMap.get(b.question_id) ?? 999));
 
-  // Apply Privacy Filter & Question 23 Lock
-  const sanitizedAnswers = answers.map(a => {
-    if (a.question_id === 23) {
-      if (isFounder || isOwner) {
-        if (isFounder && !isOwner) {
-          const logId = 'audit_' + Math.random().toString(36).substring(2, 10);
-          db.prepare(`
-            INSERT INTO audit_logs (id, actor_id, action, target_member_id, question_id, ip_address, metadata_json)
-            VALUES (?, ?, 'view_private_answer', ?, 23, '127.0.0.1', ?)
-          `).run(logId, viewerId, targetId, JSON.stringify({ reason: "Founder profile review" }));
-        }
-        return { ...a, is_q23_founder_locked: true };
-      } else {
-        return {
-          question_id: 23,
-          prompt: a.prompt,
-          answer_state: a.answer_state,
-          visibility: 'private',
-          value_text: "[Confidential founder note - visible solely to administrators (Elena, Alexandra, and Julia)]",
-          is_q23_founder_locked: true,
-          is_redacted: true
-        };
-      }
-    }
+  const q7Row = answers.find(a => a.question_id === 7);
+  const effectiveProfileMode = (q7Row && q7Row.value_text && q7Row.value_text !== 'skipped')
+    ? q7Row.value_text
+    : (user.profile_mode || 'Visible to members');
+  const isPrivateProfileMode = effectiveProfileMode === 'Private (browse deals and events only)';
 
-    // Mask direct contact details in Question 6 if not permitted
-    if (a.question_id === 6 && !canViewContact) {
+  const viewedEncryptedQuestions = [];
+
+  // Apply Privacy Filter, Profile Mode (Q7), Team-Only Lock, and Screen 3–5 Decryption & Audit Logging
+  const sanitizedAnswers = answers.map(a => {
+    const qId = Number(a.question_id);
+    const isTeamOnly = TEAM_ONLY_QUESTION_IDS.has(qId);
+    const isEncrypted = ENCRYPTED_QUESTION_IDS.has(qId);
+
+    // 1. Owner or Named Team Member can view all answers (with decryption & audit log for team members viewing Screens 3-5)
+    if (isOwner || isFounder) {
+      let plainVal = a.value_text;
+      if (isEncrypted && plainVal && plainVal !== 'skipped') {
+        plainVal = decryptScreen3To5Value(plainVal);
+        if (isFounder && !isOwner && plainVal && plainVal !== 'skipped') {
+          viewedEncryptedQuestions.push(qId);
+        }
+      }
       return {
         ...a,
-        value_text: "[Contact details confidential until mutual connection acceptance]",
+        visibility: isTeamOnly ? 'private' : (isPrivateProfileMode ? 'private' : a.visibility),
+        value_text: plainVal,
+        is_team_only: isTeamOnly,
+        is_q23_founder_locked: qId === 23
+      };
+    }
+
+    // 2. Peer viewer: Team-only questions are strictly never exposed to other members
+    if (isTeamOnly) {
+      return {
+        question_id: qId,
+        prompt: a.prompt,
+        answer_state: a.answer_state,
+        visibility: 'private',
+        value_text: "[Team only]",
+        is_team_only: true,
+        is_q23_founder_locked: qId === 23,
         is_redacted: true
       };
     }
 
-    // For other questions with private visibility
-    if (a.visibility === 'private' && !isOwner && !isFounder) {
+    // 3. Peer viewer: Switch questions are hidden if Profile Mode (Q7) is Private OR if the switch is set to Private
+    if (isPrivateProfileMode || a.visibility === 'private') {
       return {
-        question_id: a.question_id,
+        question_id: qId,
         prompt: a.prompt,
         answer_state: a.answer_state,
         visibility: 'private',
@@ -3214,8 +3411,41 @@ app.get('/api/profile/:userId', (req, res) => {
       };
     }
 
-    return a;
+    // 4. Peer viewer: Switched-on (Visible) field on a Visible member's profile
+    const decryptedVal = isEncrypted ? decryptScreen3To5Value(a.value_text) : a.value_text;
+    return {
+      ...a,
+      value_text: decryptedVal
+    };
   });
+
+  // Immutable Audit Log when a named team member views encrypted Screen 3–5 answers
+  if (isFounder && !isOwner && viewedEncryptedQuestions.length > 0) {
+    try {
+      const logId = 'audit_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
+      db.prepare(`
+        INSERT INTO audit_logs (id, actor_id, action, target_member_id, question_id, ip_address, metadata_json)
+        VALUES (?, ?, 'view_encrypted_screens_3_to_5', ?, ?, '127.0.0.1', ?)
+      `).run(
+        logId,
+        viewer.id,
+        targetId,
+        viewedEncryptedQuestions[0],
+        JSON.stringify({
+          viewer_email: viewer.email || null,
+          viewed_questions: viewedEncryptedQuestions,
+          screens: [3, 4, 5],
+          reason: "Team member review of encrypted Screens 3-5"
+        })
+      );
+    } catch (auditErr) {
+      console.warn('[AUDIT LOG WARNING]', auditErr.message);
+    }
+  }
+
+  // Respect Q8 Profile photo switch for peer viewers
+  const q8Row = answers.find(a => a.question_id === 8);
+  const hideAvatarForPeer = !isOwner && !isFounder && (isPrivateProfileMode || (q8Row && q8Row.answer_state === 'answered' && q8Row.visibility === 'private'));
 
   // Active travel
   const travelPlans = db.prepare(`
@@ -3231,11 +3461,15 @@ app.get('/api/profile/:userId', (req, res) => {
 
   res.json({
     ...user,
-    email: canViewContact ? user.email : null,
-    phone: canViewContact ? user.phone : null,
+    avatar_url: hideAvatarForPeer ? null : user.avatar_url,
+    email: (isOwner || isFounder || canViewContact) ? user.email : null,
+    phone: (isOwner || isFounder || canViewContact) ? user.phone : null,
     zoom_link: canViewContact ? user.zoom_link : null,
     membership_tier: (isFounder || isOwner) ? (user.membership_tier || 'paid') : undefined,
     subscription_status: (isFounder || isOwner) ? (user.subscription_status || 'active') : undefined,
+    profile_mode: (isFounder || isOwner) ? effectiveProfileMode : (isPrivateProfileMode ? 'Private (browse deals and events only)' : 'Visible to members'),
+    onboarding_screen: user.onboarding_screen || 1,
+    questionnaire_consent: Boolean(user.questionnaire_consent),
     connection_status,
     connection_id,
     can_view_contact: canViewContact,
@@ -3247,6 +3481,84 @@ app.get('/api/profile/:userId', (req, res) => {
     taxonomy_notes: notes
   });
 });
+
+// Helper to synchronize user fields when a single questionnaire answer is saved
+function syncAnswerToUserRecord(userId, questionId, plainVal, finalVisibility) {
+  const qNum = Number(questionId);
+  if (!plainVal || plainVal === 'skipped') return;
+
+  if (qNum === 1) {
+    db.prepare("UPDATE users SET full_name = ? WHERE id = ?").run(plainVal.trim(), userId);
+  } else if (qNum === 2) {
+    // Q2 is Email on Screen 1 (or legacy city/country if not an email)
+    if (plainVal.includes('@')) {
+      try {
+        db.prepare("UPDATE users SET email = ? WHERE id = ?").run(plainVal.trim().toLowerCase(), userId);
+      } catch {}
+    } else {
+      let city = plainVal;
+      let country = '';
+      if (plainVal.includes(',')) {
+        const parts = plainVal.split(',').map(s => s.trim());
+        city = parts[0];
+        country = parts.slice(1).join(', ');
+      }
+      if (country) {
+        db.prepare("UPDATE users SET city = ?, country = ? WHERE id = ?").run(city, country, userId);
+      } else {
+        db.prepare("UPDATE users SET city = ? WHERE id = ?").run(city, userId);
+      }
+    }
+  } else if (qNum === 3) {
+    // Q3 is Mobile phone on Screen 1
+    if (/^[+\d\s()-]{6,}$/.test(plainVal.trim())) {
+      db.prepare("UPDATE users SET phone = ? WHERE id = ?").run(plainVal.trim(), userId);
+    }
+  } else if (qNum === 7) {
+    // Q7 is Profile Mode ("Visible to members" | "Private (browse deals and events only)")
+    db.prepare("UPDATE users SET profile_mode = ? WHERE id = ?").run(plainVal.trim(), userId);
+    if (plainVal.trim() === 'Private (browse deals and events only)') {
+      // Force all switches to Private
+      db.prepare(`
+        UPDATE questionnaire_answers
+        SET visibility = 'private', updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ? AND question_id IN (8, 9, 10, 11, 12, 24)
+      `).run(userId);
+    }
+  } else if (qNum === 8) {
+    // Q8 is Profile photo upload
+    if (plainVal.startsWith('data:image/') || plainVal.startsWith('http://') || plainVal.startsWith('https://') || plainVal.startsWith('/')) {
+      db.prepare("UPDATE users SET avatar_url = ? WHERE id = ?").run(plainVal.trim(), userId);
+    }
+  } else if (qNum === 9) {
+    // Q9 is Your main role
+    const q10 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 10").get(userId);
+    const bioPart = (q10 && q10.value_text && q10.value_text !== 'skipped') ? q10.value_text.trim() : '';
+    const newHeadline = bioPart ? `${plainVal.trim()} · ${bioPart}` : plainVal.trim();
+    db.prepare("UPDATE users SET headline = ? WHERE id = ?").run(newHeadline.slice(0, 160), userId);
+  } else if (qNum === 10) {
+    // Q10 is Company and short bio (300 chars)
+    const q9 = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 9").get(userId);
+    const rolePart = (q9 && q9.value_text && q9.value_text !== 'skipped') ? q9.value_text.trim() : '';
+    const newHeadline = rolePart ? `${rolePart} · ${plainVal.trim()}` : plainVal.trim();
+    db.prepare("UPDATE users SET headline = ? WHERE id = ?").run(newHeadline.slice(0, 160), userId);
+  } else if (qNum === 12) {
+    // Q12 is Where do you live? (Country multi-select)
+    const firstCountry = plainVal.split(/[;,]/).map(s => s.trim()).filter(Boolean)[0];
+    if (firstCountry) {
+      db.prepare("UPDATE users SET country = ? WHERE id = ?").run(firstCountry, userId);
+    }
+  } else if (qNum === 24) {
+    // Q24 is What interests you?
+    db.prepare("DELETE FROM taxonomies WHERE user_id = ? AND category = 'interests'").run(userId);
+    const items = plainVal.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+    const insTax = db.prepare("INSERT OR IGNORE INTO taxonomies (user_id, category, slug, label) VALUES (?, 'interests', ?, ?)");
+    for (const item of items) {
+      const slug = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      insTax.run(userId, slug, item);
+    }
+  }
+}
 
 // Update questionnaire answer handler
 function handleSaveAnswer(req, res) {
@@ -3260,27 +3572,44 @@ function handleSaveAnswer(req, res) {
     return res.status(400).json({ error: "Missing userId or questionId" });
   }
 
-  // Content guardrail check
-  const violation = validateContent(valueText);
+  // Enforce no free text on Screens 4 & 5 (Q17–Q23)
+  const noFreeTextErr = validateNoFreeTextScreen4And5(questionId, valueText);
+  if (noFreeTextErr) {
+    return res.status(422).json({ error: noFreeTextErr, code: 'no_free_text_on_screens_4_and_5', flagged: true });
+  }
+
+  // Content guardrail check on free-text questions
+  const violation = validateContent(valueText, questionId);
   if (violation) {
     return res.status(422).json({ error: violation, flagged: true });
   }
 
-  // Question 23 Permanent Lock Rule: Visibility must always be private
-  const finalVisibility = (questionId === 23) ? 'private' : (visibility || 'shared');
+  // Enforce character limit on Q10 (300 characters)
+  if (questionId === 10 && valueText && valueText.length > 300) {
+    return res.status(422).json({ error: "Question 10 (Company and short bio) is limited to 300 characters." });
+  }
+
+  // Check if user's profile mode (Q7) is set to Private
+  const userRow = db.prepare("SELECT profile_mode FROM users WHERE id = ?").get(userId);
+  const q7Row = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 7").get(userId);
+  const currentProfileMode = (questionId === 7 && valueText)
+    ? valueText.trim()
+    : ((q7Row && q7Row.value_text) || userRow?.profile_mode || 'Visible to members');
+  const isPrivateMode = currentProfileMode === 'Private (browse deals and events only)';
+
+  // Team-only questions are permanently private; Switch questions default to private unless switched on and profile mode is Visible
+  let finalVisibility = 'private';
+  if (SWITCH_QUESTION_IDS.has(questionId) && !isPrivateMode) {
+    finalVisibility = (visibility === 'shared') ? 'shared' : 'private';
+  }
+
   const promptObj = CANONICAL_QUESTIONS.find(q => q.id === questionId);
   const prompt = promptObj ? promptObj.prompt : `Question ${questionId}`;
 
-  // Normalize Question 13 (LinkedIn or website) with https:// if missing
-  let normalizedValueText = valueText;
-  if (questionId === 13 && normalizedValueText && normalizedValueText.trim() && normalizedValueText.trim() !== 'skipped') {
-    const trimmed = normalizedValueText.trim();
-    if (!/^[a-zA-Z]+:\/\//.test(trimmed)) {
-      normalizedValueText = `https://${trimmed}`;
-    } else {
-      normalizedValueText = trimmed;
-    }
-  }
+  const normalizedValueText = (valueText || '').trim();
+  const storedValueText = ENCRYPTED_QUESTION_IDS.has(questionId)
+    ? encryptScreen3To5Value(normalizedValueText)
+    : normalizedValueText;
 
   db.prepare(`
     INSERT INTO questionnaire_answers (user_id, question_id, prompt, answer_state, visibility, value_text, updated_at)
@@ -3290,79 +3619,18 @@ function handleSaveAnswer(req, res) {
       visibility = excluded.visibility,
       value_text = excluded.value_text,
       updated_at = CURRENT_TIMESTAMP
-  `).run(userId, questionId, prompt, answerState, finalVisibility, normalizedValueText || '');
+  `).run(userId, questionId, prompt, answerState, finalVisibility, storedValueText);
 
-  // Sync Question 22 to taxonomies table under category = 'interests'
-  if (questionId === 22) {
-    db.prepare("DELETE FROM taxonomies WHERE user_id = ? AND category = 'interests'").run(userId);
-    if (normalizedValueText && normalizedValueText !== 'skipped') {
-      const items = normalizedValueText.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-      const insTax = db.prepare("INSERT OR IGNORE INTO taxonomies (user_id, category, slug, label) VALUES (?, 'interests', ?, ?)");
-      for (const item of items) {
-        const slug = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-        insTax.run(userId, slug, item);
-      }
-    }
+  syncAnswerToUserRecord(userId, questionId, normalizedValueText, finalVisibility);
+
+  if (req.body.onboarding_screen !== undefined) {
+    db.prepare("UPDATE users SET onboarding_screen = ? WHERE id = ?").run(Number(req.body.onboarding_screen) || 1, userId);
+  }
+  if (req.body.questionnaire_consent !== undefined) {
+    db.prepare("UPDATE users SET questionnaire_consent = ? WHERE id = ?").run(req.body.questionnaire_consent ? 1 : 0, userId);
   }
 
-  // Sync Question 2 to users table for city and country
-  if (questionId === 2 && normalizedValueText && normalizedValueText !== 'skipped') {
-    let city = normalizedValueText;
-    let country = '';
-    if (normalizedValueText.includes(',')) {
-      const parts = normalizedValueText.split(',').map(s => s.trim());
-      city = parts[0];
-      country = parts.slice(1).join(', ');
-    }
-    if (country) {
-      db.prepare("UPDATE users SET city = ?, country = ? WHERE id = ?").run(city, country, userId);
-    } else {
-      db.prepare("UPDATE users SET city = ? WHERE id = ?").run(city, userId);
-    }
-  }
-
-  // Sync Question 24 (Home Chapter) to users table for chapter_id
-  if (questionId === 24 && normalizedValueText && normalizedValueText !== 'skipped') {
-    let rawChapter = normalizedValueText;
-    if (rawChapter.includes('—')) {
-      rawChapter = rawChapter.split('—')[0].trim();
-    } else if (rawChapter.includes(',')) {
-      rawChapter = rawChapter.split(',')[0].trim();
-    } else {
-      rawChapter = rawChapter.trim();
-    }
-    if (rawChapter) {
-      const matchChapter = db.prepare(`
-        SELECT id FROM chapters
-        WHERE LOWER(name) LIKE LOWER(?) OR LOWER(city) = LOWER(?) OR id = ?
-      `).get(`%${rawChapter}%`, rawChapter, `ch_${rawChapter.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`);
-      if (matchChapter) {
-        db.prepare("UPDATE users SET chapter_id = ? WHERE id = ?").run(matchChapter.id, userId);
-      }
-    }
-  }
-
-  // Sync Question 6 to users table for zoom_link and contact_preference
-  if (questionId === 6 && normalizedValueText) {
-    try {
-      if (normalizedValueText.startsWith('{')) {
-        const p = JSON.parse(normalizedValueText);
-        if (p.zoom_link !== undefined) {
-          db.prepare("UPDATE users SET zoom_link = ? WHERE id = ?").run(p.zoom_link ? p.zoom_link.trim() : null, userId);
-        }
-        if (p.preference) {
-          db.prepare("UPDATE users SET contact_preference = ? WHERE id = ?").run(p.preference, userId);
-        }
-      }
-    } catch {}
-  }
-
-  // Question 18 Mandate: Check if Question 18 is answered to update profile is_complete flag
-  const q18 = db.prepare(`
-    SELECT answer_state FROM questionnaire_answers WHERE user_id = ? AND question_id = 18
-  `).get(userId);
-
-  const isComplete = (q18 && q18.answer_state === 'answered') ? 1 : 0;
+  const isComplete = checkUserQuestionnaireComplete(userId) ? 1 : 0;
   const userRec = db.prepare("SELECT membership_tier, subscription_status, full_name FROM users WHERE id = ?").get(userId);
   const nextStep = isComplete === 1
     ? (userRec?.membership_tier === 'paid' && userRec?.subscription_status !== 'active' ? 'subscription_payment' : 'completed')
@@ -3381,11 +3649,12 @@ function handleSaveAnswer(req, res) {
     });
   }
 
-  res.json({ success: true, is_complete: Boolean(isComplete), onboarding_step: nextStep });
+  res.json({ success: true, is_complete: Boolean(isComplete), onboarding_step: nextStep, visibility: finalVisibility });
 }
 
 app.post('/api/intake/answer', handleSaveAnswer);
 app.post('/api/profile/:id/answer', handleSaveAnswer);
+app.post('/api/profile/:id/answers', handleSaveAnswer);
 app.post('/api/profile/:id/answers/:questionId', handleSaveAnswer);
 
 // Update general profile fields (headline, city, zoom_link, etc.)
@@ -3426,13 +3695,13 @@ app.put('/api/profile/:id', (req, res) => {
 // Bulk update questionnaire answers
 app.post(['/api/profile/:id/answers-bulk', '/api/intake/answers-bulk'], (req, res) => {
   const userId = req.params.id || req.body.userId;
-  const { answers } = req.body;
+  const { answers, onboarding_screen, questionnaire_consent } = req.body;
 
   if (!userId || !Array.isArray(answers)) {
     return res.status(400).json({ error: "Missing userId or answers array" });
   }
 
-  const user = db.prepare("SELECT id FROM users WHERE id = ?").get(userId);
+  const user = db.prepare("SELECT id, profile_mode FROM users WHERE id = ?").get(userId);
   if (!user) {
     return res.status(404).json({ error: `User ${userId} not found` });
   }
@@ -3441,11 +3710,26 @@ app.post(['/api/profile/:id/answers-bulk', '/api/intake/answers-bulk'], (req, re
   for (const item of answers) {
     const qId = parseInt(item.question_id || item.questionId, 10);
     const val = item.value || item.valueText || '';
-    const violation = validateContent(val);
+    const noFreeTextErr = validateNoFreeTextScreen4And5(qId, val);
+    if (noFreeTextErr) {
+      return res.status(422).json({ error: noFreeTextErr, flagged: true });
+    }
+    if (qId === 10 && val && val.length > 300) {
+      return res.status(422).json({ error: "Question 10 (Company and short bio) is limited to 300 characters." });
+    }
+    const violation = validateContent(val, qId);
     if (violation) {
       return res.status(422).json({ error: `Question ${qId}: ${violation}`, flagged: true });
     }
   }
+
+  // Check if Q7 is in the payload or already saved
+  const q7InPayload = answers.find(it => parseInt(it.question_id || it.questionId, 10) === 7);
+  const q7Saved = db.prepare("SELECT value_text FROM questionnaire_answers WHERE user_id = ? AND question_id = 7").get(userId);
+  const effectiveMode = q7InPayload
+    ? String(q7InPayload.value || q7InPayload.valueText || '').trim()
+    : ((q7Saved && q7Saved.value_text) || user.profile_mode || 'Visible to members');
+  const isPrivateMode = effectiveMode === 'Private (browse deals and events only)';
 
   const insertStmt = db.prepare(`
     INSERT INTO questionnaire_answers (user_id, question_id, prompt, answer_state, visibility, value_text, updated_at)
@@ -3460,78 +3744,33 @@ app.post(['/api/profile/:id/answers-bulk', '/api/intake/answers-bulk'], (req, re
   const saveMany = db.transaction((items) => {
     for (const item of items) {
       const qId = parseInt(item.question_id || item.questionId, 10);
-      let val = (item.value || item.valueText || '').trim();
-      if (qId === 13 && val && val !== 'skipped') {
-        if (!/^[a-zA-Z]+:\/\//.test(val)) {
-          val = `https://${val}`;
-        }
-      }
+      const val = (item.value || item.valueText || '').trim();
       const promptObj = CANONICAL_QUESTIONS.find(q => q.id === qId);
       const prompt = promptObj ? promptObj.prompt : `Question ${qId}`;
-      const vis = (qId === 23) ? 'private' : (item.visibility || 'shared');
-      const state = val ? 'answered' : 'unanswered';
-      insertStmt.run(userId, qId, prompt, state, vis, val);
 
-      // Automatically keep user city and country in sync when Question 2 is updated
-      if (qId === 2 && val && val !== 'skipped') {
-        let city = val;
-        let country = '';
-        if (val.includes(',')) {
-          const parts = val.split(',').map(s => s.trim());
-          city = parts[0];
-          country = parts.slice(1).join(', ');
-        }
-        if (country) {
-          db.prepare("UPDATE users SET city = ?, country = ? WHERE id = ?").run(city, country, userId);
-        } else {
-          db.prepare("UPDATE users SET city = ? WHERE id = ?").run(city, userId);
-        }
+      let vis = 'private';
+      if (SWITCH_QUESTION_IDS.has(qId) && !isPrivateMode) {
+        vis = (item.visibility === 'shared') ? 'shared' : 'private';
       }
 
-      // Automatically sync Question 22 interests to taxonomies table
-      if (qId === 22) {
-        db.prepare("DELETE FROM taxonomies WHERE user_id = ? AND category = 'interests'").run(userId);
-        if (val && val !== 'skipped') {
-          const items = val.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-          const insTax = db.prepare("INSERT OR IGNORE INTO taxonomies (user_id, category, slug, label) VALUES (?, 'interests', ?, ?)");
-          for (const it of items) {
-            const slug = it.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-            insTax.run(userId, slug, it);
-          }
-        }
-      }
+      const state = val ? (val === 'skipped' ? 'deliberately_skipped' : 'answered') : 'unanswered';
+      const storedVal = ENCRYPTED_QUESTION_IDS.has(qId) ? encryptScreen3To5Value(val) : val;
+      insertStmt.run(userId, qId, prompt, state, vis, storedVal);
+      syncAnswerToUserRecord(userId, qId, val, vis);
+    }
 
-      // Automatically sync Question 24 home chapter to users table
-      if (qId === 24 && val && val !== 'skipped') {
-        let rawChapter = val;
-        if (rawChapter.includes('—')) {
-          rawChapter = rawChapter.split('—')[0].trim();
-        } else if (rawChapter.includes(',')) {
-          rawChapter = rawChapter.split(',')[0].trim();
-        } else {
-          rawChapter = rawChapter.trim();
-        }
-        if (rawChapter) {
-          const matchChapter = db.prepare(`
-            SELECT id FROM chapters
-            WHERE LOWER(name) LIKE LOWER(?) OR LOWER(city) = LOWER(?) OR id = ?
-          `).get(`%${rawChapter}%`, rawChapter, `ch_${rawChapter.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`);
-          if (matchChapter) {
-            db.prepare("UPDATE users SET chapter_id = ? WHERE id = ?").run(matchChapter.id, userId);
-          }
-        }
-      }
+    if (onboarding_screen !== undefined) {
+      db.prepare("UPDATE users SET onboarding_screen = ? WHERE id = ?").run(Number(onboarding_screen) || 1, userId);
+    }
+    if (questionnaire_consent !== undefined) {
+      db.prepare("UPDATE users SET questionnaire_consent = ? WHERE id = ?").run(questionnaire_consent ? 1 : 0, userId);
     }
   });
 
   saveMany(answers);
 
-  const q18 = db.prepare(`
-    SELECT answer_state FROM questionnaire_answers WHERE user_id = ? AND question_id = 18
-  `).get(userId);
-
-  const isComplete = (q18 && q18.answer_state === 'answered') ? 1 : 0;
-  const userRec = db.prepare("SELECT membership_tier, subscription_status, full_name FROM users WHERE id = ?").get(userId);
+  const isComplete = checkUserQuestionnaireComplete(userId) ? 1 : 0;
+  const userRec = db.prepare("SELECT membership_tier, subscription_status, full_name, onboarding_screen, questionnaire_consent FROM users WHERE id = ?").get(userId);
   const nextStep = isComplete === 1
     ? (userRec?.membership_tier === 'paid' && userRec?.subscription_status !== 'active' ? 'subscription_payment' : 'completed')
     : 'questionnaire';
@@ -3549,7 +3788,14 @@ app.post(['/api/profile/:id/answers-bulk', '/api/intake/answers-bulk'], (req, re
     });
   }
 
-  res.json({ success: true, count: answers.length, is_complete: Boolean(isComplete), onboarding_step: nextStep });
+  res.json({
+    success: true,
+    count: answers.length,
+    is_complete: Boolean(isComplete),
+    onboarding_step: nextStep,
+    onboarding_screen: userRec?.onboarding_screen || 1,
+    questionnaire_consent: Boolean(userRec?.questionnaire_consent)
+  });
 });
 
 // -------------------------------------------------------------
@@ -5716,16 +5962,22 @@ app.post('/api/register', (req, res) => {
       membershipTier, subscriptionStatus
     );
 
-    // Seed 30 canonical question rows for newly registered user
+    // Seed 25 canonical question rows for newly registered user (every switch starts on Private)
     const insertAnswer = db.prepare(`
       INSERT OR IGNORE INTO questionnaire_answers (user_id, question_id, prompt, answer_state, visibility, value_text)
-      VALUES (?, ?, ?, 'unanswered', ?, NULL)
+      VALUES (?, ?, ?, 'unanswered', 'private', NULL)
     `);
     for (const q of CANONICAL_QUESTIONS) {
-      insertAnswer.run(newId, q.id, q.prompt, q.id === 23 ? 'private' : 'shared');
+      insertAnswer.run(newId, q.id, q.prompt);
     }
     if (full_name) {
-      db.prepare("UPDATE questionnaire_answers SET value_text = ?, answer_state = 'answered' WHERE user_id = ? AND question_id = 1").run(full_name, newId);
+      db.prepare("UPDATE questionnaire_answers SET value_text = ?, answer_state = 'answered', visibility = 'private' WHERE user_id = ? AND question_id = 1").run(full_name, newId);
+    }
+    if (cleanEmail) {
+      db.prepare("UPDATE questionnaire_answers SET value_text = ?, answer_state = 'answered', visibility = 'private' WHERE user_id = ? AND question_id = 2").run(cleanEmail, newId);
+    }
+    if (cleanPhone) {
+      db.prepare("UPDATE questionnaire_answers SET value_text = ?, answer_state = 'answered', visibility = 'private' WHERE user_id = ? AND question_id = 3").run(cleanPhone, newId);
     }
 
     if (finalIndustry) {
@@ -5802,7 +6054,7 @@ app.get('/api/onboarding/progress', (req, res) => {
   const viewerId = req.query.userId || req.headers['x-user-id'] || req.headers['authorization'];
   if (!viewerId) return res.status(401).json({ error: "Authentication required." });
   const cleanViewer = String(viewerId).startsWith('Bearer ') ? String(viewerId).slice(7).trim() : String(viewerId).trim();
-  const user = db.prepare("SELECT id, email, full_name, is_complete, onboarding_step, membership_tier, subscription_status, role FROM users WHERE id = ? OR LOWER(email) = ?").get(cleanViewer, cleanViewer.toLowerCase());
+  const user = db.prepare("SELECT id, email, full_name, is_complete, onboarding_step, onboarding_screen, questionnaire_consent, profile_mode, membership_tier, subscription_status, role FROM users WHERE id = ? OR LOWER(email) = ?").get(cleanViewer, cleanViewer.toLowerCase());
   if (!user) return res.status(404).json({ error: "User not found." });
 
   const isFounderOrAdmin = user.role === 'FOUNDER' || user.role === 'ADMIN';
@@ -5811,17 +6063,21 @@ app.get('/api/onboarding/progress', (req, res) => {
   const step = isComplete && isSubActive ? 'completed' : (user.onboarding_step || (isComplete ? 'subscription_payment' : 'questionnaire'));
 
   const answeredCount = db.prepare("SELECT count(*) as count FROM questionnaire_answers WHERE user_id = ? AND answer_state = 'answered'").get(user.id)?.count || 0;
-  const q18 = db.prepare("SELECT answer_state FROM questionnaire_answers WHERE user_id = ? AND question_id = 18").get(user.id);
+  const q25 = db.prepare("SELECT answer_state FROM questionnaire_answers WHERE user_id = ? AND question_id = 25").get(user.id);
 
   res.json({
     user_id: user.id,
     is_complete: Boolean(user.is_complete),
     onboarding_completed: Boolean(isComplete && isSubActive),
     onboarding_step: step,
+    onboarding_screen: user.onboarding_screen || 1,
+    questionnaire_consent: Boolean(user.questionnaire_consent),
+    profile_mode: user.profile_mode || 'Visible to members',
     membership_tier: user.membership_tier || 'paid',
     subscription_status: user.subscription_status || 'pending_payment',
     answered_count: answeredCount,
-    is_q18_answered: Boolean(q18 && q18.answer_state === 'answered')
+    is_q18_answered: Boolean(q25 && q25.answer_state === 'answered'),
+    is_q25_answered: Boolean(q25 && q25.answer_state === 'answered')
   });
 });
 
@@ -6105,16 +6361,19 @@ app.post('/api/invitations/claim', (req, res) => {
         tier, subStatus
       );
 
-      // Seed canonical question rows
+      // Seed canonical question rows (every switch starts on Private)
       const insertAnswer = db.prepare(`
         INSERT OR IGNORE INTO questionnaire_answers (user_id, question_id, prompt, answer_state, visibility, value_text)
-        VALUES (?, ?, ?, 'unanswered', ?, NULL)
+        VALUES (?, ?, ?, 'unanswered', 'private', NULL)
       `);
       for (const q of CANONICAL_QUESTIONS) {
-        insertAnswer.run(newId, q.id, q.prompt, q.id === 23 ? 'private' : 'shared');
+        insertAnswer.run(newId, q.id, q.prompt);
       }
       if (invite.full_name) {
-        db.prepare("UPDATE questionnaire_answers SET value_text = ?, answer_state = 'answered' WHERE user_id = ? AND question_id = 1").run(invite.full_name, newId);
+        db.prepare("UPDATE questionnaire_answers SET value_text = ?, answer_state = 'answered', visibility = 'private' WHERE user_id = ? AND question_id = 1").run(invite.full_name, newId);
+      }
+      if (cleanEmail) {
+        db.prepare("UPDATE questionnaire_answers SET value_text = ?, answer_state = 'answered', visibility = 'private' WHERE user_id = ? AND question_id = 2").run(cleanEmail, newId);
       }
 
       member = db.prepare("SELECT * FROM users WHERE id = ?").get(newId);

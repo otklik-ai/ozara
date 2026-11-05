@@ -743,41 +743,216 @@ export const QUESTION_SUGGESTIONS: Record<number, string[]> = {
   24: STANDARDIZED_CHAPTERS,
 };
 
-const CANONICAL_QUESTIONS: QuestionDefinition[] = [
-  // Section A. Where you are (Default: shared)
-  { id: 1, section: "Section A. Where you are", prompt: "Full name", type: "text", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 2, section: "Section A. Where you are", prompt: "Location where you reside", type: "text", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 3, section: "Section A. Where you are", prompt: "Other locations where you spend real time each year", type: "city_multi", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 4, section: "Section A. Where you are", prompt: "Locations where you have a base, work, or run something", type: "country_multi", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 5, section: "Section A. Where you are", prompt: "Languages you do business in", type: "multi", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 6, section: "Section A. Where you are", prompt: "Best way to reach you", type: "multi", default_visibility: 'shared', is_required: false, is_confidential: false },
+export const SCREEN_DEFINITIONS = [
+  {
+    screen: 1,
+    title: 'Screen 1: Contact',
+    subtitle: 'All Team only. This is what lets us reach the member and check who they are.',
+  },
+  {
+    screen: 2,
+    title: 'Screen 2: Profile',
+    subtitle: 'The only screen other members can ever see, and only what the member switches on.',
+  },
+  {
+    screen: 3,
+    title: 'Screen 3: Residence and family',
+    subtitle: 'All optional. Residence can be shown; everything else is Team only.',
+  },
+  {
+    screen: 4,
+    title: 'Screen 4: Wealth profile',
+    subtitle: 'Only our team sees this. It helps us show you relevant deals and services.',
+  },
+  {
+    screen: 5,
+    title: 'Screen 5: Your current setup',
+    subtitle: 'All optional and Team only. These three answers tell us which services to offer: tax, estate, insurance, relocation, liquidity planning.',
+  },
+  {
+    screen: 6,
+    title: 'Screen 6: Interests and next step',
+    subtitle: 'Select what interests you and how you would like to proceed.',
+  },
+];
 
-  // Section B. What you do (Default: shared. This is the LinkedIn layer.)
-  { id: 7, section: "Section B. What you do", prompt: "Professional role", type: "multi", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 25, section: "Section B. What you do", prompt: "Job title", type: "text", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 26, section: "Section B. What you do", prompt: "Company / Organization", type: "text", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 27, section: "Section B. What you do", prompt: "Institution / University", type: "text", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 8, section: "Section B. What you do", prompt: "Industry & Sector", type: "multi", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 10, section: "Section B. What you do", prompt: "What do you do, in one sentence?", helper: "Describe your work in your own words.", placeholder: "e.g. I help founders turn AI research into practical products.", type: "text", default_visibility: 'shared', is_required: false, is_confidential: false, char_limit: 200 },
-  { id: 12, section: "Section B. What you do", prompt: "Your background", helper: "Share previous companies, education, research, or projects you’re proud of.", type: "long_text", default_visibility: 'shared', is_required: false, is_confidential: false, char_limit: 600 },
-  { id: 13, section: "Section B. What you do", prompt: "LinkedIn or website", placeholder: "linkedin.com/in/yourname or your website", type: "url", default_visibility: 'shared', is_required: false, is_confidential: false },
+export const ALL_COUNTRIES_LIST: string[] = [
+  'Australia', 'Austria', 'Bahamas', 'Bahrain', 'Belgium', 'Bermuda', 'Brazil',
+  'Canada', 'Cayman Islands', 'Chile', 'China', 'Colombia', 'Costa Rica', 'Croatia', 'Cyprus', 'Czech Republic',
+  'Denmark', 'Dominican Republic', 'Egypt', 'Estonia', 'Finland', 'France',
+  'Georgia', 'Germany', 'Greece', 'Hong Kong', 'Hungary',
+  'Iceland', 'India', 'Indonesia', 'Ireland', 'Israel', 'Italy',
+  'Japan', 'Jersey', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait',
+  'Latvia', 'Lebanon', 'Liechtenstein', 'Lithuania', 'Luxembourg',
+  'Malaysia', 'Malta', 'Mauritius', 'Mexico', 'Monaco', 'Montenegro', 'Morocco',
+  'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman',
+  'Panama', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar',
+  'Romania', 'Russia', 'Saudi Arabia', 'Serbia', 'Singapore', 'Slovakia', 'Slovenia', 'South Africa', 'South Korea', 'Spain', 'Sweden', 'Switzerland',
+  'Taiwan', 'Thailand', 'Turkey', 'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan', 'Vietnam',
+];
 
-  // Section C. What you are working on now (Default: shared)
-  { id: 14, section: "Section C. What you are working on now", prompt: "What are you focused on right now?", type: "multi_with_note", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 15, section: "Section C. What you are working on now", prompt: "Which industries would you like to explore?", type: "multi", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 16, section: "Section C. What you are working on now", prompt: "Where would you like to build connections?", helper: "Choose up to five countries, or select open anywhere.", type: "country_multi", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 17, section: "Section C. What you are working on now", prompt: "Who would you like to connect with right now?", helper: "Choose up to five types of connections.", type: "multi_with_note", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 18, section: "Section C. What you are working on now", prompt: "What can other members turn to you for?", helper: "Choose the areas where you can share experience, help, or introductions.", type: "multi_with_note", default_visibility: 'shared', is_required: true, is_confidential: false },
-  { id: 19, section: "Section C. What you are working on now", prompt: "Are you open to direct contact from other members?", type: "single", default_visibility: 'shared', is_required: false, is_confidential: false },
+export const US_STATES_LIST: string[] = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'District of Columbia', 'Florida',
+  'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine',
+  'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire',
+  'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island',
+  'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming',
+];
 
-  // Section D. Personal context (Default: private)
-  { id: 20, section: "Section D. Personal context", prompt: "Age bracket", type: "bracket", default_visibility: 'private', is_required: false, is_confidential: false },
-  { id: 21, section: "Section D. Personal context", prompt: "Family situation, if you want to say", type: "single", default_visibility: 'private', is_required: false, is_confidential: false },
-  { id: 22, section: "Section D. Personal context", prompt: "What are your interests outside work?", type: "multi", default_visibility: 'shared', is_required: false, is_confidential: false },
-  { id: 23, section: "Section D. Personal context", prompt: "Is there anything else you’d like our team to know?", helper: "Optional. Share any context or preferences you’d rather leave off your member profile.", placeholder: "Share any context or preferences you’d rather leave off your member profile.", type: "long_text", default_visibility: 'private', is_required: false, is_confidential: true, char_limit: 1000 },
+export const Q5_LANGUAGE_OPTIONS = ['English', 'Russian', 'Other'];
+export const Q6_REFERRAL_OPTIONS = ['Referred by a member (name)', 'Event', 'Partner', 'Other'];
+export const Q7_PROFILE_MODE_OPTIONS = ['Visible to members', 'Private (browse deals and events only)'];
+export const Q9_MAIN_ROLE_OPTIONS = [
+  'Business owner or founder',
+  'Investor',
+  'Fund manager or GP',
+  'Executive',
+  'Family office principal',
+  'Real estate developer',
+  'Professional advisor (lawyer, CPA, banker)',
+  'Other',
+];
+export const Q11_OPEN_TO_OPTIONS = [
+  'Raising capital',
+  'Investing or co-investing',
+  'Selling a business',
+  'Buying a business',
+  'Partnerships',
+  'Hiring',
+  'Speaking',
+  'Networking',
+];
+export const Q15_MARITAL_STATUS_OPTIONS = [
+  'Single',
+  'Married',
+  'Partnered',
+  'Divorced',
+  'Widowed',
+  'Prefer not to say',
+];
+export const Q16_CHILDREN_OPTIONS = [
+  'None',
+  'Under 18',
+  'Adult',
+  'Both',
+  'Prefer not to say',
+];
+export const Q17_NET_WORTH_OPTIONS = [
+  'Under $1M',
+  '$1M to $5M',
+  '$5M to $10M',
+  '$10M to $30M',
+  '$30M to $100M',
+  'Over $100M',
+  'Prefer not to say',
+];
+export const Q18_LIQUID_ASSETS_OPTIONS = [
+  'Under $500K',
+  '$500K to $2M',
+  '$2M to $10M',
+  '$10M to $25M',
+  'Over $25M',
+  'Prefer not to say',
+];
+export const Q19_SOURCE_OF_WEALTH_OPTIONS = [
+  'Operating business',
+  'Sale of a business',
+  'Real estate',
+  'Investments',
+  'Inheritance',
+  'Salary and equity compensation',
+  'Other',
+];
+export const Q20_INVESTOR_STATUS_OPTIONS = [
+  'US accredited investor',
+  'US qualified purchaser',
+  'Professional investor (UK or EU)',
+  'Not sure',
+  'None of these',
+];
+export const Q21_ADVISORS_OPTIONS = [
+  'Private bank or wealth manager',
+  'CPA or tax advisor',
+  'Estate attorney',
+  'Insurance broker',
+  'Family office',
+  'Nobody yet',
+  'Prefer not to say',
+];
+export const Q22_STRUCTURES_OPTIONS = [
+  'Will',
+  'Trust(s)',
+  'Life insurance',
+  'Holding company or other structures',
+  'Business succession plan',
+  'None yet',
+  'Prefer not to say',
+];
+export const Q23_UPCOMING_OPTIONS = [
+  'Selling a business or liquidity event',
+  'Moving country',
+  'Buying property',
+  'Inheritance',
+  'Marriage or divorce',
+  'Children’s education',
+  'Raising capital',
+  'None of these',
+];
+export const Q24_INTERESTS_OPTIONS = [
+  'Private deals',
+  'Real estate',
+  'Venture and startups',
+  'Private credit',
+  'Tax and relocation planning',
+  'Estate and succession',
+  'Insurance',
+  'Next-generation education',
+  'Concierge and lifestyle',
+  'Events and networking',
+];
+export const Q25_NEXT_STEP_OPTIONS = [
+  'Book a private call',
+  'Show me deals and events only',
+  'Just browsing for now',
+];
 
-  // Section E. Chapter and events (Default: shared)
-  { id: 24, section: "Section E. Chapter and events", prompt: "Your home chapter, and how would you like to be involved?", type: "single", default_visibility: 'shared', is_required: false, is_confidential: false }
+export const CANONICAL_QUESTIONS: QuestionDefinition[] = [
+  // Screen 1: Contact (All Team only)
+  { id: 1, screen: 1, section: 'Screen 1: Contact', prompt: 'Full name', type: 'text', is_required: true, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private' },
+  { id: 2, screen: 1, section: 'Screen 1: Contact', prompt: 'Email', type: 'email', is_required: true, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private' },
+  { id: 3, screen: 1, section: 'Screen 1: Contact', prompt: 'Mobile phone', type: 'phone', is_required: true, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private' },
+  { id: 4, screen: 1, section: 'Screen 1: Contact', prompt: 'Telegram and WhatsApp', type: 'two_text', placeholder: '@handle or number', is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private' },
+  { id: 5, screen: 1, section: 'Screen 1: Contact', prompt: 'Preferred language', type: 'dropdown', options: Q5_LANGUAGE_OPTIONS, is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private' },
+  { id: 6, screen: 1, section: 'Screen 1: Contact', prompt: 'How did you hear about us?', type: 'dropdown_text', options: Q6_REFERRAL_OPTIONS, is_required: true, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private' },
+
+  // Screen 2: Profile (The only screen other members can ever see, and only what the member switches on)
+  { id: 7, screen: 2, section: 'Screen 2: Profile', prompt: 'How do you want to be on the platform?', type: 'single', options: Q7_PROFILE_MODE_OPTIONS, is_required: true, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private' },
+  { id: 8, screen: 2, section: 'Screen 2: Profile', prompt: 'Profile photo', type: 'upload', is_required: false, is_confidential: false, visibility_mode: 'switch', default_visibility: 'private' },
+  { id: 9, screen: 2, section: 'Screen 2: Profile', prompt: 'Your main role', type: 'dropdown', options: Q9_MAIN_ROLE_OPTIONS, is_required: false, is_confidential: false, visibility_mode: 'switch', default_visibility: 'private' },
+  { id: 10, screen: 2, section: 'Screen 2: Profile', prompt: 'Company and short bio', type: 'text', char_limit: 300, is_required: false, is_confidential: false, visibility_mode: 'switch', default_visibility: 'private' },
+  { id: 11, screen: 2, section: 'Screen 2: Profile', prompt: 'What are you open to?', type: 'multi', options: Q11_OPEN_TO_OPTIONS, is_required: false, is_confidential: false, visibility_mode: 'switch', default_visibility: 'private' },
+
+  // Screen 3: Residence and family (All optional. Residence can be shown; everything else is Team only. Encrypted)
+  { id: 12, screen: 3, section: 'Screen 3: Residence and family', prompt: 'Where do you live?', helper: 'Country list (allow 2+ for people who split time)', type: 'country_multi', options: ALL_COUNTRIES_LIST, is_required: false, is_confidential: false, visibility_mode: 'switch', default_visibility: 'private', is_encrypted: true },
+  { id: 13, screen: 3, section: 'Screen 3: Residence and family', prompt: 'Citizenships', helper: 'Countries only, never passport numbers', type: 'country_multi', options: ALL_COUNTRIES_LIST, is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private', is_encrypted: true },
+  { id: 14, screen: 3, section: 'Screen 3: Residence and family', prompt: 'Where do you pay tax?', helper: 'Country list, plus US state if US', type: 'country_tax_multi', options: ALL_COUNTRIES_LIST, is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private', is_encrypted: true },
+  { id: 15, screen: 3, section: 'Screen 3: Residence and family', prompt: 'Marital status', type: 'dropdown', options: Q15_MARITAL_STATUS_OPTIONS, is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private', is_encrypted: true },
+  { id: 16, screen: 3, section: 'Screen 3: Residence and family', prompt: 'Children', type: 'dropdown', options: Q16_CHILDREN_OPTIONS, is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private', is_encrypted: true },
+
+  // Screen 4: Wealth profile (All optional and all Team only, locked. No free text. Encrypted)
+  { id: 17, screen: 4, section: 'Screen 4: Wealth profile', prompt: 'Approximate net worth', type: 'dropdown', options: Q17_NET_WORTH_OPTIONS, is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private', is_encrypted: true, no_free_text: true },
+  { id: 18, screen: 4, section: 'Screen 4: Wealth profile', prompt: 'Liquid investable assets', type: 'dropdown', options: Q18_LIQUID_ASSETS_OPTIONS, is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private', is_encrypted: true, no_free_text: true },
+  { id: 19, screen: 4, section: 'Screen 4: Wealth profile', prompt: 'Main source of wealth', type: 'multi', options: Q19_SOURCE_OF_WEALTH_OPTIONS, is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private', is_encrypted: true, no_free_text: true },
+  { id: 20, screen: 4, section: 'Screen 4: Wealth profile', prompt: 'Investor status', helper: 'Q20 is self-reported. If a deal legally requires verified status, the app must ask for proof at that point, not here.', type: 'multi', options: Q20_INVESTOR_STATUS_OPTIONS, is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private', is_encrypted: true, no_free_text: true },
+
+  // Screen 5: Your current setup (All optional and Team only. No free text. Encrypted)
+  { id: 21, screen: 5, section: 'Screen 5: Your current setup', prompt: 'Who advises you today?', type: 'multi', options: Q21_ADVISORS_OPTIONS, is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private', is_encrypted: true, no_free_text: true },
+  { id: 22, screen: 5, section: 'Screen 5: Your current setup', prompt: 'What do you already have in place?', type: 'multi', options: Q22_STRUCTURES_OPTIONS, is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private', is_encrypted: true, no_free_text: true },
+  { id: 23, screen: 5, section: 'Screen 5: Your current setup', prompt: 'Anything coming up in the next 2 years?', type: 'multi', options: Q23_UPCOMING_OPTIONS, is_required: false, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private', is_encrypted: true, no_free_text: true },
+
+  // Screen 6: Interests and next step
+  { id: 24, screen: 6, section: 'Screen 6: Interests and next step', prompt: 'What interests you?', type: 'multi', options: Q24_INTERESTS_OPTIONS, is_required: false, is_confidential: false, visibility_mode: 'switch', default_visibility: 'private' },
+  { id: 25, screen: 6, section: 'Screen 6: Interests and next step', prompt: 'What would you like next?', type: 'single', options: Q25_NEXT_STEP_OPTIONS, is_required: true, is_confidential: true, visibility_mode: 'team_only', default_visibility: 'private' },
 ];
 
 export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSignUp, initialViewMode }) => {
@@ -996,6 +1171,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
             if (event.target?.result) {
               const dataUrl = event.target.result as string;
               setAvatarUrl(dataUrl);
+              setAnswers((prev) => ({
+                ...prev,
+                8: {
+                  value: dataUrl,
+                  visibility: prev[8]?.visibility || 'private',
+                },
+              }));
               const uid = registeredUserId || OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID);
               if (uid) {
                 ApiService.updateAvatar(uid, dataUrl).catch((err) => {
@@ -1021,6 +1203,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
                 if (val && val.trim()) {
                   const clean = val.trim();
                   setAvatarUrl(clean);
+                  setAnswers((prev) => ({
+                    ...prev,
+                    8: {
+                      value: clean,
+                      visibility: prev[8]?.visibility || 'private',
+                    },
+                  }));
                   const uid = registeredUserId || OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID);
                   if (uid) {
                     ApiService.updateAvatar(uid, clean).catch((err) => {
@@ -1047,8 +1236,33 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
     }
   }, [viewMode]);
 
-  // Canonical questions (Sections A, B, C, D, E)
+  // 25 Canonical Questions across 6 Screens
   const [questions] = useState<QuestionDefinition[]>(() => CANONICAL_QUESTIONS);
+  const [currentScreen, setCurrentScreen] = useState<number>(() => {
+    try {
+      const saved = OzaraStorage.getItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_CURRENT_SCREEN);
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (parsed >= 1 && parsed <= 6) return parsed;
+      }
+    } catch {}
+    return 1;
+  });
+  const [consentChecked, setConsentChecked] = useState<boolean>(() => {
+    try {
+      return OzaraStorage.getItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_CONSENT_CHECKED) === 'true';
+    } catch {}
+    return false;
+  });
+
+  useEffect(() => {
+    OzaraStorage.setItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_CURRENT_SCREEN, String(currentScreen));
+  }, [currentScreen]);
+
+  useEffect(() => {
+    OzaraStorage.setItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_CONSENT_CHECKED, consentChecked ? 'true' : 'false');
+  }, [consentChecked]);
+
   const [answers, setAnswers] = useState<Record<number, { value: string; visibility: 'shared' | 'private' }>>(() => {
     let initialAns: Record<number, { value: string; visibility: 'shared' | 'private' }> = {};
     try {
@@ -1064,23 +1278,35 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
     }
     const defaultName = initFullName || fullName || '';
     if ((!initialAns[1] || !initialAns[1].value || initialAns[1].value === 'skipped') && defaultName) {
-      initialAns[1] = { value: defaultName, visibility: 'shared' };
+      initialAns[1] = { value: defaultName, visibility: 'private' };
+    }
+    if ((!initialAns[2] || !initialAns[2].value || initialAns[2].value === 'skipped') && verifiedEmail) {
+      initialAns[2] = { value: verifiedEmail, visibility: 'private' };
+    }
+    if ((!initialAns[3] || !initialAns[3].value || initialAns[3].value === 'skipped') && activePhone) {
+      initialAns[3] = { value: activePhone, visibility: 'private' };
     }
     return initialAns;
   });
 
-  // Keep Question 1 (Full name) continuously populated from request access / profile
+  // Keep Q1 (Full name), Q2 (Email), Q3 (Mobile phone) continuously populated from registration context
   useEffect(() => {
     const effectiveName = fullName || initFullName;
-    if (effectiveName) {
-      setAnswers((prev) => {
-        if (!prev[1] || !prev[1].value || prev[1].value === 'skipped') {
-          return { ...prev, 1: { value: effectiveName, visibility: 'shared' } };
-        }
-        return prev;
-      });
-    }
-  }, [fullName, initFullName]);
+    setAnswers((prev) => {
+      let next = prev;
+      if (effectiveName && (!prev[1] || !prev[1].value || prev[1].value === 'skipped')) {
+        next = { ...next, 1: { value: effectiveName, visibility: 'private' } };
+      }
+      if (verifiedEmail && (!prev[2] || !prev[2].value || prev[2].value === 'skipped')) {
+        next = { ...next, 2: { value: verifiedEmail, visibility: 'private' } };
+      }
+      if (activePhone && (!prev[3] || !prev[3].value || prev[3].value === 'skipped')) {
+        next = { ...next, 3: { value: activePhone, visibility: 'private' } };
+      }
+      return next;
+    });
+  }, [fullName, initFullName, verifiedEmail, activePhone]);
+
   const [registeredUserId, setRegisteredUserId] = useState<string>(() => {
     return OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID) || '';
   });
@@ -1145,14 +1371,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
       const handlePointerDown = (event: MouseEvent | TouchEvent) => {
         const target = event.target as HTMLElement | null;
         if (!target) return;
-        // If clicking inside the active dropdown or its trigger, keep it open to process click
         if (
           target.closest &&
           target.closest(`[data-testid="dropdown-wrap-${activeQuestionDropdownId}"], [data-dropdown-wrap="${activeQuestionDropdownId}"]`)
         ) {
           return;
         }
-        // Clicked anywhere outside -> close dropdown
         setActiveQuestionDropdownId(null);
         setDropdownSearchQuery('');
       };
@@ -1199,15 +1423,50 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
 
   const displayFullName = fullName || verifiedEmail || 'Member';
 
+  const buildAnswerPayload = (
+    sourceAnswers: Record<number, { value: string; visibility: 'shared' | 'private' }> = answers
+  ) => {
+    const isPrivateProfileMode =
+      sourceAnswers[7]?.value === 'Private (browse deals and events only)';
+
+    const payload = Object.entries(sourceAnswers)
+      .filter(([qIdStr, item]) => {
+        const qId = parseInt(qIdStr, 10);
+        return qId >= 1 && qId <= 25 && item && item.value && item.value.trim().length > 0;
+      })
+      .map(([qIdStr, item]) => {
+        const qId = parseInt(qIdStr, 10);
+        const qDef = CANONICAL_QUESTIONS.find((q) => q.id === qId);
+        const isSwitchable = qDef?.visibility_mode === 'switch';
+        const effectiveVis: 'shared' | 'private' =
+          !isSwitchable || isPrivateProfileMode ? 'private' : item.visibility || 'private';
+        return {
+          question_id: qId,
+          value: item.value.trim(),
+          visibility: effectiveVis,
+        };
+      });
+
+    const nameVal = displayFullName !== 'Member' ? displayFullName : fullName || '';
+    if (nameVal && !payload.some((a) => a.question_id === 1)) {
+      payload.push({ question_id: 1, value: nameVal, visibility: 'private' });
+    }
+    if (verifiedEmail && !payload.some((a) => a.question_id === 2)) {
+      payload.push({ question_id: 2, value: verifiedEmail, visibility: 'private' });
+    }
+    if (activePhone && !payload.some((a) => a.question_id === 3)) {
+      payload.push({ question_id: 3, value: activePhone, visibility: 'private' });
+    }
+    return payload;
+  };
+
   // Debounced server-side draft sync: saves progress to user's questionnaire_answers in database
   useEffect(() => {
     const uid = registeredUserId || OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID);
     if (!uid || viewMode !== 'questionnaire_page') return;
 
-    const answerEntries = Object.entries(answers).filter(
-      ([_, item]) => item.value && item.value.trim().length > 0
-    );
-    if (answerEntries.length === 0) return;
+    const answerPayload = buildAnswerPayload(answers);
+    if (answerPayload.length === 0) return;
 
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
@@ -1217,32 +1476,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
 
     autosaveTimerRef.current = setTimeout(async () => {
       try {
-        const answerPayload = answerEntries.map(([qIdStr, item]) => {
-          const qId = parseInt(qIdStr, 10);
-          let val = item.value.trim();
-          if (qId === 13 && val && val !== 'skipped' && !/^[a-zA-Z]+:\/\//.test(val)) {
-            val = `https://${val}`;
-          }
-          return {
-            question_id: qId,
-            value: val,
-            visibility: item.visibility || 'shared',
-          };
+        await ApiService.saveAnswersBulk(uid, answerPayload, {
+          onboarding_screen: currentScreen,
+          questionnaire_consent: consentChecked,
         });
-
-        const nameVal = displayFullName !== 'Member' ? displayFullName : (fullName || '');
-        if (nameVal && !answerPayload.some((a) => a.question_id === 1)) {
-          answerPayload.push({
-            question_id: 1,
-            value: nameVal,
-            visibility: 'shared',
-          });
-        }
-
-        await ApiService.saveAnswersBulk(uid, answerPayload);
         setAutosaveStatus('saved');
       } catch (e) {
-        // Even if offline or network fails, local storage still preserves the draft
         setAutosaveStatus('saved');
       }
     }, 1000);
@@ -1252,7 +1491,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
         clearTimeout(autosaveTimerRef.current);
       }
     };
-  }, [answers, registeredUserId, viewMode, displayFullName, fullName]);
+  }, [answers, registeredUserId, viewMode, displayFullName, fullName, verifiedEmail, activePhone, currentScreen, consentChecked]);
 
   // Hydrate user profile from server if registeredUserId is present
   useEffect(() => {
@@ -1273,38 +1512,56 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
             }
             if (p.chapter?.name) setChapter(p.chapter.name);
 
-            // Server answers can be in p.answers or p.shared_answers
+            if (p.onboarding_screen && p.onboarding_screen >= 1 && p.onboarding_screen <= 6) {
+              const savedLocal = OzaraStorage.getItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_CURRENT_SCREEN);
+              if (!savedLocal) {
+                setCurrentScreen(p.onboarding_screen);
+              }
+            }
+            if (p.questionnaire_consent) {
+              setConsentChecked(true);
+            }
+
             const serverAnswers = (p.answers && Array.isArray(p.answers)) ? p.answers : (p.shared_answers || []);
+            const loaded: Record<number, { value: string; visibility: 'shared' | 'private' }> = {};
             if (Array.isArray(serverAnswers) && serverAnswers.length > 0) {
-              const loaded: Record<number, { value: string; visibility: 'shared' | 'private' }> = {};
               serverAnswers.forEach((ans: any) => {
                 const val = ans.value_text !== undefined ? ans.value_text : ans.value;
-                if (val && val !== 'unanswered') {
+                if (val && val !== 'unanswered' && ans.question_id >= 1 && ans.question_id <= 25) {
+                  const qDef = CANONICAL_QUESTIONS.find((q) => q.id === ans.question_id);
+                  const isSwitchable = qDef?.visibility_mode === 'switch';
                   loaded[ans.question_id] = {
                     value: typeof val === 'string' ? val : JSON.stringify(val),
-                    visibility: ans.visibility || 'shared',
+                    visibility: isSwitchable ? (ans.visibility || 'private') : 'private',
                   };
                 }
               });
-              if (p.full_name && (!loaded[1] || !loaded[1].value || loaded[1].value === 'skipped')) {
-                loaded[1] = { value: p.full_name, visibility: 'shared' };
-              }
-              if (Object.keys(loaded).length > 0) {
-                // Merge server answers with local draft answers (draft takes priority for any unsaved changes)
-                setAnswers((prev) => {
-                  const merged = { ...loaded, ...prev };
-                  if (p.full_name && (!merged[1] || !merged[1].value || merged[1].value === 'skipped')) {
-                    merged[1] = { value: p.full_name, visibility: 'shared' };
-                  }
-                  return merged;
-                });
-              }
-            } else if (p.full_name) {
+            }
+            if (p.full_name && (!loaded[1] || !loaded[1].value || loaded[1].value === 'skipped')) {
+              loaded[1] = { value: p.full_name, visibility: 'private' };
+            }
+            if (p.email && (!loaded[2] || !loaded[2].value || loaded[2].value === 'skipped')) {
+              loaded[2] = { value: p.email, visibility: 'private' };
+            }
+            if (p.phone && (!loaded[3] || !loaded[3].value || loaded[3].value === 'skipped')) {
+              loaded[3] = { value: p.phone, visibility: 'private' };
+            }
+            if (p.avatar_url && (!loaded[8] || !loaded[8].value || loaded[8].value === 'skipped')) {
+              loaded[8] = { value: p.avatar_url, visibility: 'private' };
+            }
+            if (Object.keys(loaded).length > 0) {
               setAnswers((prev) => {
-                if (!prev[1] || !prev[1].value || prev[1].value === 'skipped') {
-                  return { ...prev, 1: { value: p.full_name, visibility: 'shared' } };
+                const merged = { ...loaded, ...prev };
+                if (p.full_name && (!merged[1] || !merged[1].value || merged[1].value === 'skipped')) {
+                  merged[1] = { value: p.full_name, visibility: 'private' };
                 }
-                return prev;
+                if (p.email && (!merged[2] || !merged[2].value || merged[2].value === 'skipped')) {
+                  merged[2] = { value: p.email, visibility: 'private' };
+                }
+                if (p.phone && (!merged[3] || !merged[3].value || merged[3].value === 'skipped')) {
+                  merged[3] = { value: p.phone, visibility: 'private' };
+                }
+                return merged;
               });
             }
           }
@@ -1329,33 +1586,68 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
     if (questionId === 1) {
       setFullName(value);
     }
-    const qDef = CANONICAL_QUESTIONS.find(q => q.id === questionId);
-    setAnswers((prev) => ({
-      ...prev,
-      [questionId]: {
-        value,
-        visibility: prev[questionId]?.visibility || (questionId === 23 ? 'private' : (qDef?.default_visibility || 'shared')),
-      },
-    }));
+    if (questionId === 2) {
+      setVerifiedEmail(value);
+    }
+    const qDef = CANONICAL_QUESTIONS.find((q) => q.id === questionId);
+    const isSwitchable = qDef?.visibility_mode === 'switch';
+
+    setAnswers((prev) => {
+      const isPrivateModeAfterChange =
+        questionId === 7
+          ? value === 'Private (browse deals and events only)'
+          : prev[7]?.value === 'Private (browse deals and events only)';
+
+      const next: Record<number, { value: string; visibility: 'shared' | 'private' }> = {
+        ...prev,
+        [questionId]: {
+          value,
+          visibility:
+            !isSwitchable || isPrivateModeAfterChange
+              ? 'private'
+              : prev[questionId]?.visibility || 'private',
+        },
+      };
+
+      // If Q7 is set to Private mode, force all switchable answers (Q8, Q9, Q10, Q11, Q12, Q24) to 'private'
+      if (questionId === 7 && value === 'Private (browse deals and events only)') {
+        for (const switchQId of [8, 9, 10, 11, 12, 24]) {
+          if (next[switchQId]) {
+            next[switchQId] = { ...next[switchQId], visibility: 'private' };
+          }
+        }
+      }
+      return next;
+    });
   };
 
   const handleSkipQuestion = (questionId: number) => {
-    if (questionId === 1) return; // Full name is required and cannot be skipped
-    const qDef = CANONICAL_QUESTIONS.find(q => q.id === questionId);
+    if ([1, 2, 3, 6, 7, 25].includes(questionId)) return; // Required questions cannot be skipped
+    const qDef = CANONICAL_QUESTIONS.find((q) => q.id === questionId);
+    const isSwitchable = qDef?.visibility_mode === 'switch';
     setAnswers((prev) => ({
       ...prev,
       [questionId]: {
         value: 'skipped',
-        visibility: prev[questionId]?.visibility || (questionId === 23 ? 'private' : (qDef?.default_visibility || 'shared')),
+        visibility: isSwitchable ? prev[questionId]?.visibility || 'private' : 'private',
       },
     }));
   };
 
   const toggleAnswerVisibility = (questionId: number) => {
-    if (questionId === 23) return; // Permanently private, no toggle
+    const qDef = CANONICAL_QUESTIONS.find((q) => q.id === questionId);
+    if (!qDef || qDef.visibility_mode !== 'switch') return; // Team only questions are locked
+
+    if (answers[7]?.value === 'Private (browse deals and events only)') {
+      const msg =
+        "Your profile mode (Question 7) is currently set to 'Private (browse deals and events only)'. Switch Question 7 to 'Visible to members' first to make individual profile answers visible.";
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Profile Mode is Private', msg);
+      return;
+    }
+
     setAnswers((prev) => {
-      const qDef = CANONICAL_QUESTIONS.find(q => q.id === questionId);
-      const current = prev[questionId]?.visibility || (qDef?.default_visibility || 'shared');
+      const current = prev[questionId]?.visibility || 'private';
       return {
         ...prev,
         [questionId]: {
@@ -1366,13 +1658,24 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
     });
   };
 
-  const answeredCount = Object.values(answers).filter(
-    (a) => a && a.value && a.value.trim().length > 0 && a.value !== 'skipped'
-  ).length;
+  const isQuestionAnswered = (qId: number, currentAns = answers): boolean => {
+    const item = currentAns[qId];
+    if (!item || !item.value || !item.value.trim() || item.value === 'skipped') return false;
+    if (qId === 6) {
+      // Q6 is Dropdown + text: verify dropdown option is selected
+      try {
+        const parsed = JSON.parse(item.value);
+        return Boolean(parsed && parsed.source && String(parsed.source).trim());
+      } catch {
+        return item.value.trim().length > 0;
+      }
+    }
+    return true;
+  };
 
-  const isQ18Answered = Boolean(
-    answers[18] && answers[18].value && answers[18].value.trim().length > 0 && answers[18].value !== 'skipped'
-  );
+  const answeredCount = Object.keys(answers)
+    .map((k) => parseInt(k, 10))
+    .filter((qId) => qId >= 1 && qId <= 25 && isQuestionAnswered(qId)).length;
 
   // Background polling ref for non-blocking approval detection
   const pollTimerRef = useRef<any>(null);
@@ -1397,9 +1700,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
           if (res.status === 'approved' && res.has_token) {
             setIsApproved(true);
             if (res.fullName) setFullName(res.fullName);
-            // User inserts token from their email - do not auto-fill or auto-navigate away
           } else if (res.status === 'none') {
-            // Record was removed from database, reset state
             if (pollTimerRef.current) clearInterval(pollTimerRef.current);
             setSubmittedEmail('');
             setPendingAccessEmail('');
@@ -1465,7 +1766,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
         }
         if (res.role) setHeadline(res.role);
 
-        // Transition to Registration Form with pre-populated, locked email
         setViewMode('register_form');
       } else {
         setVerifyError(res.status || 'Invalid invitation code.');
@@ -1477,7 +1777,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
     }
   };
 
-  // 2. Submit Request Access (Sends email to Elena Ermolov, goes directly to Token page without blocking spinner)
+  // 2. Submit Request Access
   const handleSendAccessRequest = async () => {
     if (!reqFullName.trim() || !reqEmail.trim()) {
       setRequestError('Full name and business email are required.');
@@ -1500,7 +1800,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
         phone: activePhone || undefined,
       });
 
-      // Save email context so user can resume where they left off
       setPendingAccessEmail(normalizedEmail);
       setSubmittedEmail(normalizedEmail);
       setFullName(reqFullName.trim());
@@ -1512,7 +1811,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
         setIsApproved(true);
         setViewMode('check_token');
       } else {
-        // Non-blocking redirect: Go directly to token insertion page with notification banner
         setViewMode('check_token');
       }
     } catch (err: any) {
@@ -1554,6 +1852,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
       if (res.success && res.user) {
         setRegisteredUserId(res.user.id);
         OzaraStorage.setItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID, res.user.id);
+        setCurrentScreen(1);
         setViewMode('questionnaire_page');
       }
     } catch (err: any) {
@@ -1569,7 +1868,147 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
     }
   };
 
-  // 4. Step B: Save all Questionnaire Answers & Enter Club
+  // Validate required questions and free-text compliance for a given screen (or all screens on completion)
+  const validateScreenOrAll = (screenToValidate: number, checkAllRequired = false): boolean => {
+    const requiredIds = checkAllRequired
+      ? [1, 2, 3, 6, 7, 25]
+      : CANONICAL_QUESTIONS.filter((q) => q.screen === screenToValidate && q.is_required).map((q) => q.id);
+
+    for (const reqId of requiredIds) {
+      if (!isQuestionAnswered(reqId)) {
+        const qDef = CANONICAL_QUESTIONS.find((q) => q.id === reqId);
+        const msg = `Question ${reqId} ("${qDef?.prompt || ''}") is required before continuing.`;
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Required Question', msg);
+        if (checkAllRequired && qDef?.screen && qDef.screen !== currentScreen) {
+          setCurrentScreen(qDef.screen);
+        }
+        return false;
+      }
+    }
+
+    // Content moderation guardrail on free-text fields (Q6 detail text and Q10 short bio)
+    const PROHIBITED_REGEX =
+      /\b(raising|pre-money|pre\s*money|ticket|irr)\b|[$€£]\s*\d+[\d,.]*(?:\s*(?:k|m|b|million|billion))?|\bguaranteed\b.{0,20}\breturn\b|\brisk[- ]free\b.{0,20}\bprofit\b|\bvalued at \$\d+/i;
+
+    const freeTextQuestionIds = checkAllRequired
+      ? [6, 10]
+      : [6, 10].filter((id) => CANONICAL_QUESTIONS.find((q) => q.id === id)?.screen === screenToValidate);
+
+    for (const qId of freeTextQuestionIds) {
+      const item = answers[qId];
+      if (!item || !item.value || item.value === 'skipped') continue;
+      let textToInspect = item.value.trim();
+      if (qId === 6) {
+        try {
+          const parsed = JSON.parse(textToInspect);
+          textToInspect = parsed.detail || '';
+        } catch {}
+      }
+      if (textToInspect && PROHIBITED_REGEX.test(textToInspect)) {
+        const match = textToInspect.match(PROHIBITED_REGEX);
+        const flaggedWord = match ? match[0] : '';
+        const qDef = CANONICAL_QUESTIONS.find((q) => q.id === qId);
+        const msg = `Question ${qId} ("${qDef?.prompt}"): The term "${flaggedWord}" was flagged under community content rules.\n\nMembers describe what they do and what they are interested in. Members do not post specific offerings, amounts being raised, valuations, terms, returns, or minimum investments.`;
+        if (Platform.OS === 'web') window.alert('Content Guidance: ' + msg);
+        else Alert.alert('Content Guidance', msg);
+        return false;
+      }
+    }
+
+    if ((screenToValidate === 6 || checkAllRequired) && !consentChecked) {
+      const msg =
+        'Please confirm that your answers are accurate and agree to the privacy policy before completing onboarding.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Consent Required', msg);
+      return false;
+    }
+
+    return true;
+  };
+
+  // Save current screen and advance to the next screen (or complete on Screen 6)
+  const handleSaveAndNextScreen = async () => {
+    setActiveQuestionDropdownId(null);
+    if (currentScreen < 6) {
+      if (!validateScreenOrAll(currentScreen, false)) return;
+      const nextScreen = currentScreen + 1;
+      setCurrentScreen(nextScreen);
+      const targetUserId = registeredUserId || OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID);
+      if (targetUserId) {
+        try {
+          setIsSavingAnswers(true);
+          const payload = buildAnswerPayload(answers);
+          await ApiService.saveAnswersBulk(targetUserId, payload, {
+            onboarding_screen: nextScreen,
+            questionnaire_consent: consentChecked,
+          });
+          setAutosaveStatus('saved');
+        } catch (err) {
+          console.warn('Screen save warning:', err);
+        } finally {
+          setIsSavingAnswers(false);
+        }
+      }
+    } else {
+      await handleCompleteQuestionnaire();
+    }
+  };
+
+  // Screen 5: "Skip, discuss on a call" button
+  const handleSkipScreen5 = async () => {
+    setActiveQuestionDropdownId(null);
+    const updatedAnswers: Record<number, { value: string; visibility: 'shared' | 'private' }> = {
+      ...answers,
+      21: answers[21]?.value ? answers[21] : { value: 'skipped', visibility: 'private' },
+      22: answers[22]?.value ? answers[22] : { value: 'skipped', visibility: 'private' },
+      23: answers[23]?.value ? answers[23] : { value: 'skipped', visibility: 'private' },
+    };
+    setAnswers(updatedAnswers);
+    setCurrentScreen(6);
+    const targetUserId = registeredUserId || OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID);
+    if (targetUserId) {
+      try {
+        setIsSavingAnswers(true);
+        const payload = buildAnswerPayload(updatedAnswers);
+        await ApiService.saveAnswersBulk(targetUserId, payload, {
+          onboarding_screen: 6,
+          questionnaire_consent: consentChecked,
+        });
+      } catch {} finally {
+        setIsSavingAnswers(false);
+      }
+    }
+  };
+
+  // Save after current screen & let member finish later
+  const handleSaveAndFinishLater = async () => {
+    setActiveQuestionDropdownId(null);
+    const targetUserId = registeredUserId || OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID);
+    try {
+      setIsSavingAnswers(true);
+      if (targetUserId) {
+        const payload = buildAnswerPayload(answers);
+        await ApiService.saveAnswersBulk(targetUserId, payload, {
+          onboarding_screen: currentScreen,
+          questionnaire_consent: consentChecked,
+        });
+      }
+      OzaraStorage.setItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_DRAFT_ANSWERS, JSON.stringify(answers));
+      OzaraStorage.setItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_CURRENT_SCREEN, String(currentScreen));
+      const msg = `Your progress on Screen ${currentScreen} of 6 has been saved. You can return at any time to finish your onboarding.`;
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Progress Saved', msg);
+    } catch {
+      const msg = `Your progress on Screen ${currentScreen} of 6 is saved locally.`;
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Progress Saved', msg);
+    } finally {
+      setIsSavingAnswers(false);
+    }
+  };
+
+  // 4. Step B: Save all Questionnaire Answers & Enter Club (Screen 6 submission)
   const handleCompleteQuestionnaire = async () => {
     const targetUserId =
       registeredUserId || OzaraStorage.getItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID);
@@ -1578,104 +2017,19 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
       return;
     }
 
-    if (!isQ18Answered) {
-      const msg = "Question 18 ('What can you offer other members?') is required to complete your membership profile. A directory without member offers cannot function effectively.";
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert("Question 18 Required", msg);
-      }
+    if (!validateScreenOrAll(6, true)) {
       return;
-    }
-
-    // Content moderation guardrail (Securities & broker-dealer compliance on free text)
-    const PROHIBITED_REGEX = /\b(raising|pre-money|pre\s*money|ticket|irr)\b|[$€£]\s*\d+[\d,.]*(?:\s*(?:k|m|b|million|billion))?|\bguaranteed\b.{0,20}\breturn\b|\brisk[- ]free\b.{0,20}\bprofit\b|\bvalued at \$\d+/i;
-
-    const extractFreeText = (qId: number, val: string): string => {
-      if (!val || val === 'skipped') return '';
-      const trimmed = val.trim();
-      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          let parts: string[] = [];
-          if (typeof parsed.note === 'string' && parsed.note.trim()) {
-            parts.push(parsed.note.trim());
-          }
-          if (typeof parsed.other_note === 'string' && parsed.other_note.trim()) {
-            parts.push(parsed.other_note.trim());
-          }
-          if (Array.isArray(parsed.tags)) {
-            for (const t of parsed.tags) {
-              if (typeof t === 'string' && t.toLowerCase().startsWith('other —') && t.includes(':')) {
-                const custom = t.split(':')[1]?.trim();
-                if (custom) parts.push(custom);
-              }
-            }
-          }
-          return parts.join(' ');
-        } catch {
-          // not JSON
-        }
-      }
-      // Standardized system tag selection 'Raising funding' is not a deal solicitation posting
-      if (qId === 14 && trimmed.toLowerCase() === 'raising funding') {
-        return '';
-      }
-      if (STANDARDIZED_FOCUS_PRIORITIES.some((opt) => opt.toLowerCase() === trimmed.toLowerCase())) {
-        return '';
-      }
-      return trimmed;
-    };
-
-    for (const [qIdStr, item] of Object.entries(answers)) {
-      const qId = parseInt(qIdStr, 10);
-      if (item && item.value && item.value !== 'skipped') {
-        const freeText = extractFreeText(qId, item.value);
-        if (freeText && PROHIBITED_REGEX.test(freeText)) {
-          const match = freeText.match(PROHIBITED_REGEX);
-          const flaggedWord = match ? match[0] : '';
-          const questionDef = CANONICAL_QUESTIONS.find((q) => q.id === qId);
-          const qName = questionDef ? `Question ${qId} ("${questionDef.prompt}")` : `Question ${qId}`;
-          const msg = `${qName}: The term "${flaggedWord}" was flagged under community content rules.\n\nMembers describe what they do and what they are interested in. Members do not post specific offerings, amounts being raised, valuations, terms, returns, or minimum investments.`;
-          if (Platform.OS === 'web') {
-            window.alert("Content Guidance: " + msg);
-          } else {
-            Alert.alert("Content Guidance", msg);
-          }
-          return;
-        }
-      }
     }
 
     try {
       setIsSavingAnswers(true);
-      const answerPayload = Object.entries(answers)
-        .filter(([_, item]) => item.value && item.value.trim().length > 0)
-        .map(([qIdStr, item]) => {
-          const qId = parseInt(qIdStr, 10);
-          let val = item.value.trim();
-          if (qId === 13 && val && val !== 'skipped' && !/^[a-zA-Z]+:\/\//.test(val)) {
-            val = `https://${val}`;
-          }
-          return {
-            question_id: qId,
-            value: val,
-            visibility: item.visibility || 'shared',
-          };
-        });
-
-      // Automatically ensure Question 1 (Full name) is recorded in answers payload from member profile name
-      const nameVal = displayFullName !== 'Member' ? displayFullName : (fullName || '');
-      if (nameVal && !answerPayload.some((a) => a.question_id === 1)) {
-        answerPayload.push({
-          question_id: 1,
-          value: nameVal,
-          visibility: 'shared',
-        });
-      }
+      const answerPayload = buildAnswerPayload(answers);
 
       if (answerPayload.length > 0) {
-        await ApiService.saveAnswersBulk(targetUserId, answerPayload);
+        await ApiService.saveAnswersBulk(targetUserId, answerPayload, {
+          onboarding_screen: 6,
+          questionnaire_consent: true,
+        });
       }
 
       await refreshUserData();
@@ -1687,25 +2041,24 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
       const isSubActive = profileRes?.subscription_status === 'active';
 
       if (isPaid && !isSubActive) {
-        // Paid members must complete subscription payment during onboarding before accessing member features
         setShowSubscriptionModal(true);
         return;
       }
 
-      // Complimentary members skip payment and receive access after completing onboarding
       setPendingAccessEmail('');
       OzaraStorage.removeItem(OZARA_STORAGE_KEYS.PENDING_EMAIL);
       OzaraStorage.removeItem(OZARA_STORAGE_KEYS.PENDING_TOKEN);
       OzaraStorage.removeItem(OZARA_STORAGE_KEYS.SIGNUP_STEP);
       OzaraStorage.removeItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_DRAFT_ANSWERS);
       OzaraStorage.removeItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_DRAFT_COUNTRIES);
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_CURRENT_SCREEN);
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_CONSENT_CHECKED);
       OzaraStorage.setItem(OZARA_STORAGE_KEYS.APP_VIEW, 'tabs');
       OzaraStorage.setItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID, targetUserId);
       setAppView('tabs');
 
       const welcomeMsg = `Welcome to ÖZARA, ${fullName || 'Member'}! Your complimentary membership is activated.`;
       if (Platform.OS === 'web') {
-        // Continue to optional Face ID setup
         setShowFaceIdModal(true);
       } else {
         Alert.alert('Welcome to ÖZARA', welcomeMsg, [
@@ -1714,8 +2067,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
       }
     } catch (err: any) {
       console.warn('Error saving questionnaire answers:', err);
-      setAppView('tabs');
-      onCompleteSignUp();
+      const msg = err.message || 'Could not complete questionnaire. Please check your answers.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Questionnaire Notice', msg);
     } finally {
       setIsSavingAnswers(false);
     }
@@ -1738,6 +2092,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
       OzaraStorage.removeItem(OZARA_STORAGE_KEYS.SIGNUP_STEP);
       OzaraStorage.removeItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_DRAFT_ANSWERS);
       OzaraStorage.removeItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_DRAFT_COUNTRIES);
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_CURRENT_SCREEN);
+      OzaraStorage.removeItem(OZARA_STORAGE_KEYS.QUESTIONNAIRE_CONSENT_CHECKED);
       OzaraStorage.setItem(OZARA_STORAGE_KEYS.APP_VIEW, 'tabs');
       OzaraStorage.setItem(OZARA_STORAGE_KEYS.CURRENT_USER_ID, targetUserId);
       setAppView('tabs');
@@ -1769,7 +2125,11 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
           style={styles.backBtn}
           onPress={() => {
             if (viewMode === 'questionnaire_page') {
-              setViewMode('register_form');
+              if (currentScreen > 1) {
+                setCurrentScreen(currentScreen - 1);
+              } else {
+                setViewMode('register_form');
+              }
             } else if (viewMode === 'register_form') {
               onBack();
             } else if (viewMode === 'request_access') {
@@ -2293,253 +2653,261 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
         )}
 
         {/* ========================================================= */}
-        {/* STATE 4: ONE MINIMALISTIC PAGE WITH ALL QUESTIONS         */}
+        {/* STATE 4: 6-SCREEN, 25-QUESTION ONBOARDING QUESTIONNAIRE   */}
         {/* ========================================================= */}
-        {viewMode === 'questionnaire_page' && (
-          <View style={styles.questionnairePageContainer}>
-            {/* Top Minimalist Welcome Block */}
-            <View style={styles.welcomeIntroBlock}>
-              <Text style={styles.welcomeTitle}>Let’s get started</Text>
-            </View>
+        {viewMode === 'questionnaire_page' && (() => {
+          const activeScreenDef =
+            SCREEN_DEFINITIONS.find((s) => s.screen === currentScreen) || SCREEN_DEFINITIONS[0];
+          const screenQuestions = questions.filter((q) => q.screen === currentScreen);
+          const isPrivateProfileMode =
+            answers[7]?.value === 'Private (browse deals and events only)';
 
-            {/* Member Identity & Upload Picture */}
-            <View style={styles.memberBriefCard}>
-              <TouchableOpacity
-                style={styles.memberBriefAvatarWrap}
-                onPress={handlePickImage}
-                activeOpacity={0.8}>
-                {avatarUrl ? (
-                  <Image
-                    source={{ uri: resolveImageUrl(avatarUrl) }}
-                    style={styles.memberBriefAvatar}
-                  />
-                ) : (
-                  <View style={styles.memberBriefAvatarPlaceholder}>
-                    <Text style={styles.memberBriefAvatarInitials}>
-                      {getInitials(displayFullName)}
+          return (
+            <View style={styles.questionnairePageContainer}>
+              {/* Progress Bar Header (1 of 6) + Finish Later */}
+              <View style={styles.card}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 10,
+                  }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={styles.cyanPill}>
+                      <Text style={styles.cyanPillText}>
+                        SCREEN {currentScreen} OF 6
+                      </Text>
+                    </View>
+                    <Text style={{ color: '#94a3b8', fontSize: 12, fontWeight: '500' }}>
+                      {activeScreenDef.title}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={handleSaveAndFinishLater}
+                    activeOpacity={0.75}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 5,
+                      paddingVertical: 5,
+                      paddingHorizontal: 10,
+                      borderRadius: 6,
+                      borderWidth: 1,
+                      borderColor: 'rgba(148, 163, 184, 0.25)',
+                      backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                    }}>
+                    <Ionicons name="bookmark-outline" size={13} color={OzaraTheme.colors.accentCyan} />
+                    <Text style={{ color: '#e2e8f0', fontSize: 11.5, fontWeight: '600' }}>
+                      Save & finish later
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 6-Step Segmented Progress Bar */}
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+                  {SCREEN_DEFINITIONS.map((s) => {
+                    const isActive = s.screen === currentScreen;
+                    const isCompleted = s.screen < currentScreen;
+                    return (
+                      <TouchableOpacity
+                        key={s.screen}
+                        style={{ flex: 1 }}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          setActiveQuestionDropdownId(null);
+                          setCurrentScreen(s.screen);
+                        }}>
+                        <View
+                          style={{
+                            height: 5,
+                            borderRadius: 3,
+                            backgroundColor: isActive
+                              ? OzaraTheme.colors.accentCyan
+                              : isCompleted
+                              ? OzaraTheme.colors.accentViolet
+                              : 'rgba(255, 255, 255, 0.1)',
+                          }}
+                        />
+                        <Text
+                          numberOfLines={1}
+                          style={{
+                            fontSize: 10,
+                            marginTop: 4,
+                            fontWeight: isActive ? '700' : '500',
+                            color: isActive
+                              ? '#ffffff'
+                              : isCompleted
+                              ? '#cbd5e1'
+                              : '#64748b',
+                          }}>
+                          {s.screen}. {s.title}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Screen Title & Subtitle */}
+                <View style={{ marginTop: 6 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                    }}>
+                    <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '800' }}>
+                      Screen {activeScreenDef.screen}: {activeScreenDef.title}
+                    </Text>
+                    {currentScreen >= 3 && currentScreen <= 5 && (
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(16, 185, 129, 0.35)',
+                          paddingVertical: 3,
+                          paddingHorizontal: 8,
+                          borderRadius: 6,
+                        }}>
+                        <Ionicons
+                          name="lock-closed"
+                          size={11}
+                          color="#34d399"
+                          style={{ marginRight: 4 }}
+                        />
+                        <Text style={{ color: '#34d399', fontSize: 10.5, fontWeight: '700' }}>
+                          Encrypted • Team Only
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text
+                    style={{
+                      color: '#94a3b8',
+                      fontSize: 13,
+                      lineHeight: 19,
+                      marginTop: 4,
+                    }}>
+                    {activeScreenDef.subtitle}
+                  </Text>
+                </View>
+
+                {/* Screen 4 Mandatory Top Line */}
+                {currentScreen === 4 && (
+                  <View
+                    style={{
+                      marginTop: 12,
+                      backgroundColor: 'rgba(56, 189, 248, 0.08)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(56, 189, 248, 0.3)',
+                      borderRadius: 8,
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}>
+                    <Ionicons name="shield-checkmark" size={16} color="#38bdf8" />
+                    <Text style={{ color: '#e2e8f0', fontSize: 12.5, fontWeight: '600', flex: 1 }}>
+                      Only our team sees this. It helps us show you relevant deals and services.
                     </Text>
                   </View>
                 )}
-                <View style={styles.memberBriefAvatarBadge}>
-                  <Ionicons name="camera" size={13} color="#ffffff" />
-                </View>
-              </TouchableOpacity>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.memberBriefName}>{displayFullName}</Text>
-                {displaySubtitle ? (
-                  <Text style={styles.memberBriefHeadline} numberOfLines={1}>
-                    {displaySubtitle}
-                  </Text>
-                ) : null}
+
+                {/* Screen 5 Mandatory "Skip, discuss on a call" Button */}
+                {currentScreen === 5 && (
+                  <TouchableOpacity
+                    onPress={handleSkipScreen5}
+                    activeOpacity={0.8}
+                    style={{
+                      marginTop: 12,
+                      backgroundColor: 'rgba(124, 58, 237, 0.14)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(124, 58, 237, 0.45)',
+                      borderRadius: 8,
+                      paddingVertical: 10,
+                      paddingHorizontal: 14,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="call-outline" size={15} color="#c4b5fd" />
+                      <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>
+                        Skip, discuss on a call
+                      </Text>
+                    </View>
+                    <Ionicons name="arrow-forward" size={15} color="#c4b5fd" />
+                  </TouchableOpacity>
+                )}
               </View>
-              <TouchableOpacity
-                style={styles.uploadPictureBtn}
-                onPress={handlePickImage}
-                activeOpacity={0.8}>
-                <Ionicons name="cloud-upload-outline" size={14} color="#ffffff" style={{ marginRight: 6 }} />
-                <Text style={styles.uploadPictureBtnText}>Upload picture</Text>
-              </TouchableOpacity>
-            </View>
 
-            {/* Minimalistic Questions List */}
-            <View style={[styles.minimalQuestionsContainer, activeQuestionDropdownId !== null && { zIndex: 99999 }]}>
-              {questions.map((q, idx) => {
-                if (q.id === 26 || q.id === 27) return null;
+              {/* Questions List for Current Screen */}
+              <View
+                style={[
+                  styles.minimalQuestionsContainer,
+                  activeQuestionDropdownId !== null && { zIndex: 99999 },
+                ]}>
+                {screenQuestions.map((q) => {
+                  const ans = answers[q.id];
+                  const currentVal = ans?.value || '';
+                  const isSkipped = currentVal === 'skipped';
+                  const isSwitchable = q.visibility_mode === 'switch';
+                  const currentVis: 'shared' | 'private' =
+                    !isSwitchable || isPrivateProfileMode
+                      ? 'private'
+                      : ans?.visibility || 'private';
+                  const isThisDropdownOpen =
+                    activeQuestionDropdownId === q.id ||
+                    activeQuestionDropdownId === q.id * 100 + 1 ||
+                    activeQuestionDropdownId === q.id * 100 + 2;
 
-                if (q.id === 25) {
-                  const ans25 = answers[25];
-                  const ans26 = answers[26];
-                  const ans27 = answers[27];
-                  const val25 = ans25?.value && ans25.value !== 'skipped' ? ans25.value : '';
-                  const val26 = ans26?.value && ans26.value !== 'skipped' ? ans26.value : '';
-                  const val27 = ans27?.value && ans27.value !== 'skipped' ? ans27.value : '';
-                  const isSkippedAll = ans25?.value === 'skipped' && ans26?.value === 'skipped' && ans27?.value === 'skipped';
-                  const currentVisAll = ans25?.visibility || 'shared';
+                  const parseMultiTags = (raw: string): string[] => {
+                    if (!raw || raw === 'skipped') return [];
+                    const trimmed = raw.trim();
+                    if (trimmed.startsWith('[')) {
+                      try {
+                        const arr = JSON.parse(trimmed);
+                        if (Array.isArray(arr)) return arr.map(String).filter(Boolean);
+                      } catch {}
+                    }
+                    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                      try {
+                        const parsed = JSON.parse(trimmed);
+                        if (Array.isArray(parsed.tags)) return parsed.tags.map(String).filter(Boolean);
+                        if (Array.isArray(parsed.countries)) return parsed.countries.map(String).filter(Boolean);
+                      } catch {}
+                    }
+                    return trimmed
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                  };
 
                   return (
-                    <React.Fragment key="triple-inline-25">
-                      <View style={styles.minimalQuestionItem}>
-                        {/* Prompt Header & Visibility */}
-                        <View style={styles.promptHeaderRow}>
-                          <Text style={styles.minimalPromptText}>
-                            Job title, organization & institution
-                          </Text>
-                          <View style={styles.promptActionsRow}>
-                            {!isSkippedAll && (
-                              <TouchableOpacity
-                                onPress={() => {
-                                  handleSkipQuestion(25);
-                                  handleSkipQuestion(26);
-                                  handleSkipQuestion(27);
-                                }}
-                                style={styles.headerSkipBtn}
-                                activeOpacity={0.7}>
-                                <Text style={styles.headerSkipBtnText}>Skip</Text>
-                              </TouchableOpacity>
-                            )}
-                            <TouchableOpacity
-                              style={[
-                                styles.visTogglePill,
-                                currentVisAll === 'private' && styles.visTogglePillPrivate,
-                              ]}
-                              onPress={() => {
-                                toggleAnswerVisibility(25);
-                                toggleAnswerVisibility(26);
-                                toggleAnswerVisibility(27);
-                              }}
-                              activeOpacity={0.7}>
-                              <Ionicons
-                                name={currentVisAll === 'private' ? "lock-closed-outline" : "globe-outline"}
-                                size={11}
-                                color={currentVisAll === 'private' ? "#fbbf24" : "#38bdf8"}
-                                style={{ marginRight: 4 }}
-                              />
-                              <Text
-                                style={[
-                                  styles.visTogglePillText,
-                                  currentVisAll === 'private' && { color: '#fbbf24' },
-                                ]}>
-                                {currentVisAll === 'private' ? 'Private' : 'Shared'}
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-
-                        {isSkippedAll ? (
-                          <View style={styles.skippedRow}>
-                            <Text style={styles.skippedText}>Question skipped</Text>
-                            <TouchableOpacity
-                              onPress={() => {
-                                handleAnswerChange(25, '');
-                                handleAnswerChange(26, '');
-                                handleAnswerChange(27, '');
-                              }}
-                              style={styles.undoSkipBtn}>
-                              <Text style={styles.undoSkipBtnText}>Answer question</Text>
-                            </TouchableOpacity>
-                          </View>
-                        ) : (
-                          <View style={styles.threeFieldsRow}>
-                            {/* Column 1: Job title */}
-                            <View style={styles.threeFieldsCol}>
-                              <TextInput
-                                style={styles.minimalTextInput}
-                                value={val25}
-                                onChangeText={(txt) => handleAnswerChange(25, txt)}
-                                placeholder="Job title"
-                                placeholderTextColor="#64748b"
-                                autoCapitalize="words"
-                                autoCorrect={false}
-                              />
-                            </View>
-
-                            {/* Column 2: Company / Organization */}
-                            <View style={styles.threeFieldsCol}>
-                              <TextInput
-                                style={styles.minimalTextInput}
-                                value={val26}
-                                onChangeText={(txt) => handleAnswerChange(26, txt)}
-                                placeholder="Company / Organization"
-                                placeholderTextColor="#64748b"
-                                autoCapitalize="words"
-                                autoCorrect={false}
-                              />
-                            </View>
-
-                            {/* Column 3: Institution / University */}
-                            <View style={styles.threeFieldsCol}>
-                              <TextInput
-                                style={styles.minimalTextInput}
-                                value={val27}
-                                onChangeText={(txt) => handleAnswerChange(27, txt)}
-                                placeholder="Institution / University"
-                                placeholderTextColor="#64748b"
-                                autoCapitalize="words"
-                                autoCorrect={false}
-                              />
-                            </View>
-                          </View>
-                        )}
-                      </View>
-                    </React.Fragment>
-                  );
-                }
-
-              const isQ18 = q.id === 18;
-              const isQ23 = q.id === 23;
-              const isQ24 = q.id === 24;
-              const ans = answers[q.id];
-              const currentVal = ans?.value || '';
-              const isSkipped = currentVal === 'skipped';
-              const currentVis = ans?.visibility || q.default_visibility || 'shared';
-              const isLocationQuestion = q.id === 2 || q.id === 3 || q.id === 4;
-              const locationMaxSlots = q.id === 2 ? 1 : 3;
-              const isGenericMulti = !isLocationQuestion && (q.type?.includes('multi'));
-              const options = (q.type === 'long_text' || q.id === 23 || q.id === 1 || isLocationQuestion)
-                ? []
-                : (q.id === 16 ? STANDARDIZED_CONNECTION_COUNTRIES : (QUESTION_SUGGESTIONS[q.id] || []));
-              const isDropdownOpen = activeQuestionDropdownId === q.id;
-
-              const countryOptions = COUNTRIES.map((c) => c.name).sort((a, b) => a.localeCompare(b));
-
-              const chapterDropdownId = q.id * 100 + 1;
-              const involvementDropdownId = q.id * 100 + 2;
-              const isChapterDropdownOpen = activeQuestionDropdownId === chapterDropdownId;
-              const isInvolvementDropdownOpen = activeQuestionDropdownId === involvementDropdownId;
-
-              // Parse Q24 Chapter & Involvement
-              let activeChapter = '';
-              let activeInvolvement = '';
-              if (isQ24 && currentVal && currentVal !== 'skipped') {
-                if (currentVal.includes('—')) {
-                  const parts = currentVal.split('—').map((s: string) => s.trim());
-                  activeChapter = parts[0] || '';
-                  activeInvolvement = parts[1] || '';
-                } else if (currentVal.includes(',')) {
-                  const parts = currentVal.split(',').map((s: string) => s.trim());
-                  activeChapter = parts[0] || '';
-                  activeInvolvement = parts[1] || '';
-                } else if (STANDARDIZED_CHAPTERS.includes(currentVal)) {
-                  activeChapter = currentVal;
-                } else if (STANDARDIZED_INVOLVEMENT_ROLES.includes(currentVal)) {
-                  activeInvolvement = currentVal;
-                }
-              }
-
-              const locationSlots = isLocationQuestion
-                ? parseLocationSlots(currentVal && currentVal !== 'skipped' ? currentVal : '', locationMaxSlots)
-                : [];
-
-              const searchTrimmed = dropdownSearchQuery.trim().toLowerCase();
-                const isQ22 = q.id === 22;
-                const filteredOptions = (isDropdownOpen && searchTrimmed)
-                  ? (isQ22
-                      ? options.filter((opt) => {
-                          if (opt.toLowerCase().includes(searchTrimmed)) return true;
-                          const parentGroup = STANDARDIZED_INTEREST_GROUPS.find(g => g.options.includes(opt));
-                          return parentGroup ? parentGroup.category.toLowerCase().includes(searchTrimmed) : false;
-                        })
-                      : options.filter((opt) => opt.toLowerCase().includes(searchTrimmed)))
-                  : options;
-
-                const isAnyDropdownInThisQuestionOpen = isLocationQuestion
-                  ? (activeQuestionDropdownId !== null && activeQuestionDropdownId >= q.id * 100 && activeQuestionDropdownId < (q.id + 1) * 100)
-                  : isQ24
-                  ? (activeQuestionDropdownId === chapterDropdownId || activeQuestionDropdownId === involvementDropdownId)
-                  : (activeQuestionDropdownId === q.id || (q.id === 6 && activeQuestionDropdownId === 699));
-
-                return (
-                  <React.Fragment key={q.id}>
-                    <View style={[styles.minimalQuestionItem, isAnyDropdownInThisQuestionOpen && { zIndex: 99999 }]}>
-                      {/* Prompt Header & Visibility (no question number in front) */}
+                    <View
+                      key={q.id}
+                      style={[
+                        styles.minimalQuestionItem,
+                        { marginBottom: 16 },
+                        isThisDropdownOpen && { zIndex: 999999, elevation: 30 },
+                      ]}>
+                      {/* Question Header & Visibility Rule Control */}
                       <View style={styles.promptHeaderRow}>
                         <Text style={styles.minimalPromptText}>
+                          <Text style={{ color: '#94a3b8', fontWeight: '700' }}>{q.id}. </Text>
                           {q.prompt}
-                          {isQ18 && <Text style={styles.requiredStar}> (Required)</Text>}
+                          {q.is_required ? (
+                            <Text style={styles.requiredStar}> *</Text>
+                          ) : null}
                         </Text>
 
                         <View style={styles.promptActionsRow}>
-                          {!isSkipped && !isQ18 && q.id !== 1 && (
+                          {!q.is_required && !isSkipped && (
                             <TouchableOpacity
                               onPress={() => handleSkipQuestion(q.id)}
                               style={styles.headerSkipBtn}
@@ -2548,26 +2916,20 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
                             </TouchableOpacity>
                           )}
 
-                          {/* Visibility Control */}
-                          {isQ23 ? (
+                          {q.visibility_mode === 'team_only' ? (
                             <View
                               style={[
                                 styles.visTogglePill,
                                 styles.visTogglePillPrivate,
+                                { opacity: 0.9 },
                               ]}>
                               <Ionicons
                                 name="lock-closed"
-                                size={11}
+                                size={10}
                                 color="#fbbf24"
                                 style={{ marginRight: 4 }}
                               />
-                              <Text
-                                style={[
-                                  styles.visTogglePillText,
-                                  { color: '#fbbf24' },
-                                ]}>
-                                Private
-                              </Text>
+                              <Text style={styles.visLockedPillText}>Team only</Text>
                             </View>
                           ) : (
                             <TouchableOpacity
@@ -2578,9 +2940,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
                               onPress={() => toggleAnswerVisibility(q.id)}
                               activeOpacity={0.7}>
                               <Ionicons
-                                name={currentVis === 'private' ? "lock-closed" : "globe-outline"}
-                                size={11}
-                                color={currentVis === 'private' ? "#fbbf24" : "#38bdf8"}
+                                name={currentVis === 'private' ? 'lock-closed' : 'eye-outline'}
+                                size={10}
+                                color={currentVis === 'private' ? '#fbbf24' : '#38bdf8'}
                                 style={{ marginRight: 4 }}
                               />
                               <Text
@@ -2588,1857 +2950,1013 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onCompleteSi
                                   styles.visTogglePillText,
                                   currentVis === 'private' && { color: '#fbbf24' },
                                 ]}>
-                                {currentVis === 'private' ? 'Private' : 'Shared'}
+                                {isPrivateProfileMode
+                                  ? 'Private (locked by Q7)'
+                                  : currentVis === 'private'
+                                  ? 'Private · Switch'
+                                  : 'Visible · Switch'}
                               </Text>
                             </TouchableOpacity>
                           )}
                         </View>
                       </View>
 
-                      {q.helper ? (
-                        <Text style={styles.questionHelperText}>{q.helper}</Text>
-                      ) : null}
-
                       {isSkipped ? (
                         <View style={styles.skippedRow}>
-                          <Text style={styles.skippedText}>Question skipped</Text>
+                          <Text style={styles.skippedText}>Skipped for now</Text>
                           <TouchableOpacity
                             onPress={() => handleAnswerChange(q.id, '')}
                             style={styles.undoSkipBtn}>
-                            <Text style={styles.undoSkipBtnText}>Answer question</Text>
+                            <Text style={styles.undoSkipBtnText}>Answer Question</Text>
                           </TouchableOpacity>
                         </View>
                       ) : (
                         <>
-                          {/* Country & City Dropdowns (Questions 2, 3, 4) */}
-                          {isLocationQuestion ? (
-                            <View style={{ width: '100%', gap: 6 }}>
-                              {locationSlots.map((slotItem, slotIdx) => {
-                                const slotKey = `${q.id}_${slotIdx}`;
-                                const countryDropdownId = q.id * 100 + slotIdx * 10 + 1;
-                                const cityDropdownId = q.id * 100 + slotIdx * 10 + 2;
-                                const isCountryDropdownOpen = activeQuestionDropdownId === countryDropdownId;
-                                const isCityDropdownOpen = activeQuestionDropdownId === cityDropdownId;
+                          {/* Q1: Full name (Text) */}
+                          {q.id === 1 && (
+                            <TextInput
+                              style={styles.minimalTextInput}
+                              placeholder="Your full name"
+                              placeholderTextColor="#64748b"
+                              value={currentVal}
+                              onChangeText={(txt) => handleAnswerChange(1, txt)}
+                              autoCapitalize="words"
+                              autoCorrect={false}
+                            />
+                          )}
 
-                                const activeCountry = qSelectedCountry[slotKey] !== undefined 
-                                  ? qSelectedCountry[slotKey] 
-                                  : (qSelectedCountry[q.id] !== undefined && slotIdx === 0 ? qSelectedCountry[q.id] : slotItem.country);
-                                const activeCity = slotItem.city;
-                                const activeCityOptions = getCitiesForCountry(activeCountry);
+                          {/* Q2: Email (Email) */}
+                          {q.id === 2 && (
+                            <TextInput
+                              style={styles.minimalTextInput}
+                              placeholder="name@domain.com"
+                              placeholderTextColor="#64748b"
+                              value={currentVal}
+                              onChangeText={(txt) => handleAnswerChange(2, txt)}
+                              keyboardType="email-address"
+                              autoCapitalize="none"
+                              autoCorrect={false}
+                            />
+                          )}
 
-                                const filteredCountryOptions = (isCountryDropdownOpen && searchTrimmed)
-                                  ? countryOptions.filter((c) => c.toLowerCase().includes(searchTrimmed))
-                                  : countryOptions;
-                                const filteredCityOptions = (isCityDropdownOpen && searchTrimmed)
-                                  ? activeCityOptions.filter((c) => c.toLowerCase().includes(searchTrimmed))
-                                  : activeCityOptions;
+                          {/* Q3: Mobile phone (Phone with country code) */}
+                          {q.id === 3 && (() => {
+                            const dialKey = 'q3_dial';
+                            let selectedDial = qSelectedCountry[dialKey] || '+1';
+                            let localNumber = currentVal;
+                            const matchedDial = COUNTRY_DIAL_CODES.find((d) =>
+                              currentVal.startsWith(d.dialCode + ' ')
+                            );
+                            if (matchedDial) {
+                              selectedDial = matchedDial.dialCode;
+                              localNumber = currentVal.slice(matchedDial.dialCode.length + 1);
+                            } else if (currentVal.startsWith('+')) {
+                              const parts = currentVal.split(' ');
+                              if (parts.length > 1) {
+                                selectedDial = parts[0];
+                                localNumber = parts.slice(1).join(' ');
+                              }
+                            }
+                            const dialDropdownId = 301;
+                            const isDialOpen = activeQuestionDropdownId === dialDropdownId;
 
-                                const handleSelectCountry = (chosenCountry: string) => {
-                                  const validCities = getCitiesForCountry(chosenCountry);
-                                  const keepCity = activeCity && validCities.includes(activeCity) ? activeCity : '';
-                                  setQSelectedCountry((prev) => ({
-                                    ...prev,
-                                    [slotKey]: chosenCountry,
-                                    ...(slotIdx === 0 ? { [q.id]: chosenCountry } : {}),
-                                  }));
+                            return (
+                              <View style={[styles.twoDropdownRow, isDialOpen && { zIndex: 999999 }]}>
+                                <View
+                                  style={[styles.twoDropdownCol, { flex: 0.42 }, isDialOpen && { zIndex: 999999 }]}
+                                  {...(Platform.OS === 'web' ? { 'data-dropdown-wrap': String(dialDropdownId) } : {})}>
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.minimalDropdownTrigger,
+                                      isDialOpen && styles.minimalDropdownTriggerActive,
+                                    ]}
+                                    onPress={() =>
+                                      setActiveQuestionDropdownId(isDialOpen ? null : dialDropdownId)
+                                    }
+                                    activeOpacity={0.8}>
+                                    <Text style={styles.minimalDropdownTriggerText} numberOfLines={1}>
+                                      {selectedDial}
+                                    </Text>
+                                    <Ionicons
+                                      name={isDialOpen ? 'chevron-up' : 'chevron-down'}
+                                      size={14}
+                                      color="#94a3b8"
+                                    />
+                                  </TouchableOpacity>
+                                  {isDialOpen && (
+                                    <View style={styles.minimalDropdownMenu}>
+                                      <View style={styles.dropdownSearchHeader}>
+                                        <Ionicons name="search" size={13} color="#64748b" />
+                                        <TextInput
+                                          ref={dropdownSearchInputRef}
+                                          style={styles.dropdownSearchInput}
+                                          placeholder="Search country or code..."
+                                          placeholderTextColor="#64748b"
+                                          value={dropdownSearchQuery}
+                                          onChangeText={setDropdownSearchQuery}
+                                        />
+                                      </View>
+                                      <ScrollView
+                                        style={{ maxHeight: 200, padding: 6 }}
+                                        nestedScrollEnabled>
+                                        {COUNTRY_DIAL_CODES.filter(
+                                          (d) =>
+                                            !dropdownSearchQuery.trim() ||
+                                            d.name
+                                              .toLowerCase()
+                                              .includes(dropdownSearchQuery.toLowerCase()) ||
+                                            d.dialCode.includes(dropdownSearchQuery.trim())
+                                        ).map((d) => (
+                                          <TouchableOpacity
+                                            key={`${d.code}-${d.dialCode}`}
+                                            style={[
+                                              styles.minimalDropdownOption,
+                                              selectedDial === d.dialCode &&
+                                                styles.minimalDropdownOptionSelected,
+                                            ]}
+                                            onPress={() => {
+                                              setQSelectedCountry((prev) => ({
+                                                ...prev,
+                                                [dialKey]: d.dialCode,
+                                              }));
+                                              handleAnswerChange(
+                                                3,
+                                                localNumber.trim()
+                                                  ? `${d.dialCode} ${localNumber.trim()}`
+                                                  : d.dialCode
+                                              );
+                                              setActiveQuestionDropdownId(null);
+                                            }}>
+                                            <Text style={styles.minimalDropdownOptionText}>
+                                              {d.flag} {d.name} ({d.dialCode})
+                                            </Text>
+                                          </TouchableOpacity>
+                                        ))}
+                                      </ScrollView>
+                                    </View>
+                                  )}
+                                </View>
+                                <View style={[styles.twoDropdownCol, { flex: 0.58 }]}>
+                                  <TextInput
+                                    style={styles.minimalTextInput}
+                                    placeholder="Mobile number"
+                                    placeholderTextColor="#64748b"
+                                    value={localNumber}
+                                    onChangeText={(txt) => {
+                                      const cleaned = txt.replace(/[^\d\s\-()]/g, '');
+                                      handleAnswerChange(
+                                        3,
+                                        cleaned.trim() ? `${selectedDial} ${cleaned}` : ''
+                                      );
+                                    }}
+                                    keyboardType="phone-pad"
+                                  />
+                                </View>
+                              </View>
+                            );
+                          })()}
 
-                                  const nextSlots = [...locationSlots];
-                                  nextSlots[slotIdx] = { country: chosenCountry, city: keepCity };
-                                  const validStrings = nextSlots
-                                    .filter((s) => s.country.trim() || s.city.trim())
-                                    .map((s) => (s.city.trim() ? `${s.city.trim()}, ${s.country.trim()}` : s.country.trim()));
-                                  handleAnswerChange(q.id, validStrings.join('; '));
+                          {/* Q4: Telegram and WhatsApp (Two text fields) */}
+                          {q.id === 4 && (() => {
+                            let tgVal = '';
+                            let waVal = '';
+                            if (currentVal) {
+                              try {
+                                const parsed = JSON.parse(currentVal);
+                                tgVal = parsed.telegram || '';
+                                waVal = parsed.whatsapp || '';
+                              } catch {
+                                tgVal = currentVal;
+                              }
+                            }
+                            const updateQ4 = (nextTg: string, nextWa: string) => {
+                              if (!nextTg.trim() && !nextWa.trim()) {
+                                handleAnswerChange(4, '');
+                              } else {
+                                handleAnswerChange(
+                                  4,
+                                  JSON.stringify({ telegram: nextTg, whatsapp: nextWa })
+                                );
+                              }
+                            };
+                            return (
+                              <View style={styles.twoDropdownRow}>
+                                <View style={styles.twoDropdownCol}>
+                                  <TextInput
+                                    style={styles.minimalTextInput}
+                                    placeholder="Telegram: @handle or number"
+                                    placeholderTextColor="#64748b"
+                                    value={tgVal}
+                                    onChangeText={(txt) => updateQ4(txt, waVal)}
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                  />
+                                </View>
+                                <View style={styles.twoDropdownCol}>
+                                  <TextInput
+                                    style={styles.minimalTextInput}
+                                    placeholder="WhatsApp: @handle or number"
+                                    placeholderTextColor="#64748b"
+                                    value={waVal}
+                                    onChangeText={(txt) => updateQ4(tgVal, txt)}
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                  />
+                                </View>
+                              </View>
+                            );
+                          })()}
 
-                                  setActiveQuestionDropdownId(cityDropdownId);
-                                  setDropdownSearchQuery('');
-                                };
+                          {/* Q6: How did you hear about us? (Dropdown + text) */}
+                          {q.id === 6 && (() => {
+                            let sourceVal = '';
+                            let detailVal = '';
+                            if (currentVal) {
+                              try {
+                                const parsed = JSON.parse(currentVal);
+                                sourceVal = parsed.source || '';
+                                detailVal = parsed.detail || '';
+                              } catch {
+                                if (Q6_REFERRAL_OPTIONS.includes(currentVal)) {
+                                  sourceVal = currentVal;
+                                } else {
+                                  const parts = currentVal.split(':');
+                                  sourceVal = parts[0]?.trim() || '';
+                                  detailVal = parts.slice(1).join(':').trim();
+                                }
+                              }
+                            }
+                            const isOpen = activeQuestionDropdownId === 6;
+                            const updateQ6 = (nextSource: string, nextDetail: string) => {
+                              if (!nextSource && !nextDetail) {
+                                handleAnswerChange(6, '');
+                              } else {
+                                handleAnswerChange(
+                                  6,
+                                  JSON.stringify({ source: nextSource, detail: nextDetail })
+                                );
+                              }
+                            };
 
-                                const handleSelectCity = (chosenCity: string) => {
-                                  const nextSlots = [...locationSlots];
-                                  nextSlots[slotIdx] = { country: activeCountry, city: chosenCity };
-                                  const validStrings = nextSlots
-                                    .filter((s) => s.country.trim() || s.city.trim())
-                                    .map((s) => (s.city.trim() ? `${s.city.trim()}, ${s.country.trim()}` : s.country.trim()));
-                                  handleAnswerChange(q.id, validStrings.join('; '));
+                            return (
+                              <View
+                                style={[styles.twoDropdownRow, isOpen && { zIndex: 999999 }]}
+                                {...(Platform.OS === 'web' ? { 'data-dropdown-wrap': '6' } : {})}>
+                                <View style={[styles.twoDropdownCol, isOpen && { zIndex: 999999 }]}>
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.minimalDropdownTrigger,
+                                      isOpen && styles.minimalDropdownTriggerActive,
+                                    ]}
+                                    onPress={() => setActiveQuestionDropdownId(isOpen ? null : 6)}
+                                    activeOpacity={0.8}>
+                                    <Text
+                                      style={[
+                                        styles.minimalDropdownTriggerText,
+                                        !sourceVal && styles.minimalDropdownPlaceholder,
+                                      ]}
+                                      numberOfLines={1}>
+                                      {sourceVal || 'Select how you heard about us...'}
+                                    </Text>
+                                    <Ionicons
+                                      name={isOpen ? 'chevron-up' : 'chevron-down'}
+                                      size={14}
+                                      color="#94a3b8"
+                                    />
+                                  </TouchableOpacity>
+                                  {isOpen && (
+                                    <View style={styles.minimalDropdownMenu}>
+                                      <View style={{ padding: 6 }}>
+                                        {Q6_REFERRAL_OPTIONS.map((opt) => (
+                                          <TouchableOpacity
+                                            key={opt}
+                                            style={[
+                                              styles.minimalDropdownOption,
+                                              sourceVal === opt &&
+                                                styles.minimalDropdownOptionSelected,
+                                            ]}
+                                            onPress={() => {
+                                              updateQ6(opt, detailVal);
+                                              setActiveQuestionDropdownId(null);
+                                            }}>
+                                            <Text
+                                              style={[
+                                                styles.minimalDropdownOptionText,
+                                                sourceVal === opt &&
+                                                  styles.minimalDropdownOptionTextSelected,
+                                              ]}>
+                                              {opt}
+                                            </Text>
+                                          </TouchableOpacity>
+                                        ))}
+                                      </View>
+                                    </View>
+                                  )}
+                                </View>
+                                <View style={styles.twoDropdownCol}>
+                                  <TextInput
+                                    style={styles.minimalTextInput}
+                                    placeholder={
+                                      sourceVal === 'Referred by a member (name)'
+                                        ? 'Referring member name'
+                                        : 'Name or details (optional)'
+                                    }
+                                    placeholderTextColor="#64748b"
+                                    value={detailVal}
+                                    onChangeText={(txt) => updateQ6(sourceVal, txt)}
+                                  />
+                                </View>
+                              </View>
+                            );
+                          })()}
 
-                                  setActiveQuestionDropdownId(null);
-                                  setDropdownSearchQuery('');
-                                };
-
-                                const handleClearSlot = () => {
-                                  setQSelectedCountry((prev) => {
-                                    const next = { ...prev };
-                                    delete next[slotKey];
-                                    if (slotIdx === 0) delete next[q.id];
-                                    return next;
-                                  });
-                                  const nextSlots = [...locationSlots];
-                                  nextSlots[slotIdx] = { country: '', city: '' };
-                                  const validStrings = nextSlots
-                                    .filter((s) => s.country.trim() || s.city.trim())
-                                    .map((s) => (s.city.trim() ? `${s.city.trim()}, ${s.country.trim()}` : s.country.trim()));
-                                  handleAnswerChange(q.id, validStrings.join('; '));
-
-                                  setActiveQuestionDropdownId(null);
-                                  setDropdownSearchQuery('');
-                                };
-
-                                const isRowActive = activeQuestionDropdownId === countryDropdownId || activeQuestionDropdownId === cityDropdownId;
-
+                          {/* Q7 & Q25: Single choice cards */}
+                          {(q.id === 7 || q.id === 25) && (
+                            <View style={{ gap: 8 }}>
+                              {(q.options || []).map((opt) => {
+                                const isSelected = currentVal === opt;
                                 return (
-                                  <View key={slotIdx} style={[styles.twoDropdownRow, isRowActive && { zIndex: 9999 }]}>
-                                    {/* Country Dropdown Column */}
-                                    <View
-                                      style={[styles.twoDropdownCol, isCountryDropdownOpen && { zIndex: 9999 }]}
-                                      testID={`dropdown-wrap-${countryDropdownId}`}
-                                      {...(Platform.OS === 'web' ? ({ 'data-dropdown-wrap': String(countryDropdownId) } as any) : {})}>
-                                      <TouchableOpacity
-                                        style={[
-                                          styles.minimalDropdownTrigger,
-                                          isCountryDropdownOpen && styles.minimalDropdownTriggerActive,
-                                        ]}
-                                        onPress={() => {
-                                          setActiveQuestionDropdownId(isCountryDropdownOpen ? null : countryDropdownId);
-                                          setDropdownSearchQuery('');
-                                        }}
-                                        activeOpacity={0.75}>
+                                  <TouchableOpacity
+                                    key={opt}
+                                    onPress={() => handleAnswerChange(q.id, opt)}
+                                    activeOpacity={0.8}
+                                    style={{
+                                      flexDirection: 'row',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      backgroundColor: isSelected
+                                        ? 'rgba(6, 182, 212, 0.14)'
+                                        : '#0c1222',
+                                      borderWidth: 1,
+                                      borderColor: isSelected
+                                        ? OzaraTheme.colors.accentCyan
+                                        : 'rgba(255, 255, 255, 0.1)',
+                                      borderRadius: 8,
+                                      paddingVertical: 11,
+                                      paddingHorizontal: 14,
+                                    }}>
+                                    <View style={{ flex: 1, paddingRight: 10 }}>
+                                      <Text
+                                        style={{
+                                          color: isSelected ? '#ffffff' : '#e2e8f0',
+                                          fontSize: 13.5,
+                                          fontWeight: isSelected ? '700' : '500',
+                                        }}>
+                                        {opt}
+                                      </Text>
+                                      {q.id === 7 && opt === 'Visible to members' && (
                                         <Text
-                                          style={[
-                                            styles.minimalDropdownTriggerText,
-                                            !activeCountry && styles.minimalDropdownPlaceholder,
-                                          ]}
-                                          numberOfLines={1}>
-                                          {activeCountry || 'Country'}
+                                          style={{
+                                            color: '#94a3b8',
+                                            fontSize: 11.5,
+                                            marginTop: 2,
+                                          }}>
+                                          Other verified members see only what you switch on (photo, role, bio, open to, residence, interests).
                                         </Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                          {activeCountry ? (
-                                            <TouchableOpacity
-                                              onPress={(e) => {
-                                                e.stopPropagation?.();
-                                                handleClearSlot();
-                                              }}
-                                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                              style={{ padding: 2 }}>
-                                              <Ionicons name="close" size={13} color="#94a3b8" />
-                                            </TouchableOpacity>
-                                          ) : null}
-                                          <Ionicons
-                                            name={isCountryDropdownOpen ? "chevron-up" : "chevron-down"}
-                                            size={13}
-                                            color={isCountryDropdownOpen ? OzaraTheme.colors.accentCyan : "#94a3b8"}
-                                          />
-                                        </View>
-                                      </TouchableOpacity>
-
-                                      {isCountryDropdownOpen && (
-                                        <View style={styles.minimalDropdownMenu}>
-                                          <View style={styles.dropdownSearchHeader}>
-                                            <Ionicons name="search" size={13} color="#94a3b8" style={{ marginRight: 6 }} />
-                                            <TextInput
-                                              ref={dropdownSearchInputRef}
-                                              style={styles.dropdownSearchInput}
-                                              placeholder="Search..."
-                                              placeholderTextColor="#64748b"
-                                              value={dropdownSearchQuery}
-                                              onChangeText={(txt) => {
-                                                setDropdownSearchQuery(txt);
-                                                const trimmed = txt.trim().toLowerCase();
-                                                if (trimmed) {
-                                                  const exactCountry = countryOptions.find((c) => c.toLowerCase() === trimmed);
-                                                  if (exactCountry) {
-                                                    handleSelectCountry(exactCountry);
-                                                  }
-                                                }
-                                              }}
-                                              autoFocus={true}
-                                              autoCorrect={false}
-                                              autoCapitalize="none"
-                                              autoComplete="off"
-                                              textContentType="none"
-                                              spellCheck={false}
-                                              {...(Platform.OS === 'web' ? ({
-                                                autoComplete: 'new-password',
-                                                'data-form-type': 'other',
-                                                'data-lpignore': 'true',
-                                                'aria-autocomplete': 'none',
-                                                name: 'country-search-filter',
-                                              } as any) : {})}
-                                              clearButtonMode="while-editing"
-                                              returnKeyType="done"
-                                              onSubmitEditing={() => {
-                                                if (filteredCountryOptions.length > 0) {
-                                                  handleSelectCountry(filteredCountryOptions[0]);
-                                                }
-                                              }}
-                                            />
-                                            {dropdownSearchQuery.length > 0 && (
-                                              <TouchableOpacity
-                                                onPress={() => setDropdownSearchQuery('')}
-                                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                                <Ionicons name="close-circle" size={15} color="#94a3b8" />
-                                              </TouchableOpacity>
-                                            )}
-                                          </View>
-                                          <ScrollView
-                                            style={{ maxHeight: 220, padding: 4 }}
-                                            nestedScrollEnabled
-                                            showsVerticalScrollIndicator={true}
-                                            keyboardShouldPersistTaps="handled">
-                                            {filteredCountryOptions.length === 0 ? (
-                                              <View style={{ padding: 12, alignItems: 'center' }}>
-                                                <Text style={{ color: '#94a3b8', fontSize: 12 }}>
-                                                  No country matching "{dropdownSearchQuery}"
-                                                </Text>
-                                              </View>
-                                            ) : (
-                                              filteredCountryOptions.map((cName, cIdx) => {
-                                                const isSelected = activeCountry === cName;
-                                                return (
-                                                  <TouchableOpacity
-                                                    key={cIdx}
-                                                    style={[
-                                                      styles.minimalDropdownOption,
-                                                      isSelected && styles.minimalDropdownOptionSelected,
-                                                    ]}
-                                                    onPress={() => handleSelectCountry(cName)}
-                                                    {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
-                                                    activeOpacity={0.7}>
-                                                    <Text
-                                                      style={[
-                                                        styles.minimalDropdownOptionText,
-                                                        isSelected && styles.minimalDropdownOptionTextSelected,
-                                                      ]}>
-                                                      {cName}
-                                                    </Text>
-                                                  </TouchableOpacity>
-                                                );
-                                              })
-                                            )}
-                                          </ScrollView>
-                                        </View>
                                       )}
+                                      {q.id === 7 &&
+                                        opt === 'Private (browse deals and events only)' && (
+                                          <Text
+                                            style={{
+                                              color: '#94a3b8',
+                                              fontSize: 11.5,
+                                              marginTop: 2,
+                                            }}>
+                                            All switches are forced to Private and you do not appear in the directory. No photo needed.
+                                          </Text>
+                                        )}
                                     </View>
-
-                                    {/* City Dropdown Column */}
-                                    <View
-                                      style={[styles.twoDropdownCol, isCityDropdownOpen && { zIndex: 9999 }]}
-                                      testID={`dropdown-wrap-${cityDropdownId}`}
-                                      {...(Platform.OS === 'web' ? ({ 'data-dropdown-wrap': String(cityDropdownId) } as any) : {})}>
-                                      <TouchableOpacity
-                                        style={[
-                                          styles.minimalDropdownTrigger,
-                                          isCityDropdownOpen && styles.minimalDropdownTriggerActive,
-                                          !activeCountry && styles.dropdownTriggerDisabled,
-                                        ]}
-                                        onPress={() => {
-                                          if (!activeCountry) {
-                                            setActiveQuestionDropdownId(countryDropdownId);
-                                            setDropdownSearchQuery('');
-                                            return;
-                                          }
-                                          setActiveQuestionDropdownId(isCityDropdownOpen ? null : cityDropdownId);
-                                          setDropdownSearchQuery('');
-                                        }}
-                                        activeOpacity={0.75}>
-                                        <Text
-                                          style={[
-                                            styles.minimalDropdownTriggerText,
-                                            !activeCity && styles.minimalDropdownPlaceholder,
-                                            !activeCountry && { color: '#64748b' },
-                                          ]}
-                                          numberOfLines={1}>
-                                          {activeCity || 'City'}
-                                        </Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                          {activeCity ? (
-                                            <TouchableOpacity
-                                              onPress={(e) => {
-                                                e.stopPropagation?.();
-                                                const nextSlots = [...locationSlots];
-                                                nextSlots[slotIdx] = { country: activeCountry, city: '' };
-                                                const validStrings = nextSlots
-                                                  .filter((s) => s.country.trim() || s.city.trim())
-                                                  .map((s) => (s.city.trim() ? `${s.city.trim()}, ${s.country.trim()}` : s.country.trim()));
-                                                handleAnswerChange(q.id, validStrings.join('; '));
-                                              }}
-                                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                              style={{ padding: 2 }}>
-                                              <Ionicons name="close" size={13} color="#94a3b8" />
-                                            </TouchableOpacity>
-                                          ) : null}
-                                          <Ionicons
-                                            name={isCityDropdownOpen ? "chevron-up" : "chevron-down"}
-                                            size={13}
-                                            color={activeCountry ? (isCityDropdownOpen ? OzaraTheme.colors.accentCyan : "#94a3b8") : "#475569"}
-                                          />
-                                        </View>
-                                      </TouchableOpacity>
-
-                                      {isCityDropdownOpen && activeCountry && (
-                                        <View style={styles.minimalDropdownMenu}>
-                                          <View style={styles.dropdownSearchHeader}>
-                                            <Ionicons name="search" size={13} color="#94a3b8" style={{ marginRight: 6 }} />
-                                            <TextInput
-                                              ref={dropdownSearchInputRef}
-                                              style={styles.dropdownSearchInput}
-                                              placeholder="Search or enter city..."
-                                              placeholderTextColor="#64748b"
-                                              value={dropdownSearchQuery}
-                                              onChangeText={(txt) => {
-                                                setDropdownSearchQuery(txt);
-                                                const trimmed = txt.trim().toLowerCase();
-                                                if (trimmed) {
-                                                  const exactCity = activeCityOptions.find((c) => c.toLowerCase() === trimmed);
-                                                  if (exactCity) {
-                                                    handleSelectCity(exactCity);
-                                                  }
-                                                }
-                                              }}
-                                              autoFocus={true}
-                                              autoCorrect={false}
-                                              autoCapitalize="none"
-                                              autoComplete="off"
-                                              textContentType="none"
-                                              spellCheck={false}
-                                              {...(Platform.OS === 'web' ? ({
-                                                autoComplete: 'new-password',
-                                                'data-form-type': 'other',
-                                                'data-lpignore': 'true',
-                                                'aria-autocomplete': 'none',
-                                                name: 'city-search-filter',
-                                              } as any) : {})}
-                                              clearButtonMode="while-editing"
-                                              returnKeyType="done"
-                                              onSubmitEditing={() => {
-                                                if (filteredCityOptions.length > 0) {
-                                                  handleSelectCity(filteredCityOptions[0]);
-                                                } else if (dropdownSearchQuery.trim()) {
-                                                  handleSelectCity(dropdownSearchQuery.trim());
-                                                }
-                                              }}
-                                            />
-                                            {dropdownSearchQuery.length > 0 && (
-                                              <TouchableOpacity
-                                                onPress={() => setDropdownSearchQuery('')}
-                                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                                <Ionicons name="close-circle" size={15} color="#94a3b8" />
-                                              </TouchableOpacity>
-                                            )}
-                                          </View>
-                                          <ScrollView
-                                            style={{ maxHeight: 220, padding: 4 }}
-                                            nestedScrollEnabled
-                                            showsVerticalScrollIndicator={true}
-                                            keyboardShouldPersistTaps="handled">
-                                            {filteredCityOptions.length === 0 ? (
-                                              <View style={{ padding: 10 }}>
-                                                <Text style={{ color: '#94a3b8', fontSize: 12, marginBottom: 8, textAlign: 'center' }}>
-                                                  {activeCityOptions.length === 0
-                                                    ? `No predefined cities for ${activeCountry}`
-                                                    : `No cities matching "${dropdownSearchQuery}"`}
-                                                </Text>
-                                                {dropdownSearchQuery.trim().length > 0 && (
-                                                  <TouchableOpacity
-                                                    style={[styles.minimalDropdownOption, { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }]}
-                                                    onPress={() => handleSelectCity(dropdownSearchQuery.trim())}
-                                                    {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
-                                                    activeOpacity={0.7}>
-                                                    <Ionicons name="add-circle-outline" size={15} color={OzaraTheme.colors.accentCyan} style={{ marginRight: 6 }} />
-                                                    <Text style={[styles.minimalDropdownOptionText, { color: OzaraTheme.colors.accentCyan }]}>
-                                                      Use custom: "{dropdownSearchQuery.trim()}"
-                                                    </Text>
-                                                  </TouchableOpacity>
-                                                )}
-                                              </View>
-                                            ) : (
-                                              <>
-                                                {filteredCityOptions.map((ctName, ctIdx) => {
-                                                  const isSelected = activeCity === ctName;
-                                                  return (
-                                                    <TouchableOpacity
-                                                      key={ctIdx}
-                                                      style={[
-                                                        styles.minimalDropdownOption,
-                                                        isSelected && styles.minimalDropdownOptionSelected,
-                                                      ]}
-                                                      onPress={() => handleSelectCity(ctName)}
-                                                      {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
-                                                      activeOpacity={0.7}>
-                                                      <Text
-                                                        style={[
-                                                          styles.minimalDropdownOptionText,
-                                                          isSelected && styles.minimalDropdownOptionTextSelected,
-                                                        ]}>
-                                                        {ctName}
-                                                      </Text>
-                                                    </TouchableOpacity>
-                                                  );
-                                                })}
-                                                {dropdownSearchQuery.trim().length > 0 && !filteredCityOptions.some(c => c.toLowerCase() === dropdownSearchQuery.trim().toLowerCase()) && (
-                                                  <TouchableOpacity
-                                                    style={[styles.minimalDropdownOption, { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }]}
-                                                    onPress={() => handleSelectCity(dropdownSearchQuery.trim())}
-                                                    {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
-                                                    activeOpacity={0.7}>
-                                                    <Ionicons name="add-circle-outline" size={15} color={OzaraTheme.colors.accentCyan} style={{ marginRight: 6 }} />
-                                                    <Text style={[styles.minimalDropdownOptionText, { color: OzaraTheme.colors.accentCyan }]}>
-                                                      Use custom: "{dropdownSearchQuery.trim()}"
-                                                    </Text>
-                                                  </TouchableOpacity>
-                                                )}
-                                              </>
-                                            )}
-                                          </ScrollView>
-                                        </View>
-                                      )}
-                                    </View>
-                                  </View>
+                                    <Ionicons
+                                      name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                                      size={18}
+                                      color={
+                                        isSelected ? OzaraTheme.colors.accentCyan : '#64748b'
+                                      }
+                                    />
+                                  </TouchableOpacity>
                                 );
                               })}
                             </View>
-                          ) : isGenericMulti ? (
-                            /* 2. Multi-choice Dropdown Selector (Questions 2 & 3, plus any multi-type question) */
+                          )}
+
+                          {/* Q8: Profile photo (Upload) */}
+                          {q.id === 8 && (
                             <View
-                              style={[styles.minimalDropdownWrap, isDropdownOpen && { zIndex: 9999 }]}
-                              testID={`dropdown-wrap-${q.id}`}
-                              {...(Platform.OS === 'web' ? ({ 'data-dropdown-wrap': String(q.id) } as any) : {})}>
-                              {(() => {
-                                const isQ6 = q.id === 6;
-                                const isQ7 = q.id === 7;
-                                const isQ8 = q.id === 8;
-                                const isQ14Note = q.id === 14;
-                                const isQ15 = q.id === 15;
-                                const isQ16 = q.id === 16;
-                                const isQ17Note = q.id === 17;
-                                const isQ18Note = q.id === 18;
-                                const isQ22 = q.id === 22;
-                                const isCompositeNote = isQ14Note || isQ17Note || isQ18Note;
-                                const delimiter = (isQ6 || isQ8 || isQ15 || isQ22) ? '; ' : ', ';
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                backgroundColor: '#0c1222',
+                                borderWidth: 1,
+                                borderColor: 'rgba(255, 255, 255, 0.1)',
+                                borderRadius: 8,
+                                padding: 12,
+                              }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                                {avatarUrl || (currentVal && currentVal !== 'skipped') ? (
+                                  <Image
+                                    source={{
+                                      uri: resolveImageUrl(avatarUrl || currentVal),
+                                    }}
+                                    style={{ width: 44, height: 44, borderRadius: 22 }}
+                                  />
+                                ) : (
+                                  <View
+                                    style={{
+                                      width: 44,
+                                      height: 44,
+                                      borderRadius: 22,
+                                      backgroundColor: 'rgba(124, 58, 237, 0.2)',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                    }}>
+                                    <Text style={{ color: '#ffffff', fontWeight: '700' }}>
+                                      {getInitials(displayFullName)}
+                                    </Text>
+                                  </View>
+                                )}
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ color: '#f1f5f9', fontSize: 13, fontWeight: '600' }}>
+                                    {avatarUrl || currentVal
+                                      ? 'Portrait uploaded'
+                                      : isPrivateProfileMode
+                                      ? 'Private mode active — no photo needed'
+                                      : 'Optional member portrait'}
+                                  </Text>
+                                  <Text style={{ color: '#94a3b8', fontSize: 11.5, marginTop: 2 }}>
+                                    {currentVis === 'shared' && !isPrivateProfileMode
+                                      ? 'Visible to verified members'
+                                      : 'Currently Private (seen only by team unless switched on)'}
+                                  </Text>
+                                </View>
+                              </View>
+                              <TouchableOpacity
+                                style={styles.uploadPictureBtn}
+                                onPress={handlePickImage}
+                                activeOpacity={0.8}>
+                                <Ionicons
+                                  name="cloud-upload-outline"
+                                  size={14}
+                                  color="#ffffff"
+                                  style={{ marginRight: 6 }}
+                                />
+                                <Text style={styles.uploadPictureBtnText}>Upload photo</Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
 
-                                const expandOption = (optStr: string): string[] => {
-                                  if (!optStr) return [];
-                                  if (optStr.toLowerCase().startsWith('other —') || optStr.toLowerCase() === 'other') {
-                                    return [optStr];
-                                  }
-                                  // Em-dash and comma list, e.g. "Technology Professional — engineering, data, AI, product, IT"
-                                  if (optStr.includes('—') && optStr.includes(',')) {
-                                    const [head, tail] = optStr.split('—').map(s => s.trim());
-                                    const subs = tail.split(',').map(s => {
-                                      const clean = s.trim();
-                                      if (clean.toLowerCase() === 'ai') return 'AI';
-                                      if (clean.toLowerCase() === 'it') return 'IT';
-                                      return clean.charAt(0).toUpperCase() + clean.slice(1);
-                                    });
-                                    return [head, ...subs].filter(Boolean);
-                                  }
-                                  // Slash-delimited options, e.g. "Investor / Fund Manager / Family Office Principal", "Founder / Co-founder"
-                                  if (optStr.includes('/')) {
-                                    return optStr.split('/').map(s => s.trim()).filter(Boolean);
-                                  }
-                                  if (isQ7 && optStr.includes(',')) {
-                                    return optStr.split(',').map(s => s.trim()).filter(Boolean);
-                                  }
-                                  return [optStr];
-                                };
-
-                                let selectedList: string[] = [];
-                                let noteText = '';
-                                let reachDetails: Record<string, string> = {
-                                  whatsapp: '',
-                                  telegram: '',
-                                  email: '',
-                                  zoom: '',
-                                };
-
-                                if (isQ6) {
-                                  if (currentVal && currentVal !== 'skipped') {
-                                    try {
-                                      if (currentVal.startsWith('{') && currentVal.endsWith('}')) {
-                                        const parsed = JSON.parse(currentVal);
-                                        selectedList = Array.isArray(parsed.methods) ? parsed.methods : (Array.isArray(parsed.tags) ? parsed.tags : []);
-                                        if (parsed.details && typeof parsed.details === 'object') {
-                                          reachDetails = {
-                                            whatsapp: (parsed.details.whatsapp || parsed.whatsapp) ? formatWhatsAppNumber(parsed.details.whatsapp || parsed.whatsapp) : '',
-                                            telegram: parsed.details.telegram || parsed.telegram || '',
-                                            email: parsed.details.email || parsed.email || '',
-                                            zoom: parsed.details.zoom || parsed.zoom_link || parsed.zoom || '',
-                                          };
-                                        } else {
-                                          reachDetails = {
-                                            whatsapp: parsed.whatsapp ? formatWhatsAppNumber(parsed.whatsapp) : '',
-                                            telegram: parsed.telegram || '',
-                                            email: parsed.email || '',
-                                            zoom: parsed.zoom_link || parsed.zoom || '',
-                                          };
-                                        }
-                                      } else {
-                                        selectedList = currentVal.split(/[,;/]/).map((s: string) => s.trim()).filter(Boolean);
-                                      }
-                                    } catch {
-                                      selectedList = currentVal.split(/[,;/]/).map((s: string) => s.trim()).filter(Boolean);
-                                    }
-                                  }
-                                  // Auto-prefill registered phone if whatsapp empty
-                                  if (!reachDetails.whatsapp && activePhone) {
-                                    reachDetails.whatsapp = formatWhatsAppNumber(activePhone);
-                                  }
-                                  // Auto-prefill verified email if email empty
-                                  const candidateEmail = verifiedEmail || pendingAccessEmail || '';
-                                  if (!reachDetails.email && candidateEmail) {
-                                    reachDetails.email = candidateEmail;
-                                  }
-                                } else if (isCompositeNote) {
-                                  if (currentVal) {
-                                    try {
-                                      if (currentVal.startsWith('{') && currentVal.endsWith('}')) {
-                                        const parsed = JSON.parse(currentVal);
-                                        selectedList = Array.isArray(parsed.tags) ? parsed.tags : [];
-                                        noteText = typeof parsed.note === 'string' ? parsed.note : '';
-                                      } else {
-                                        if (isQ14Note || isQ17Note) {
-                                          selectedList = [];
-                                          noteText = currentVal;
-                                        } else {
-                                          selectedList = currentVal.split(',').map((s: string) => s.trim()).filter(Boolean);
-                                        }
-                                      }
-                                    } catch {
-                                      if (isQ14Note || isQ17Note) {
-                                        selectedList = [];
-                                        noteText = currentVal;
-                                      } else {
-                                        selectedList = currentVal.split(',').map((s: string) => s.trim()).filter(Boolean);
-                                      }
-                                    }
-                                  }
-                                } else if (isQ8 || isQ15 || isQ22) {
-                                  selectedList = currentVal ? currentVal.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean) : [];
-                                } else {
-                                  selectedList = currentVal ? currentVal.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+                          {/* Q10: Company and short bio (Text, 300 characters) */}
+                          {q.id === 10 && (
+                            <View>
+                              <TextInput
+                                style={styles.minimalTextArea}
+                                placeholder={
+                                  q.placeholder || 'Company name and a brief bio (max 300 characters)'
                                 }
+                                placeholderTextColor="#64748b"
+                                multiline
+                                maxLength={300}
+                                value={currentVal}
+                                onChangeText={(txt) => {
+                                  if (txt.length <= 300) handleAnswerChange(10, txt);
+                                }}
+                              />
+                              <View
+                                style={{
+                                  flexDirection: 'row',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  marginTop: 4,
+                                }}>
+                                <Text style={{ color: '#64748b', fontSize: 11, flex: 1, paddingRight: 8 }}>
+                                  Members describe what they do and what they are interested in. Do not post specific offerings, valuations, or terms.
+                                </Text>
+                                <Text style={styles.charCounterText}>
+                                  {currentVal.length}/300
+                                </Text>
+                              </View>
+                            </View>
+                          )}
 
-                                // Automatically expand composite options into individual chips so users can remove any with X
-                                selectedList = Array.from(new Set(selectedList.flatMap((item: string) => expandOption(item))));
-
-                                const saveQ6State = (newList: string[], newDetails: Record<string, string>) => {
-                                  if (newList.length === 0) {
-                                    handleAnswerChange(q.id, '');
-                                    return;
+                          {/* Standard Dropdown Questions: Q5, Q9, Q15, Q16, Q17, Q18 */}
+                          {q.field_type === 'dropdown' && (() => {
+                            const isOpen = activeQuestionDropdownId === q.id;
+                            const opts = q.options || [];
+                            return (
+                              <View
+                                style={[styles.minimalDropdownWrap, isOpen && { zIndex: 999999 }]}
+                                {...(Platform.OS === 'web'
+                                  ? { 'data-dropdown-wrap': String(q.id) }
+                                  : {})}>
+                                <TouchableOpacity
+                                  style={[
+                                    styles.minimalDropdownTrigger,
+                                    isOpen && styles.minimalDropdownTriggerActive,
+                                  ]}
+                                  onPress={() =>
+                                    setActiveQuestionDropdownId(isOpen ? null : q.id)
                                   }
-                                  const payload = {
-                                    methods: newList,
-                                    details: newDetails,
-                                    whatsapp: newDetails.whatsapp?.trim() || null,
-                                    telegram: newDetails.telegram?.trim() || null,
-                                    email: newDetails.email?.trim() || null,
-                                    zoom_link: newDetails.zoom?.trim() || null,
-                                  };
-                                  handleAnswerChange(q.id, JSON.stringify(payload));
-                                };
+                                  activeOpacity={0.8}>
+                                  <Text
+                                    style={[
+                                      styles.minimalDropdownTriggerText,
+                                      !currentVal && styles.minimalDropdownPlaceholder,
+                                    ]}
+                                    numberOfLines={1}>
+                                    {currentVal || q.placeholder || 'Select an option...'}
+                                  </Text>
+                                  <Ionicons
+                                    name={isOpen ? 'chevron-up' : 'chevron-down'}
+                                    size={14}
+                                    color="#94a3b8"
+                                  />
+                                </TouchableOpacity>
 
-                                const saveSelected = (newList: string[], newNote?: string) => {
-                                  if (isQ6) {
-                                    saveQ6State(newList, reachDetails);
-                                  } else if (isCompositeNote) {
-                                    const noteToSave = newNote !== undefined ? newNote : noteText;
-                                    handleAnswerChange(q.id, JSON.stringify({ tags: newList, note: noteToSave }));
-                                  } else {
-                                    handleAnswerChange(q.id, newList.join(delimiter));
-                                  }
-                                };
+                                {isOpen && (
+                                  <View style={styles.minimalDropdownMenu}>
+                                    <ScrollView
+                                      style={{ maxHeight: 240, padding: 6 }}
+                                      nestedScrollEnabled>
+                                      {opts.map((opt) => {
+                                        const isSelected = currentVal === opt;
+                                        return (
+                                          <TouchableOpacity
+                                            key={opt}
+                                            style={[
+                                              styles.minimalDropdownOption,
+                                              isSelected && styles.minimalDropdownOptionSelected,
+                                            ]}
+                                            onPress={() => {
+                                              handleAnswerChange(q.id, opt);
+                                              setActiveQuestionDropdownId(null);
+                                            }}>
+                                            <Text
+                                              style={[
+                                                styles.minimalDropdownOptionText,
+                                                isSelected &&
+                                                  styles.minimalDropdownOptionTextSelected,
+                                              ]}>
+                                              {opt}
+                                            </Text>
+                                          </TouchableOpacity>
+                                        );
+                                      })}
+                                    </ScrollView>
+                                  </View>
+                                )}
+                              </View>
+                            );
+                          })()}
 
-                                const handleUpdateReachDetail = (channelKey: string, val: string) => {
-                                  const nextDetails = { ...reachDetails, [channelKey]: val };
-                                  saveQ6State(selectedList, nextDetails);
-                                };
+                          {/* Multi-Select Questions: Q11, Q19, Q20, Q21, Q22, Q23, Q24 */}
+                          {q.field_type === 'multi' && (() => {
+                            const selectedList = parseMultiTags(currentVal);
+                            const opts = q.options || [];
+                            const exclusiveOptions = [
+                              'Prefer not to say',
+                              'None yet',
+                              'Nobody yet',
+                              'None of these',
+                              'Not sure',
+                            ];
 
-                                return (
-                                  <>
-                                    <View style={[styles.multiTriggerAndMenuWrap, isDropdownOpen && { zIndex: 9999 }]}>
-                                      <TouchableOpacity
+                            const toggleMultiOption = (opt: string) => {
+                              let next: string[];
+                              if (selectedList.includes(opt)) {
+                                next = selectedList.filter((x) => x !== opt);
+                              } else if (exclusiveOptions.includes(opt)) {
+                                next = [opt];
+                              } else {
+                                next = [
+                                  ...selectedList.filter((x) => !exclusiveOptions.includes(x)),
+                                  opt,
+                                ];
+                              }
+                              handleAnswerChange(q.id, next.join(', '));
+                            };
+
+                            return (
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                {opts.map((opt) => {
+                                  const isSelected = selectedList.includes(opt);
+                                  return (
+                                    <TouchableOpacity
+                                      key={opt}
+                                      onPress={() => toggleMultiOption(opt)}
+                                      activeOpacity={0.8}
+                                      style={[
+                                        styles.qSugChip,
+                                        {
+                                          paddingVertical: 8,
+                                          paddingHorizontal: 12,
+                                        },
+                                        isSelected && styles.qSugChipSelected,
+                                      ]}>
+                                      <Text
                                         style={[
-                                          styles.multiTriggerContainer,
-                                          isDropdownOpen && styles.minimalDropdownTriggerActive,
-                                        ]}
-                                      onPress={() => {
-                                        setActiveQuestionDropdownId(isDropdownOpen ? null : q.id);
-                                        setDropdownSearchQuery('');
-                                      }}
-                                      activeOpacity={0.75}>
-                                      {selectedList.length === 0 ? (
-                                        <Text style={[styles.minimalDropdownTriggerText, styles.minimalDropdownPlaceholder]}>
-                                          {isQ6 ? 'Select preferred contact channels...' : isQ8 ? 'Select up to 3 industries...' : isQ14Note ? 'Select priorities...' : isQ15 ? 'Select industries to explore...' : isQ16 ? 'Select countries (up to 5)...' : isQ17Note ? 'Select connection types (up to 5)...' : isQ18Note ? 'Select areas...' : isQ22 ? 'Select interests...' : q.id === 3 ? 'Select cities where you spend time...' : q.id === 4 ? 'Select operating base countries...' : 'Select options...'}
+                                          styles.qSugChipText,
+                                          { fontSize: 12.5 },
+                                          isSelected && styles.qSugChipTextSelected,
+                                        ]}>
+                                        {isSelected ? `✓ ${opt}` : opt}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            );
+                          })()}
+
+                          {/* Country Multi-Select Questions: Q12 (Where do you live?), Q13 (Citizenships), Q14 (Where do you pay tax?) */}
+                          {(q.field_type === 'country_multi' ||
+                            q.field_type === 'country_tax_multi') && (() => {
+                            let selectedCountries: string[] = [];
+                            let selectedUsStates: string[] = [];
+
+                            if (q.id === 14 && currentVal && currentVal.trim().startsWith('{')) {
+                              try {
+                                const parsed = JSON.parse(currentVal);
+                                selectedCountries = Array.isArray(parsed.countries)
+                                  ? parsed.countries
+                                  : [];
+                                selectedUsStates = Array.isArray(parsed.us_states)
+                                  ? parsed.us_states
+                                  : [];
+                              } catch {}
+                            } else {
+                              selectedCountries = parseMultiTags(currentVal);
+                            }
+
+                            const saveCountryTaxState = (
+                              nextCountries: string[],
+                              nextStates: string[]
+                            ) => {
+                              if (q.id === 14) {
+                                const cleanStates = nextCountries.includes('United States')
+                                  ? nextStates
+                                  : [];
+                                if (nextCountries.length === 0) {
+                                  handleAnswerChange(14, '');
+                                } else if (cleanStates.length > 0) {
+                                  handleAnswerChange(
+                                    14,
+                                    JSON.stringify({
+                                      countries: nextCountries,
+                                      us_states: cleanStates,
+                                    })
+                                  );
+                                } else {
+                                  handleAnswerChange(14, nextCountries.join(', '));
+                                }
+                              } else {
+                                handleAnswerChange(q.id, nextCountries.join(', '));
+                              }
+                            };
+
+                            const isOpen = activeQuestionDropdownId === q.id;
+                            const stateDropdownId = 1401;
+                            const isStateOpen = activeQuestionDropdownId === stateDropdownId;
+                            const filteredCountries = ALL_COUNTRIES_LIST.filter(
+                              (c) =>
+                                !dropdownSearchQuery.trim() ||
+                                c.toLowerCase().includes(dropdownSearchQuery.toLowerCase())
+                            );
+
+                            return (
+                              <View>
+                                <View
+                                  style={[styles.minimalDropdownWrap, isOpen && { zIndex: 999999 }]}
+                                  {...(Platform.OS === 'web'
+                                    ? { 'data-dropdown-wrap': String(q.id) }
+                                    : {})}>
+                                  <TouchableOpacity
+                                    style={[
+                                      styles.multiTriggerContainer,
+                                      isOpen && styles.minimalDropdownTriggerActive,
+                                    ]}
+                                    onPress={() =>
+                                      setActiveQuestionDropdownId(isOpen ? null : q.id)
+                                    }
+                                    activeOpacity={0.8}>
+                                    {selectedCountries.length > 0 ? (
+                                      <View style={styles.multiTagsWrap}>
+                                        {selectedCountries.map((c) => (
+                                          <View key={c} style={styles.multiTagChip}>
+                                            <Text style={styles.multiTagChipText}>{c}</Text>
+                                            <TouchableOpacity
+                                              style={styles.multiTagRemoveBtn}
+                                              onPress={() =>
+                                                saveCountryTaxState(
+                                                  selectedCountries.filter((x) => x !== c),
+                                                  selectedUsStates
+                                                )
+                                              }>
+                                              <Ionicons
+                                                name="close-circle"
+                                                size={14}
+                                                color="#94a3b8"
+                                              />
+                                            </TouchableOpacity>
+                                          </View>
+                                        ))}
+                                      </View>
+                                    ) : (
+                                      <Text
+                                        style={[
+                                          styles.minimalDropdownTriggerText,
+                                          styles.minimalDropdownPlaceholder,
+                                        ]}>
+                                        {q.placeholder || 'Select countries...'}
+                                      </Text>
+                                    )}
+                                    <Ionicons
+                                      name={isOpen ? 'chevron-up' : 'chevron-down'}
+                                      size={14}
+                                      color="#94a3b8"
+                                    />
+                                  </TouchableOpacity>
+
+                                  {isOpen && (
+                                    <View style={styles.minimalDropdownMenu}>
+                                      <View style={styles.dropdownSearchHeader}>
+                                        <Ionicons name="search" size={13} color="#64748b" />
+                                        <TextInput
+                                          ref={dropdownSearchInputRef}
+                                          style={styles.dropdownSearchInput}
+                                          placeholder="Search country..."
+                                          placeholderTextColor="#64748b"
+                                          value={dropdownSearchQuery}
+                                          onChangeText={setDropdownSearchQuery}
+                                        />
+                                      </View>
+                                      <ScrollView
+                                        style={{ maxHeight: 220, padding: 6 }}
+                                        nestedScrollEnabled>
+                                        {filteredCountries.map((c) => {
+                                          const isSelected = selectedCountries.includes(c);
+                                          return (
+                                            <TouchableOpacity
+                                              key={c}
+                                              style={[
+                                                styles.minimalDropdownOption,
+                                                isSelected &&
+                                                  styles.minimalDropdownOptionSelected,
+                                              ]}
+                                              onPress={() => {
+                                                const next = isSelected
+                                                  ? selectedCountries.filter((x) => x !== c)
+                                                  : [...selectedCountries, c];
+                                                saveCountryTaxState(next, selectedUsStates);
+                                              }}>
+                                              <Text
+                                                style={[
+                                                  styles.minimalDropdownOptionText,
+                                                  isSelected &&
+                                                    styles.minimalDropdownOptionTextSelected,
+                                                ]}>
+                                                {isSelected ? `✓ ${c}` : c}
+                                              </Text>
+                                            </TouchableOpacity>
+                                          );
+                                        })}
+                                      </ScrollView>
+                                      <View style={styles.multiDoneBar}>
+                                        <Text style={styles.multiCountNotice}>
+                                          {selectedCountries.length} selected
                                         </Text>
-                                      ) : (
+                                        <TouchableOpacity
+                                          style={styles.multiDoneBtn}
+                                          onPress={() => setActiveQuestionDropdownId(null)}>
+                                          <Text style={styles.multiDoneBtnText}>Done</Text>
+                                        </TouchableOpacity>
+                                      </View>
+                                    </View>
+                                  )}
+                                </View>
+
+                                {q.id === 13 && (
+                                  <Text style={{ color: '#64748b', fontSize: 11, marginTop: 3 }}>
+                                    Countries only — never enter passport numbers.
+                                  </Text>
+                                )}
+
+                                {/* Q14 US State selector when United States is selected */}
+                                {q.id === 14 && selectedCountries.includes('United States') && (
+                                  <View
+                                    style={[
+                                      styles.minimalDropdownWrap,
+                                      { marginTop: 8 },
+                                      isStateOpen && { zIndex: 999999 },
+                                    ]}
+                                    {...(Platform.OS === 'web'
+                                      ? { 'data-dropdown-wrap': String(stateDropdownId) }
+                                      : {})}>
+                                    <TouchableOpacity
+                                      style={[
+                                        styles.multiTriggerContainer,
+                                        isStateOpen && styles.minimalDropdownTriggerActive,
+                                      ]}
+                                      onPress={() =>
+                                        setActiveQuestionDropdownId(
+                                          isStateOpen ? null : stateDropdownId
+                                        )
+                                      }
+                                      activeOpacity={0.8}>
+                                      {selectedUsStates.length > 0 ? (
                                         <View style={styles.multiTagsWrap}>
-                                          {selectedList.map((tag: string, tIdx: number) => {
-                                            const isPrimary = isQ8 && tIdx === 0;
-                                            return (
-                                              <View key={tIdx} style={[styles.multiTagChip, isPrimary && styles.primaryTagChip]}>
-                                                {isQ8 && tIdx === 0 && (
-                                                  <View style={styles.primaryTagBadge}>
-                                                    <Text style={styles.primaryTagBadgeText}>★ PRIMARY</Text>
-                                                  </View>
-                                                )}
-                                                {isQ8 && tIdx > 0 && (
-                                                  <View style={styles.rankTagBadge}>
-                                                    <Text style={styles.rankTagBadgeText}>{tIdx === 1 ? '2nd' : '3rd'}</Text>
-                                                  </View>
-                                                )}
-                                                <Text style={styles.multiTagChipText} numberOfLines={1}>{tag}</Text>
-                                                {isQ8 && tIdx > 0 && (
-                                                  <TouchableOpacity
-                                                    onPress={(e) => {
-                                                      e.stopPropagation?.();
-                                                      const reordered = [tag, ...selectedList.filter(item => item !== tag)];
-                                                      saveSelected(reordered);
-                                                    }}
-                                                    style={styles.makePrimaryChipBtn}>
-                                                    <Text style={styles.makePrimaryChipBtnText}>Make Primary</Text>
-                                                  </TouchableOpacity>
-                                                )}
-                                                <TouchableOpacity
-                                                  onPress={(e) => {
-                                                    e.stopPropagation?.();
-                                                    const nextList = selectedList.filter((item: string) => item !== tag);
-                                                    saveSelected(nextList);
-                                                  }}
-                                                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                                  style={styles.multiTagRemoveBtn}>
-                                                  <Ionicons name="close" size={12} color="#cbd5e1" />
-                                                </TouchableOpacity>
-                                              </View>
-                                            );
-                                          })}
+                                          {selectedUsStates.map((st) => (
+                                            <View key={st} style={styles.multiTagChip}>
+                                              <Text style={styles.multiTagChipText}>
+                                                US: {st}
+                                              </Text>
+                                              <TouchableOpacity
+                                                style={styles.multiTagRemoveBtn}
+                                                onPress={() =>
+                                                  saveCountryTaxState(
+                                                    selectedCountries,
+                                                    selectedUsStates.filter((x) => x !== st)
+                                                  )
+                                                }>
+                                                <Ionicons
+                                                  name="close-circle"
+                                                  size={14}
+                                                  color="#94a3b8"
+                                                />
+                                              </TouchableOpacity>
+                                            </View>
+                                          ))}
                                         </View>
+                                      ) : (
+                                        <Text
+                                          style={[
+                                            styles.minimalDropdownTriggerText,
+                                            styles.minimalDropdownPlaceholder,
+                                          ]}>
+                                          Select US state(s) for tax residency...
+                                        </Text>
                                       )}
                                       <Ionicons
-                                        name={isDropdownOpen ? "chevron-up" : "chevron-down"}
+                                        name={isStateOpen ? 'chevron-up' : 'chevron-down'}
                                         size={14}
                                         color="#94a3b8"
                                       />
                                     </TouchableOpacity>
 
-                                    {isDropdownOpen && (
+                                    {isStateOpen && (
                                       <View style={styles.minimalDropdownMenu}>
-                                        <View style={styles.dropdownSearchHeader}>
-                                          <Ionicons name="search" size={13} color="#94a3b8" style={{ marginRight: 6 }} />
-                                          <TextInput
-                                            ref={dropdownSearchInputRef}
-                                            style={styles.dropdownSearchInput}
-                                            placeholder="Search..."
-                                            placeholderTextColor="#64748b"
-                                            value={dropdownSearchQuery}
-                                            onChangeText={setDropdownSearchQuery}
-                                            autoFocus={true}
-                                            autoCorrect={false}
-                                            autoCapitalize="none"
-                                            autoComplete="off"
-                                            textContentType="none"
-                                            spellCheck={false}
-                                            {...(Platform.OS === 'web' ? ({
-                                              autoComplete: 'new-password',
-                                              'data-form-type': 'other',
-                                              'data-lpignore': 'true',
-                                              'aria-autocomplete': 'none',
-                                              name: `search-multi-${q.id}`,
-                                            } as any) : {})}
-                                            clearButtonMode="while-editing"
-                                            returnKeyType="done"
-                                            onSubmitEditing={() => {
-                                              if (filteredOptions.length > 0) {
-                                                const first = filteredOptions[0];
-                                                const expanded = expandOption(first);
-                                                const allSel = expanded.every((p: string) => selectedList.includes(p));
-                                                if (allSel) {
-                                                  saveSelected(selectedList.filter((item: string) => !expanded.includes(item)));
-                                                } else {
-                                                  if (isQ8 && selectedList.length >= 3) return;
-                                                  if ((isQ16 || isQ17Note) && selectedList.length >= 5) return;
-                                                  const nextList = [...selectedList];
-                                                  expanded.forEach((p: string) => {
-                                                    if (!nextList.includes(p)) {
-                                                      if (isQ8 && nextList.length >= 3) return;
-                                                      if ((isQ16 || isQ17Note) && nextList.length >= 5) return;
-                                                      nextList.push(p);
-                                                    }
-                                                  });
-                                                  saveSelected(nextList);
-                                                }
-                                                setDropdownSearchQuery('');
-                                              } else if (dropdownSearchQuery.trim()) {
-                                                const rawQuery = dropdownSearchQuery.trim();
-                                                const customParts = (isQ7 && (rawQuery.includes(',') || rawQuery.includes('/')))
-                                                  ? rawQuery.split(/[,/]/).map((s: string) => s.trim()).filter(Boolean)
-                                                  : [rawQuery];
-                                                const nextList = [...selectedList];
-                                                customParts.forEach((cp: string) => {
-                                                  if (!nextList.includes(cp)) {
-                                                    if (isQ8 && nextList.length >= 3) return;
-                                                    if ((isQ16 || isQ17Note) && nextList.length >= 5) return;
-                                                    nextList.push(cp);
-                                                  }
-                                                });
-                                                saveSelected(nextList);
-                                                setDropdownSearchQuery('');
-                                              }
-                                            }}
-                                          />
-                                          {dropdownSearchQuery.length > 0 && (
-                                            <TouchableOpacity
-                                              onPress={() => setDropdownSearchQuery('')}
-                                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                              <Ionicons name="close-circle" size={15} color="#94a3b8" />
-                                            </TouchableOpacity>
-                                          )}
-                                        </View>
                                         <ScrollView
-                                          style={{ maxHeight: 240, padding: 4 }}
-                                          nestedScrollEnabled
-                                          showsVerticalScrollIndicator={true}
-                                          keyboardShouldPersistTaps="handled">
-                                          {filteredOptions.length === 0 ? (
-                                            <View style={{ padding: 12, alignItems: 'center' }}>
-                                              <Text style={{ color: '#94a3b8', fontSize: 12, marginBottom: 8 }}>
-                                                No options matching "{dropdownSearchQuery}"
-                                              </Text>
-                                              {dropdownSearchQuery.trim().length > 0 && (
-                                                <TouchableOpacity
-                                                  style={[styles.minimalDropdownOption, { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }]}
-                                                  {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
-                                                  onPress={() => {
-                                                    const rawQuery = dropdownSearchQuery.trim();
-                                                    const customParts = (isQ7 && (rawQuery.includes(',') || rawQuery.includes('/')))
-                                                      ? rawQuery.split(/[,/]/).map((s: string) => s.trim()).filter(Boolean)
-                                                      : [rawQuery];
-                                                    const nextList = [...selectedList];
-                                                    customParts.forEach((cp: string) => {
-                                                      if (!nextList.includes(cp)) {
-                                                        if (isQ8 && nextList.length >= 3) return;
-                                                        if ((isQ16 || isQ17Note) && nextList.length >= 5) return;
-                                                        nextList.push(cp);
-                                                      }
-                                                    });
-                                                    saveSelected(nextList);
-                                                    setDropdownSearchQuery('');
-                                                  }}>
-                                                  <Ionicons name="add-circle-outline" size={15} color={OzaraTheme.colors.accentCyan} style={{ marginRight: 6 }} />
-                                                  <Text style={[styles.minimalDropdownOptionText, { color: OzaraTheme.colors.accentCyan }]}>
-                                                    Add custom: "{dropdownSearchQuery.trim()}"
-                                                  </Text>
-                                                </TouchableOpacity>
-                                              )}
-                                            </View>
-                                          ) : isQ22 ? (
-                                            <>
-                                              {STANDARDIZED_INTEREST_GROUPS.map((grp, gIdx) => {
-                                                const qLow = dropdownSearchQuery.trim().toLowerCase();
-                                                const catMatches = !qLow || grp.category.toLowerCase().includes(qLow);
-                                                const matchingOpts = grp.options.filter(opt => !qLow || catMatches || opt.toLowerCase().includes(qLow));
-                                                if (matchingOpts.length === 0) return null;
-
-                                                return (
-                                                  <View key={gIdx} style={{ marginBottom: 6 }}>
-                                                    <View style={styles.dropdownCategoryHeader}>
-                                                      <Text style={styles.dropdownCategoryHeaderText}>{grp.category.toUpperCase()}</Text>
-                                                    </View>
-                                                    {matchingOpts.map((opt, oIdx) => {
-                                                      const isSelected = selectedList.includes(opt);
-                                                      return (
-                                                        <TouchableOpacity
-                                                          key={oIdx}
-                                                          style={[
-                                                            styles.minimalDropdownOption,
-                                                            isSelected && styles.minimalDropdownOptionSelected,
-                                                            { flexDirection: 'row', alignItems: 'center' },
-                                                          ]}
-                                                          onPress={() => {
-                                                            if (isSelected) {
-                                                              saveSelected(selectedList.filter(item => item !== opt));
-                                                            } else {
-                                                              saveSelected([...selectedList, opt]);
-                                                            }
-                                                          }}
-                                                          {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
-                                                          activeOpacity={0.7}>
-                                                          <TouchableOpacity
-                                                            onPress={() => {
-                                                              if (isSelected) {
-                                                                saveSelected(selectedList.filter(item => item !== opt));
-                                                              } else {
-                                                                saveSelected([...selectedList, opt]);
-                                                              }
-                                                            }}
-                                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                                            <Ionicons
-                                                              name={isSelected ? "checkbox" : "square-outline"}
-                                                              size={16}
-                                                              color={isSelected ? OzaraTheme.colors.accentCyan : "#64748b"}
-                                                              style={{ marginRight: 8 }}
-                                                            />
-                                                          </TouchableOpacity>
-                                                          <Text
-                                                            style={[
-                                                              styles.minimalDropdownOptionText,
-                                                              isSelected && styles.minimalDropdownOptionTextSelected,
-                                                              { flex: 1 },
-                                                            ]}>
-                                                            {opt}
-                                                          </Text>
-                                                        </TouchableOpacity>
-                                                      );
-                                                    })}
-                                                  </View>
-                                                );
-                                              })}
-                                              {dropdownSearchQuery.trim().length > 0 && !STANDARDIZED_INTERESTS.some(o => o.toLowerCase() === dropdownSearchQuery.trim().toLowerCase()) && (
-                                                <TouchableOpacity
-                                                  style={[styles.minimalDropdownOption, { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)', marginTop: 4 }]}
-                                                  {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
-                                                  onPress={() => {
-                                                    const custom = dropdownSearchQuery.trim();
-                                                    if (!selectedList.includes(custom)) {
-                                                      saveSelected([...selectedList, custom]);
-                                                    }
-                                                    setDropdownSearchQuery('');
-                                                  }}>
-                                                  <Ionicons name="add-circle-outline" size={15} color={OzaraTheme.colors.accentCyan} style={{ marginRight: 6 }} />
-                                                  <Text style={[styles.minimalDropdownOptionText, { color: OzaraTheme.colors.accentCyan }]}>
-                                                    Add custom: "{dropdownSearchQuery.trim()}"
-                                                  </Text>
-                                                </TouchableOpacity>
-                                              )}
-                                            </>
-                                          ) : (
-                                            <>
-                                              {filteredOptions.map((opt, oIdx) => {
-                                                const isOtherOption = opt.toLowerCase().includes('other — please specify') || opt.toLowerCase() === 'other' || opt.toLowerCase().startsWith('other —');
-                                                const specifiedOtherItems = isOtherOption
-                                                  ? selectedList.filter((item: string) => item.toLowerCase().startsWith('other:') || item.toLowerCase().startsWith('other -') || (item.toLowerCase().startsWith('other') && item !== 'other — please specify' && item !== 'other'))
-                                                  : [];
-                                                const expandedParts = expandOption(opt);
-                                                const isExpandedCompound = expandedParts.length > 1;
-                                                const isSelected = isOtherOption
-                                                  ? (selectedList.includes(opt) || specifiedOtherItems.length > 0)
-                                                  : isExpandedCompound
-                                                    ? expandedParts.every((p: string) => selectedList.includes(p))
-                                                    : selectedList.includes(opt);
-                                                const isPartiallySelected = isExpandedCompound && !isSelected && expandedParts.some((p: string) => selectedList.includes(p));
-                                                const isSpecifyingThis = isOtherOption && specifyingOtherQuestionId === q.id;
-
-                                                const handleToggleOption = () => {
-                                                  if (isOtherOption) {
-                                                    if (isSelected) {
-                                                      setSpecifyingOtherQuestionId(prev => (prev === q.id ? null : q.id));
-                                                    } else {
-                                                      setSpecifyingOtherQuestionId(q.id);
-                                                      if (!selectedList.includes(opt)) {
-                                                        if (isQ8 && selectedList.length >= 3) return;
-                                                        saveSelected([...selectedList, opt]);
-                                                      }
-                                                    }
-                                                  } else if (isExpandedCompound) {
-                                                    if (isSelected) {
-                                                      saveSelected(selectedList.filter((item: string) => !expandedParts.includes(item)));
-                                                    } else {
-                                                      const nextList = [...selectedList];
-                                                      expandedParts.forEach((p: string) => {
-                                                        if (!nextList.includes(p)) {
-                                                          if (isQ8 && nextList.length >= 3) return;
-                                                          nextList.push(p);
-                                                        }
-                                                      });
-                                                      saveSelected(nextList);
-                                                    }
-                                                  } else {
-                                                    const isOpenToConnectionsAnywhere = opt.toLowerCase().includes('open to connections anywhere');
-                                                    if (isQ16) {
-                                                      if (isOpenToConnectionsAnywhere) {
-                                                        if (isSelected) {
-                                                          saveSelected([]);
-                                                        } else {
-                                                          saveSelected(['Open to connections anywhere']);
-                                                        }
-                                                        return;
-                                                      } else {
-                                                        if (isSelected) {
-                                                          saveSelected(selectedList.filter((item: string) => item !== opt));
-                                                        } else {
-                                                          const withoutOpen = selectedList.filter((item: string) => !item.toLowerCase().includes('open to connections anywhere'));
-                                                          if (withoutOpen.length >= 5) {
-                                                            if (Platform.OS === 'web') {
-                                                              window.alert('Maximum 5 countries can be selected.');
-                                                            } else {
-                                                              Alert.alert('Maximum Reached', 'You can select up to five countries.');
-                                                            }
-                                                            return;
-                                                          }
-                                                          saveSelected([...withoutOpen, opt]);
-                                                        }
-                                                        return;
-                                                      }
-                                                    }
-
-                                                    const isOpenToMeetingDifferent = opt.toLowerCase().includes('open to meeting different people');
-                                                    if (isQ17Note) {
-                                                      if (isOpenToMeetingDifferent) {
-                                                        if (isSelected) {
-                                                          saveSelected([]);
-                                                        } else {
-                                                          saveSelected(['Open to Meeting Different People']);
-                                                        }
-                                                        return;
-                                                      } else {
-                                                        if (isSelected) {
-                                                          saveSelected(selectedList.filter((item: string) => item !== opt));
-                                                        } else {
-                                                          const withoutOpen = selectedList.filter((item: string) => !item.toLowerCase().includes('open to meeting different people'));
-                                                          if (withoutOpen.length >= 5) {
-                                                            if (Platform.OS === 'web') {
-                                                              window.alert('Maximum 5 types of connections can be selected.');
-                                                            } else {
-                                                              Alert.alert('Maximum Reached', 'You can select up to five types of connections.');
-                                                            }
-                                                            return;
-                                                          }
-                                                          saveSelected([...withoutOpen, opt]);
-                                                        }
-                                                        return;
-                                                      }
-                                                    }
-
-                                                    if (isSelected) {
-                                                      saveSelected(selectedList.filter((item: string) => item !== opt));
-                                                    } else {
-                                                      if (isQ8 && selectedList.length >= 3) {
-                                                        if (Platform.OS === 'web') {
-                                                          window.alert('Maximum 3 industries can be selected.');
-                                                        } else {
-                                                          Alert.alert('Maximum Reached', 'You can select up to three industries.');
-                                                        }
-                                                        return;
-                                                      }
-                                                      saveSelected([...selectedList, opt]);
-                                                    }
-                                                  }
-                                                };
-
-                                                const handleToggleCheckboxOnly = () => {
-                                                  if (isOtherOption) {
-                                                    if (isSelected) {
-                                                      const nextList = selectedList.filter((item: string) =>
-                                                        item !== opt &&
-                                                        !item.toLowerCase().startsWith('other:') &&
-                                                        !item.toLowerCase().startsWith('other -') &&
-                                                        !(item.toLowerCase().startsWith('other') && item !== 'other')
-                                                      );
-                                                      saveSelected(nextList);
-                                                      setSpecifyingOtherQuestionId(null);
-                                                      setCustomOtherText('');
-                                                    } else {
-                                                      setSpecifyingOtherQuestionId(q.id);
-                                                      saveSelected([...selectedList, opt]);
-                                                    }
-                                                  } else if (isExpandedCompound) {
-                                                    if (isSelected || isPartiallySelected) {
-                                                      saveSelected(selectedList.filter((item: string) => !expandedParts.includes(item)));
-                                                    } else {
-                                                      const nextList = [...selectedList];
-                                                      expandedParts.forEach((p: string) => {
-                                                        if (!nextList.includes(p)) {
-                                                          if (isQ8 && nextList.length >= 3) return;
-                                                          nextList.push(p);
-                                                        }
-                                                      });
-                                                      saveSelected(nextList);
-                                                    }
-                                                  } else {
-                                                    handleToggleOption();
-                                                  }
-                                                };
-
-                                                const handleAddSpecifiedOther = () => {
-                                                  const trimmed = customOtherText.trim();
-                                                  if (trimmed) {
-                                                    const formatted = trimmed.toLowerCase().startsWith('other') ? trimmed : `Other: ${trimmed}`;
-                                                    const cleanList = selectedList.filter((item: string) => item !== opt && item !== 'Other');
-                                                    if (!cleanList.includes(formatted)) {
-                                                      saveSelected([...cleanList, formatted]);
-                                                    }
-                                                    setCustomOtherText('');
-                                                  }
-                                                };
-
-                                                const isOptPrimary = isQ8 && selectedList[0] === opt;
-                                                const optRankIdx = isQ8 ? selectedList.indexOf(opt) : -1;
-
-                                                return (
-                                                  <View key={oIdx} style={{ marginBottom: 2 }}>
-                                                    <TouchableOpacity
-                                                      style={[
-                                                        styles.minimalDropdownOption,
-                                                        isSelected && styles.minimalDropdownOptionSelected,
-                                                        isOptPrimary && styles.primaryDropdownOptionSelected,
-                                                        { flexDirection: 'row', alignItems: 'center' },
-                                                      ]}
-                                                      onPress={handleToggleOption}
-                                                      {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
-                                                      activeOpacity={0.7}>
-                                                      <TouchableOpacity
-                                                        onPress={handleToggleCheckboxOnly}
-                                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                                        <Ionicons
-                                                          name={isSelected ? "checkbox" : isPartiallySelected ? "remove-circle-outline" : "square-outline"}
-                                                          size={16}
-                                                          color={isSelected ? OzaraTheme.colors.accentCyan : isPartiallySelected ? "#38bdf8" : "#64748b"}
-                                                          style={{ marginRight: 8 }}
-                                                        />
-                                                      </TouchableOpacity>
-                                                      <Text
-                                                        style={[
-                                                          styles.minimalDropdownOptionText,
-                                                          isSelected && styles.minimalDropdownOptionTextSelected,
-                                                          isOptPrimary && styles.primaryDropdownOptionTextSelected,
-                                                          { flex: 1 },
-                                                        ]}>
-                                                        {opt}
-                                                      </Text>
-                                                      {isOptPrimary && (
-                                                        <View style={styles.primaryOptionBadge}>
-                                                          <Text style={styles.primaryOptionBadgeText}>PRIMARY</Text>
-                                                        </View>
-                                                      )}
-                                                      {!isOptPrimary && optRankIdx > 0 && (
-                                                        <View style={styles.rankOptionBadge}>
-                                                          <Text style={styles.rankOptionBadgeText}>{optRankIdx === 1 ? '2nd' : '3rd'}</Text>
-                                                        </View>
-                                                      )}
-                                                      {isOtherOption && (
-                                                        <TouchableOpacity
-                                                          onPress={() => setSpecifyingOtherQuestionId(prev => (prev === q.id ? null : q.id))}
-                                                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                                          style={{ paddingHorizontal: 4 }}>
-                                                          <Ionicons
-                                                            name={isSpecifyingThis ? "chevron-up" : "create-outline"}
-                                                            size={15}
-                                                            color={isSelected ? OzaraTheme.colors.accentCyan : "#94a3b8"}
-                                                          />
-                                                        </TouchableOpacity>
-                                                      )}
-                                                    </TouchableOpacity>
-
-                                                    {/* Chips for already-specified other items */}
-                                                    {isOtherOption && specifiedOtherItems.length > 0 && (
-                                                      <View style={styles.otherSpecifiedChipsWrap}>
-                                                        {specifiedOtherItems.map((specItem: string, sIdx: number) => (
-                                                          <View key={sIdx} style={styles.otherSpecifiedChip}>
-                                                            <Text style={styles.otherSpecifiedChipText} numberOfLines={1}>{specItem}</Text>
-                                                            <TouchableOpacity
-                                                              onPress={() => {
-                                                                const nextList = selectedList.filter((item: string) => item !== specItem);
-                                                                saveSelected(nextList);
-                                                              }}
-                                                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                                                              <Ionicons name="close" size={12} color="#cbd5e1" />
-                                                            </TouchableOpacity>
-                                                          </View>
-                                                        ))}
-                                                      </View>
-                                                    )}
-
-                                                    {/* Inline input for typing in custom other role */}
-                                                    {isOtherOption && isSpecifyingThis && (
-                                                      <View style={styles.otherInputRow}>
-                                                        <TextInput
-                                                          ref={otherTextInputRef}
-                                                          style={styles.otherInputField}
-                                                          placeholder="Specify..."
-                                                          placeholderTextColor="#64748b"
-                                                          value={customOtherText}
-                                                          onChangeText={setCustomOtherText}
-                                                          autoFocus={true}
-                                                          autoCapitalize="words"
-                                                          returnKeyType="done"
-                                                          onSubmitEditing={handleAddSpecifiedOther}
-                                                        />
-                                                        <TouchableOpacity
-                                                          style={styles.otherInputBtn}
-                                                          onPress={handleAddSpecifiedOther}
-                                                          activeOpacity={0.8}>
-                                                          <Ionicons name="add" size={13} color="#ffffff" style={{ marginRight: 2 }} />
-                                                          <Text style={styles.otherInputBtnText}>Add</Text>
-                                                        </TouchableOpacity>
-                                                      </View>
-                                                    )}
-                                                  </View>
-                                                );
-                                              })}
-                                            </>
-                                          )}
+                                          style={{ maxHeight: 200, padding: 6 }}
+                                          nestedScrollEnabled>
+                                          {US_STATES_LIST.map((st) => {
+                                            const isStSelected = selectedUsStates.includes(st);
+                                            return (
+                                              <TouchableOpacity
+                                                key={st}
+                                                style={[
+                                                  styles.minimalDropdownOption,
+                                                  isStSelected &&
+                                                    styles.minimalDropdownOptionSelected,
+                                                ]}
+                                                onPress={() => {
+                                                  const nextSt = isStSelected
+                                                    ? selectedUsStates.filter((x) => x !== st)
+                                                    : [...selectedUsStates, st];
+                                                  saveCountryTaxState(selectedCountries, nextSt);
+                                                }}>
+                                                <Text
+                                                  style={[
+                                                    styles.minimalDropdownOptionText,
+                                                    isStSelected &&
+                                                      styles.minimalDropdownOptionTextSelected,
+                                                  ]}>
+                                                  {isStSelected ? `✓ ${st}` : st}
+                                                </Text>
+                                              </TouchableOpacity>
+                                            );
+                                          })}
                                         </ScrollView>
                                         <View style={styles.multiDoneBar}>
                                           <Text style={styles.multiCountNotice}>
-                                            {isQ8
-                                              ? `${selectedList.length}/3 selected (1st is Primary)`
-                                              : (isQ16 || isQ17Note)
-                                              ? `${selectedList.length}/5 selected`
-                                              : `${selectedList.length} selected`}
+                                            {selectedUsStates.length} US state(s)
                                           </Text>
                                           <TouchableOpacity
                                             style={styles.multiDoneBtn}
-                                            onPress={() => {
-                                              if (specifyingOtherQuestionId === q.id && customOtherText.trim()) {
-                                                const trimmed = customOtherText.trim();
-                                                const formatted = trimmed.toLowerCase().startsWith('other') ? trimmed : `Other: ${trimmed}`;
-                                                const cleanList = selectedList.filter((item: string) => item !== 'Other — please specify' && item !== 'Other');
-                                                if (!cleanList.includes(formatted)) {
-                                                  saveSelected([...cleanList, formatted]);
-                                                }
-                                              }
-                                              setActiveQuestionDropdownId(null);
-                                              setDropdownSearchQuery('');
-                                              setSpecifyingOtherQuestionId(null);
-                                              setCustomOtherText('');
-                                            }}
-                                            activeOpacity={0.8}>
+                                            onPress={() => setActiveQuestionDropdownId(null)}>
                                             <Text style={styles.multiDoneBtnText}>Done</Text>
                                           </TouchableOpacity>
                                         </View>
                                       </View>
                                     )}
                                   </View>
-
-                                  {/* Contextual detail inputs for Question 6 (Best way to reach you) */}
-                                    {isQ6 && selectedList.length > 0 && (
-                                      <View style={styles.q6DetailsContainer}>
-                                        {/* WhatsApp with separate Country Calling Code & National Number */}
-                                        {selectedList.some(m => /whatsapp/i.test(m)) && (() => {
-                                          const parsedWhatsApp = parsePhoneNumber(reachDetails.whatsapp);
-                                          const whatsAppCountry = parsedWhatsApp.country;
-                                          const whatsAppNational = parsedWhatsApp.nationalNumber;
-                                          const isWhatsAppPickerOpen = activeQuestionDropdownId === 699;
-
-                                          const qSearch = whatsAppCountrySearchQuery.trim().toLowerCase();
-                                          const filteredWhatsAppCountries = qSearch
-                                            ? COUNTRY_DIAL_CODES.filter(c =>
-                                                c.name.toLowerCase().includes(qSearch) ||
-                                                c.dialCode.includes(qSearch) ||
-                                                c.code.toLowerCase().includes(qSearch)
-                                              )
-                                            : COUNTRY_DIAL_CODES;
-
-                                          return (
-                                            <View style={[styles.q6DetailRow, isWhatsAppPickerOpen && { zIndex: 9999 }]}>
-                                              <View style={styles.q6ChannelHeader}>
-                                                <Ionicons name="logo-whatsapp" size={13} color="#22c55e" style={{ marginRight: 6 }} />
-                                                <Text style={styles.q6ChannelTitle}>WhatsApp</Text>
-                                              </View>
-
-                                              <View style={[styles.phoneInputRow, isWhatsAppPickerOpen && { zIndex: 9999 }]}>
-                                                {/* Separate Country Dial Code Selector */}
-                                                <View style={[styles.phoneCountryPickerContainer, isWhatsAppPickerOpen && { zIndex: 9999 }]}>
-                                                  <TouchableOpacity
-                                                    style={[
-                                                      styles.phoneCountryTrigger,
-                                                      isWhatsAppPickerOpen && styles.phoneCountryTriggerActive,
-                                                    ]}
-                                                    onPress={() => {
-                                                      setActiveQuestionDropdownId(isWhatsAppPickerOpen ? null : 699);
-                                                      setWhatsAppCountrySearchQuery('');
-                                                    }}
-                                                    activeOpacity={0.75}>
-                                                    <Text style={styles.phoneCountryFlag}>{whatsAppCountry.flag}</Text>
-                                                    <Text style={styles.phoneCountryDialCode}>{whatsAppCountry.dialCode}</Text>
-                                                    <Ionicons
-                                                      name={isWhatsAppPickerOpen ? "chevron-up" : "chevron-down"}
-                                                      size={12}
-                                                      color={isWhatsAppPickerOpen ? OzaraTheme.colors.accentCyan : "#94a3b8"}
-                                                    />
-                                                  </TouchableOpacity>
-
-                                                  {/* Floating Country Picker Dropdown */}
-                                                  {isWhatsAppPickerOpen && (
-                                                    <View style={styles.phoneCountryDropdownMenu}>
-                                                      <View style={styles.dropdownSearchHeader}>
-                                                        <Ionicons name="search" size={13} color="#94a3b8" style={{ marginRight: 6 }} />
-                                                        <TextInput
-                                                          style={styles.dropdownSearchInput}
-                                                          placeholder="Search country or code..."
-                                                          placeholderTextColor="#64748b"
-                                                          value={whatsAppCountrySearchQuery}
-                                                          onChangeText={setWhatsAppCountrySearchQuery}
-                                                          autoFocus={true}
-                                                          autoCorrect={false}
-                                                          autoCapitalize="none"
-                                                          clearButtonMode="while-editing"
-                                                          {...(Platform.OS === 'web' ? ({
-                                                            autoComplete: 'new-password',
-                                                            'data-form-type': 'other',
-                                                          } as any) : {})}
-                                                        />
-                                                        {whatsAppCountrySearchQuery.length > 0 && (
-                                                          <TouchableOpacity
-                                                            onPress={() => setWhatsAppCountrySearchQuery('')}
-                                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                                            <Ionicons name="close-circle" size={14} color="#94a3b8" />
-                                                          </TouchableOpacity>
-                                                        )}
-                                                      </View>
-                                                      <ScrollView
-                                                        style={{ maxHeight: 210, padding: 4 }}
-                                                        nestedScrollEnabled
-                                                        showsVerticalScrollIndicator={true}
-                                                        keyboardShouldPersistTaps="handled">
-                                                        {filteredWhatsAppCountries.length === 0 ? (
-                                                          <View style={{ padding: 12, alignItems: 'center' }}>
-                                                            <Text style={{ color: '#94a3b8', fontSize: 12 }}>
-                                                              No matching countries
-                                                            </Text>
-                                                          </View>
-                                                        ) : (
-                                                          filteredWhatsAppCountries.map((c, cIdx) => {
-                                                            const isSelected = c.code === whatsAppCountry.code && c.dialCode === whatsAppCountry.dialCode;
-                                                            return (
-                                                              <TouchableOpacity
-                                                                key={cIdx}
-                                                                style={[
-                                                                  styles.minimalDropdownOption,
-                                                                  isSelected && styles.minimalDropdownOptionSelected,
-                                                                  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-                                                                ]}
-                                                                onPress={() => {
-                                                                  const formatted = formatNationalNumber(whatsAppNational, c.dialCode);
-                                                                  const full = buildFullPhoneNumber(c.dialCode, formatted);
-                                                                  handleUpdateReachDetail('whatsapp', full);
-                                                                  setActiveQuestionDropdownId(null);
-                                                                  setWhatsAppCountrySearchQuery('');
-                                                                }}
-                                                                {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
-                                                                activeOpacity={0.7}>
-                                                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
-                                                                  <Text style={{ fontSize: 15, marginRight: 8 }}>{c.flag}</Text>
-                                                                  <Text
-                                                                    style={[
-                                                                      styles.minimalDropdownOptionText,
-                                                                      isSelected && styles.minimalDropdownOptionTextSelected,
-                                                                      { flex: 1 },
-                                                                    ]}
-                                                                    numberOfLines={1}>
-                                                                    {c.name}
-                                                                  </Text>
-                                                                </View>
-                                                                <Text style={{ color: isSelected ? OzaraTheme.colors.accentCyan : '#94a3b8', fontSize: 12, fontWeight: '600' }}>
-                                                                  {c.dialCode}
-                                                                </Text>
-                                                              </TouchableOpacity>
-                                                            );
-                                                          })
-                                                        )}
-                                                      </ScrollView>
-                                                    </View>
-                                                  )}
-                                                </View>
-
-                                                {/* National Number Input without sticky +1 */}
-                                                <View style={[styles.singleLineInputContainer, { flex: 1, minWidth: 0 }]}>
-                                                  <TextInput
-                                                    style={styles.singleLineNoteInputField}
-                                                    value={whatsAppNational}
-                                                    onChangeText={(txt) => {
-                                                      const formatted = formatNationalNumber(txt, whatsAppCountry.dialCode);
-                                                      const full = buildFullPhoneNumber(whatsAppCountry.dialCode, formatted);
-                                                      handleUpdateReachDetail('whatsapp', full);
-                                                    }}
-                                                    placeholder={whatsAppCountry.placeholder || "xxx-xxx-xxxx"}
-                                                    placeholderTextColor="#64748b"
-                                                    keyboardType="phone-pad"
-                                                    autoCorrect={false}
-                                                    autoCapitalize="none"
-                                                  />
-                                                  {whatsAppNational.length > 0 && (
-                                                    <TouchableOpacity
-                                                      onPress={() => {
-                                                        handleUpdateReachDetail('whatsapp', '');
-                                                      }}
-                                                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                                      style={{ padding: 2 }}>
-                                                      <Ionicons name="close-circle" size={14} color="#64748b" />
-                                                    </TouchableOpacity>
-                                                  )}
-                                                </View>
-                                              </View>
-                                            </View>
-                                          );
-                                        })()}
-
-                                        {/* Telegram Username */}
-                                        {selectedList.some(m => /telegram/i.test(m)) && (
-                                          <View style={styles.q6DetailRow}>
-                                            <View style={styles.q6ChannelHeader}>
-                                              <Ionicons name="paper-plane" size={12} color="#38bdf8" style={{ marginRight: 6 }} />
-                                              <Text style={styles.q6ChannelTitle}>Telegram Account / Username</Text>
-                                            </View>
-                                            <View style={styles.singleLineInputContainer}>
-                                              <TextInput
-                                                style={styles.singleLineNoteInputField}
-                                                value={reachDetails.telegram || ''}
-                                                onChangeText={(txt) => handleUpdateReachDetail('telegram', txt)}
-                                                placeholder="e.g. @username"
-                                                placeholderTextColor="#64748b"
-                                                autoCorrect={false}
-                                                autoCapitalize="none"
-                                              />
-                                            </View>
-                                          </View>
-                                        )}
-
-                                        {/* Email Address */}
-                                        {selectedList.some(m => /email/i.test(m)) && (
-                                          <View style={styles.q6DetailRow}>
-                                            <View style={styles.q6ChannelHeader}>
-                                              <Ionicons name="mail-outline" size={13} color="#38bdf8" style={{ marginRight: 6 }} />
-                                              <Text style={styles.q6ChannelTitle}>Email Address</Text>
-                                            </View>
-                                            <View style={styles.singleLineInputContainer}>
-                                              <TextInput
-                                                style={styles.singleLineNoteInputField}
-                                                value={reachDetails.email || ''}
-                                                onChangeText={(txt) => handleUpdateReachDetail('email', txt)}
-                                                placeholder="e.g. name@domain.com"
-                                                placeholderTextColor="#64748b"
-                                                keyboardType="email-address"
-                                                autoCorrect={false}
-                                                autoCapitalize="none"
-                                              />
-                                            </View>
-                                          </View>
-                                        )}
-
-                                        {/* Zoom Meeting Link */}
-                                        {selectedList.some(m => /zoom/i.test(m)) && (
-                                          <View style={styles.q6DetailRow}>
-                                            <View style={styles.q6ChannelHeader}>
-                                              <Ionicons name="videocam-outline" size={13} color="#818cf8" style={{ marginRight: 6 }} />
-                                              <Text style={styles.q6ChannelTitle}>Personal Zoom Meeting Link (Optional)</Text>
-                                            </View>
-                                            <View style={styles.singleLineInputContainer}>
-                                              <TextInput
-                                                style={styles.singleLineNoteInputField}
-                                                value={reachDetails.zoom || ''}
-                                                onChangeText={(txt) => handleUpdateReachDetail('zoom', txt)}
-                                                placeholder="e.g. https://zoom.us/j/... or personal meeting room"
-                                                placeholderTextColor="#64748b"
-                                                keyboardType="url"
-                                                autoCorrect={false}
-                                                autoCapitalize="none"
-                                              />
-                                            </View>
-                                          </View>
-                                        )}
-
-                                        {/* In-app Message Notice */}
-                                        {selectedList.some(m => /in app/i.test(m)) && (
-                                          <View style={styles.q6ChannelInfoBadge}>
-                                            <Ionicons name="chatbubbles-outline" size={13} color={OzaraTheme.colors.accentCyan} style={{ marginRight: 6 }} />
-                                            <Text style={styles.q6ChannelInfoText}>In-app: Direct chat via ÖZARA member Inbox.</Text>
-                                          </View>
-                                        )}
-
-                                        {/* Through Team Notice */}
-                                        {selectedList.some(m => /team/i.test(m)) && (
-                                          <View style={styles.q6ChannelInfoBadge}>
-                                            <Ionicons name="shield-checkmark-outline" size={13} color="#a78bfa" style={{ marginRight: 6 }} />
-                                            <Text style={styles.q6ChannelInfoText}>Through team: Introductions arranged via Chapter Leadership.</Text>
-                                          </View>
-                                        )}
-                                      </View>
-                                    )}
-
-                                    {/* Optional note field for Q14 */}
-                                    {isQ14Note && (
-                                      <View style={styles.singleLineNoteWrap}>
-                                        <Text style={styles.q18NoteLabel}>Anything specific?</Text>
-                                        <View style={styles.singleLineInputContainer}>
-                                          <TextInput
-                                            style={styles.singleLineNoteInputField}
-                                            value={noteText}
-                                            onChangeText={(txt) => {
-                                              if (txt.length <= 250) {
-                                                saveSelected(selectedList, txt);
-                                              }
-                                            }}
-                                            placeholder="e.g. Looking for a research partner for an AI healthcare project."
-                                            placeholderTextColor="#64748b"
-                                            maxLength={250}
-                                          />
-                                          <Text style={styles.singleLineCharCounter}>{noteText.length}/250</Text>
-                                        </View>
-                                      </View>
-                                    )}
-
-                                    {/* Optional note field for Q17 */}
-                                    {isQ17Note && (
-                                      <View style={styles.singleLineNoteWrap}>
-                                        <Text style={styles.q18NoteLabel}>Anyone specific?</Text>
-                                        <View style={styles.singleLineInputContainer}>
-                                          <TextInput
-                                            style={styles.singleLineNoteInputField}
-                                            value={noteText}
-                                            onChangeText={(txt) => {
-                                              if (txt.length <= 200) {
-                                                saveSelected(selectedList, txt);
-                                              }
-                                            }}
-                                            placeholder="e.g. An experienced real estate developer in Seattle."
-                                            placeholderTextColor="#64748b"
-                                            maxLength={200}
-                                          />
-                                          <Text style={styles.singleLineCharCounter}>{noteText.length}/200</Text>
-                                        </View>
-                                      </View>
-                                    )}
-
-                                    {/* Optional note field for Q18 */}
-                                    {isQ18Note && (
-                                      <View style={styles.q18NoteWrap}>
-                                        <Text style={styles.q18NoteLabel}>Tell us a little more</Text>
-                                        <TextInput
-                                          style={styles.q18NoteInputField}
-                                          value={noteText}
-                                          onChangeText={(txt) => {
-                                            if (txt.length <= 300) {
-                                              saveSelected(selectedList, txt);
-                                            }
-                                          }}
-                                          placeholder="e.g. I help teams build reliable data platforms and can introduce experienced data engineers."
-                                          placeholderTextColor="#64748b"
-                                          multiline={true}
-                                          numberOfLines={2}
-                                          maxLength={300}
-                                        />
-                                        <View style={[styles.charCounterRow, { maxWidth: 640 }]}>
-                                          <Text style={styles.charCounterText}>{noteText.length}/300</Text>
-                                        </View>
-                                      </View>
-                                    )}
-                                  </>
-                                );
-                              })()}
-                            </View>
-                          ) : isQ24 ? (
-                            /* Question 24: Dual dropdowns [ Boston ▼ ] [ Happy to host ▼ ] */
-                            <View style={[styles.twoDropdownRow, (isChapterDropdownOpen || isInvolvementDropdownOpen) && { zIndex: 99999 }]}>
-                              {/* First Dropdown: Home Chapter */}
-                              <View
-                                style={[styles.twoDropdownCol, isChapterDropdownOpen && { zIndex: 99999 }]}
-                                testID={`dropdown-wrap-${chapterDropdownId}`}
-                                {...(Platform.OS === 'web' ? ({ 'data-dropdown-wrap': String(chapterDropdownId) } as any) : {})}>
-                                <TouchableOpacity
-                                  style={[
-                                    styles.minimalDropdownTrigger,
-                                    isChapterDropdownOpen && styles.minimalDropdownTriggerActive,
-                                  ]}
-                                  onPress={() => {
-                                    setActiveQuestionDropdownId(isChapterDropdownOpen ? null : chapterDropdownId);
-                                    setDropdownSearchQuery('');
-                                  }}
-                                  activeOpacity={0.75}>
-                                  <Text
-                                    style={[
-                                      styles.minimalDropdownTriggerText,
-                                      !activeChapter && styles.minimalDropdownPlaceholder,
-                                    ]}
-                                    numberOfLines={1}>
-                                    {activeChapter || 'Select chapter...'}
-                                  </Text>
-                                  <Ionicons
-                                    name={isChapterDropdownOpen ? "chevron-up" : "chevron-down"}
-                                    size={14}
-                                    color="#94a3b8"
-                                  />
-                                </TouchableOpacity>
-
-                                {isChapterDropdownOpen && (
-                                  <View style={styles.minimalDropdownMenu}>
-                                    <ScrollView
-                                      style={{ maxHeight: 220, padding: 4 }}
-                                      nestedScrollEnabled
-                                      showsVerticalScrollIndicator={false}
-                                      keyboardShouldPersistTaps="handled">
-                                      {STANDARDIZED_CHAPTERS.map((ch, chIdx) => {
-                                        const isSelected = activeChapter === ch;
-                                        return (
-                                          <TouchableOpacity
-                                            key={chIdx}
-                                            style={[
-                                              styles.minimalDropdownOption,
-                                              isSelected && styles.minimalDropdownOptionSelected,
-                                            ]}
-                                            onPress={() => {
-                                              const nextVal = activeInvolvement ? `${ch} — ${activeInvolvement}` : ch;
-                                              handleAnswerChange(q.id, nextVal);
-                                              setChapter(ch);
-                                              setActiveQuestionDropdownId(null);
-                                              setDropdownSearchQuery('');
-                                            }}
-                                            {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
-                                            activeOpacity={0.7}>
-                                            <Text
-                                              style={[
-                                                styles.minimalDropdownOptionText,
-                                                isSelected && styles.minimalDropdownOptionTextSelected,
-                                              ]}>
-                                              {ch}
-                                            </Text>
-                                          </TouchableOpacity>
-                                        );
-                                      })}
-                                    </ScrollView>
-                                  </View>
                                 )}
                               </View>
-
-                              {/* Second Dropdown: Involvement */}
-                              <View
-                                style={[styles.twoDropdownCol, isInvolvementDropdownOpen && { zIndex: 99999 }]}
-                                testID={`dropdown-wrap-${involvementDropdownId}`}
-                                {...(Platform.OS === 'web' ? ({ 'data-dropdown-wrap': String(involvementDropdownId) } as any) : {})}>
-                                <TouchableOpacity
-                                  style={[
-                                    styles.minimalDropdownTrigger,
-                                    isInvolvementDropdownOpen && styles.minimalDropdownTriggerActive,
-                                  ]}
-                                  onPress={() => {
-                                    setActiveQuestionDropdownId(isInvolvementDropdownOpen ? null : involvementDropdownId);
-                                    setDropdownSearchQuery('');
-                                  }}
-                                  activeOpacity={0.75}>
-                                  <Text
-                                    style={[
-                                      styles.minimalDropdownTriggerText,
-                                      !activeInvolvement && styles.minimalDropdownPlaceholder,
-                                    ]}
-                                    numberOfLines={1}>
-                                    {activeInvolvement || 'Select involvement...'}
-                                  </Text>
-                                  <Ionicons
-                                    name={isInvolvementDropdownOpen ? "chevron-up" : "chevron-down"}
-                                    size={14}
-                                    color="#94a3b8"
-                                  />
-                                </TouchableOpacity>
-
-                                {isInvolvementDropdownOpen && (
-                                  <View style={styles.minimalDropdownMenu}>
-                                    <ScrollView
-                                      style={{ maxHeight: 220, padding: 4 }}
-                                      nestedScrollEnabled
-                                      showsVerticalScrollIndicator={false}
-                                      keyboardShouldPersistTaps="handled">
-                                      {STANDARDIZED_INVOLVEMENT_ROLES.map((role, rIdx) => {
-                                        const isSelected = activeInvolvement === role;
-                                        return (
-                                          <TouchableOpacity
-                                            key={rIdx}
-                                            style={[
-                                              styles.minimalDropdownOption,
-                                              isSelected && styles.minimalDropdownOptionSelected,
-                                            ]}
-                                            onPress={() => {
-                                              const nextVal = activeChapter ? `${activeChapter} — ${role}` : role;
-                                              handleAnswerChange(q.id, nextVal);
-                                              setActiveQuestionDropdownId(null);
-                                              setDropdownSearchQuery('');
-                                            }}
-                                            {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
-                                            activeOpacity={0.7}>
-                                            <Text
-                                              style={[
-                                                styles.minimalDropdownOptionText,
-                                                isSelected && styles.minimalDropdownOptionTextSelected,
-                                              ]}>
-                                              {role}
-                                            </Text>
-                                          </TouchableOpacity>
-                                        );
-                                      })}
-                                    </ScrollView>
-                                  </View>
-                                )}
-                              </View>
-                            </View>
-                          ) : options.length > 0 ? (
-                            /* 3. Single-choice Dropdown Selector */
-                            <View
-                              style={[styles.minimalDropdownWrap, isDropdownOpen && { zIndex: 9999 }]}
-                              testID={`dropdown-wrap-${q.id}`}
-                              {...(Platform.OS === 'web' ? ({ 'data-dropdown-wrap': String(q.id) } as any) : {})}>
-                              <TouchableOpacity
-                                style={[
-                                  styles.minimalDropdownTrigger,
-                                  isDropdownOpen && styles.minimalDropdownTriggerActive,
-                                ]}
-                                onPress={() => {
-                                  setActiveQuestionDropdownId(isDropdownOpen ? null : q.id);
-                                  setDropdownSearchQuery('');
-                                }}
-                                activeOpacity={0.75}>
-                                <Text
-                                  style={[
-                                    styles.minimalDropdownTriggerText,
-                                    !currentVal && styles.minimalDropdownPlaceholder,
-                                  ]}
-                                  numberOfLines={1}>
-                                  {currentVal || 'Select an option...'}
-                                </Text>
-                                <Ionicons
-                                  name={isDropdownOpen ? "chevron-up" : "chevron-down"}
-                                  size={14}
-                                  color="#94a3b8"
-                                />
-                              </TouchableOpacity>
-
-                              {isDropdownOpen && (
-                                <View style={styles.minimalDropdownMenu}>
-                                  <View style={styles.dropdownSearchHeader}>
-                                    <Ionicons name="search" size={13} color="#94a3b8" style={{ marginRight: 6 }} />
-                                    <TextInput
-                                      ref={dropdownSearchInputRef}
-                                      style={styles.dropdownSearchInput}
-                                      placeholder="Search..."
-                                      placeholderTextColor="#64748b"
-                                      value={dropdownSearchQuery}
-                                      onChangeText={(txt) => {
-                                        setDropdownSearchQuery(txt);
-                                        const trimmed = txt.trim().toLowerCase();
-                                        if (trimmed) {
-                                          const exact = options.find((o: string) => o.toLowerCase() === trimmed);
-                                          if (exact) {
-                                            handleAnswerChange(q.id, exact);
-                                            setActiveQuestionDropdownId(null);
-                                            setDropdownSearchQuery('');
-                                          }
-                                        }
-                                      }}
-                                      autoFocus={true}
-                                      autoCorrect={false}
-                                      autoCapitalize="none"
-                                      autoComplete="off"
-                                      textContentType="none"
-                                      spellCheck={false}
-                                      {...(Platform.OS === 'web' ? ({
-                                        autoComplete: 'new-password',
-                                        'data-form-type': 'other',
-                                        'data-lpignore': 'true',
-                                        'aria-autocomplete': 'none',
-                                        name: `search-single-${q.id}`,
-                                      } as any) : {})}
-                                      clearButtonMode="while-editing"
-                                      returnKeyType="done"
-                                      onSubmitEditing={() => {
-                                        if (filteredOptions.length > 0) {
-                                          handleAnswerChange(q.id, filteredOptions[0]);
-                                          setActiveQuestionDropdownId(null);
-                                          setDropdownSearchQuery('');
-                                        } else if (dropdownSearchQuery.trim()) {
-                                          handleAnswerChange(q.id, dropdownSearchQuery.trim());
-                                          setActiveQuestionDropdownId(null);
-                                          setDropdownSearchQuery('');
-                                        }
-                                      }}
-                                    />
-                                    {dropdownSearchQuery.length > 0 && (
-                                      <TouchableOpacity
-                                        onPress={() => setDropdownSearchQuery('')}
-                                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                        <Ionicons name="close-circle" size={15} color="#94a3b8" />
-                                      </TouchableOpacity>
-                                    )}
-                                  </View>
-                                  <ScrollView
-                                    style={{ maxHeight: 220, padding: 4 }}
-                                    nestedScrollEnabled
-                                    showsVerticalScrollIndicator={true}
-                                    keyboardShouldPersistTaps="handled">
-                                    {filteredOptions.length === 0 ? (
-                                      <View style={{ padding: 12, alignItems: 'center' }}>
-                                        <Text style={{ color: '#94a3b8', fontSize: 12, marginBottom: 8 }}>
-                                          No options matching "{dropdownSearchQuery}"
-                                        </Text>
-                                        {dropdownSearchQuery.trim().length > 0 && (
-                                          <TouchableOpacity
-                                            style={[styles.minimalDropdownOption, { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }]}
-                                            onPress={() => {
-                                              handleAnswerChange(q.id, dropdownSearchQuery.trim());
-                                              setActiveQuestionDropdownId(null);
-                                              setDropdownSearchQuery('');
-                                            }}
-                                            {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}>
-                                            <Ionicons name="create-outline" size={15} color={OzaraTheme.colors.accentCyan} style={{ marginRight: 6 }} />
-                                            <Text style={[styles.minimalDropdownOptionText, { color: OzaraTheme.colors.accentCyan }]}>
-                                              Use custom: "{dropdownSearchQuery.trim()}"
-                                            </Text>
-                                          </TouchableOpacity>
-                                        )}
-                                      </View>
-                                    ) : (
-                                      <>
-                                        {filteredOptions.map((opt, oIdx) => {
-                                          const isSelected = currentVal === opt;
-                                          return (
-                                            <TouchableOpacity
-                                              key={oIdx}
-                                              style={[
-                                                styles.minimalDropdownOption,
-                                                isSelected && styles.minimalDropdownOptionSelected,
-                                              ]}
-                                              onPress={() => {
-                                                handleAnswerChange(q.id, opt);
-                                                setActiveQuestionDropdownId(null);
-                                                setDropdownSearchQuery('');
-                                              }}
-                                              {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}
-                                              activeOpacity={0.7}>
-                                              <Text
-                                                style={[
-                                                  styles.minimalDropdownOptionText,
-                                                  isSelected && styles.minimalDropdownOptionTextSelected,
-                                                ]}>
-                                                {opt}
-                                              </Text>
-                                            </TouchableOpacity>
-                                          );
-                                        })}
-                                        {dropdownSearchQuery.trim().length > 0 && !filteredOptions.some(o => o.toLowerCase() === dropdownSearchQuery.trim().toLowerCase()) && (
-                                          <TouchableOpacity
-                                            style={[styles.minimalDropdownOption, { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }]}
-                                            onPress={() => {
-                                              handleAnswerChange(q.id, dropdownSearchQuery.trim());
-                                              setActiveQuestionDropdownId(null);
-                                              setDropdownSearchQuery('');
-                                            }}
-                                            {...(Platform.OS === 'web' ? ({ onMouseDown: (e: any) => e.preventDefault() } as any) : {})}>
-                                            <Ionicons name="create-outline" size={15} color={OzaraTheme.colors.accentCyan} style={{ marginRight: 6 }} />
-                                            <Text style={[styles.minimalDropdownOptionText, { color: OzaraTheme.colors.accentCyan }]}>
-                                              Use custom: "{dropdownSearchQuery.trim()}"
-                                            </Text>
-                                          </TouchableOpacity>
-                                        )}
-                                      </>
-                                    )}
-                                  </ScrollView>
-                                </View>
-                              )}
-                            </View>
-                          ) : (
-                            /* 4. Text Input Field: multiline for Q12/long_text, URL for Q13, single-line with counter for others */
-                            q.type === 'long_text' || q.id === 12 ? (
-                              <View>
-                                <TextInput
-                                  style={[
-                                    styles.minimalTextArea,
-                                    !currentVal && styles.minimalTextInputEmpty,
-                                  ]}
-                                  placeholder={q.placeholder || ''}
-                                  placeholderTextColor="#64748b"
-                                  value={currentVal === 'skipped' ? '' : currentVal}
-                                  onChangeText={(txt) => {
-                                    const max = q.char_limit || 600;
-                                    if (txt.length <= max) {
-                                      handleAnswerChange(q.id, txt);
-                                    }
-                                  }}
-                                  multiline={true}
-                                  numberOfLines={2}
-                                  maxLength={q.char_limit || 600}
-                                  autoCorrect={false}
-                                />
-                                <View style={[styles.charCounterRow, { maxWidth: 640 }]}>
-                                  <Text style={styles.charCounterText}>
-                                    {(currentVal === 'skipped' ? '' : currentVal).length}/{q.char_limit || 600}
-                                  </Text>
-                                </View>
-                              </View>
-                            ) : q.type === 'url' || q.id === 13 ? (
-                              <TextInput
-                                style={[
-                                  styles.minimalTextInput,
-                                  !currentVal && styles.minimalTextInputEmpty,
-                                ]}
-                                placeholder={q.placeholder || 'linkedin.com/in/yourname or your website'}
-                                placeholderTextColor="#64748b"
-                                value={currentVal === 'skipped' ? '' : currentVal}
-                                onChangeText={(txt) => handleAnswerChange(q.id, txt)}
-                                onBlur={() => {
-                                  if (currentVal && currentVal !== 'skipped') {
-                                    const trimmed = currentVal.trim();
-                                    if (trimmed && !/^[a-zA-Z]+:\/\//.test(trimmed)) {
-                                      handleAnswerChange(q.id, `https://${trimmed}`);
-                                    }
-                                  }
-                                }}
-                                keyboardType="url"
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                              />
-                            ) : (
-                              <View>
-                                <TextInput
-                                  style={[
-                                    styles.minimalTextInput,
-                                    !currentVal && styles.minimalTextInputEmpty,
-                                  ]}
-                                  placeholder={q.placeholder || (q.id === 1 ? 'Your full name' : '')}
-                                  placeholderTextColor="#64748b"
-                                  value={currentVal === 'skipped' ? '' : currentVal}
-                                  onChangeText={(txt) => {
-                                    if (q.char_limit && txt.length > q.char_limit) return;
-                                    handleAnswerChange(q.id, txt);
-                                  }}
-                                  autoCapitalize={q.id === 1 || q.id === 26 ? 'words' : 'sentences'}
-                                  autoCorrect={false}
-                                  maxLength={q.char_limit}
-                                />
-                                {q.char_limit ? (
-                                  <View style={styles.charCounterRow}>
-                                    <Text style={styles.charCounterText}>
-                                      {(currentVal === 'skipped' ? '' : currentVal).length}/{q.char_limit}
-                                    </Text>
-                                  </View>
-                                ) : null}
-                              </View>
-                            )
-                          )}
-
+                            );
+                          })()}
                         </>
                       )}
                     </View>
-                  </React.Fragment>
-                );
-              })}
-            </View>
+                  );
+                })}
+              </View>
 
-            {/* Minimal Complete Profile Action Button */}
-            <TouchableOpacity
-              style={[styles.minimalSubmitBtn, isSavingAnswers && styles.submitBtnDisabled]}
-              onPress={handleCompleteQuestionnaire}
-              disabled={isSavingAnswers}
-              activeOpacity={0.85}>
-              {isSavingAnswers ? (
-                <ActivityIndicator color="#ffffff" size="small" />
-              ) : (
-                <Text style={styles.minimalSubmitBtnText}>Complete Profile</Text>
+              {/* Screen 6 Required Consent Checkbox */}
+              {currentScreen === 6 && (
+                <TouchableOpacity
+                  onPress={() => setConsentChecked(!consentChecked)}
+                  activeOpacity={0.8}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    gap: 12,
+                    backgroundColor: consentChecked
+                      ? 'rgba(16, 185, 129, 0.08)'
+                      : 'rgba(15, 23, 42, 0.9)',
+                    borderWidth: 1,
+                    borderColor: consentChecked
+                      ? 'rgba(16, 185, 129, 0.45)'
+                      : 'rgba(255, 255, 255, 0.15)',
+                    borderRadius: 10,
+                    padding: 14,
+                    marginBottom: 18,
+                  }}>
+                  <Ionicons
+                    name={consentChecked ? 'checkbox' : 'square-outline'}
+                    size={20}
+                    color={consentChecked ? '#10b981' : '#94a3b8'}
+                    style={{ marginTop: 1 }}
+                  />
+                  <Text style={{ color: '#e2e8f0', fontSize: 13, lineHeight: 19, flex: 1 }}>
+                    I confirm my answers are accurate and agree to the privacy policy. Answers marked private are seen only by the team.{' '}
+                    <Text style={styles.requiredStar}>*</Text>
+                  </Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
 
-            <View style={styles.autosaveFooterNoteRow}>
-              <Ionicons name="shield-checkmark-outline" size={13} color={OzaraTheme.colors.accentCyan} style={{ marginRight: 6 }} />
-              <Text style={styles.autosaveFooterNoteText}>
-                Your progress is saved continuously. You can safely close your browser anytime and resume right here.
-              </Text>
+              {/* Bottom Screen Navigation Buttons */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginTop: 8,
+                  marginBottom: 20,
+                }}>
+                {currentScreen > 1 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setActiveQuestionDropdownId(null);
+                      setCurrentScreen(currentScreen - 1);
+                    }}
+                    activeOpacity={0.8}
+                    style={{
+                      paddingVertical: 14,
+                      paddingHorizontal: 20,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255, 255, 255, 0.15)',
+                      backgroundColor: '#0f172a',
+                    }}>
+                    <Text style={{ color: '#e2e8f0', fontSize: 14, fontWeight: '600' }}>
+                      ← Previous
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[
+                    styles.minimalSubmitBtn,
+                    { flex: 1, marginTop: 0, marginBottom: 0 },
+                    isSavingAnswers && styles.submitBtnDisabled,
+                  ]}
+                  onPress={handleSaveAndNextScreen}
+                  disabled={isSavingAnswers}
+                  activeOpacity={0.85}>
+                  {isSavingAnswers ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Text style={styles.minimalSubmitBtnText}>
+                      {currentScreen < 6
+                        ? `Save & Continue (${currentScreen} of 6) →`
+                        : 'Complete Onboarding'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.autosaveFooterNoteRow}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={13}
+                  color={OzaraTheme.colors.accentCyan}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={styles.autosaveFooterNoteText}>
+                  Saved after every screen ({currentScreen} of 6). You can edit any answer and any visibility switch at any time from your profile.
+                </Text>
+              </View>
             </View>
-          </View>
-        )}
+          );
+        })()}
 
       </ScrollView>
 

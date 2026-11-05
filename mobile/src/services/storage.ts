@@ -27,6 +27,8 @@ export const OZARA_STORAGE_KEYS = {
   WELCOME_SLIDE_INDEX: 'ozara_welcome_slide_index',
   QUESTIONNAIRE_DRAFT_ANSWERS: 'ozara_questionnaire_draft_answers',
   QUESTIONNAIRE_DRAFT_COUNTRIES: 'ozara_questionnaire_draft_countries',
+  QUESTIONNAIRE_CURRENT_SCREEN: 'ozara_questionnaire_current_screen',
+  QUESTIONNAIRE_CONSENT_CHECKED: 'ozara_questionnaire_consent_checked',
 } as const;
 
 class StorageService {
